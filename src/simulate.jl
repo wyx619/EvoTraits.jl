@@ -1,0 +1,8 @@
+include("simulate/common.jl")
+include("simulate/tree/io.jl")
+include("simulate/tree/yule.jl")
+include("simulate/tree/birth_death.jl")
+include("simulate/traits/bm.jl")
+include("simulate/traits/ou.jl")
+include("simulate/traits/eb.jl")
+include("simulate/traits/datasets.jl")

@@ -1,0 +1,4 @@
+abstract type AbstractContinuousFitResult end
+abstract type AbstractContinuousWorkflowResult end
+abstract type AbstractMVContinuousFitResult end
+abstract type AbstractMVContinuousWorkflowResult end

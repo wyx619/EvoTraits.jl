@@ -1,0 +1,6 @@
+include("SIMMAP/core.jl")
+include("SIMMAP/sampling.jl")
+include("SIMMAP/io.jl")
+include("SIMMAP/summary.jl")
+include("SIMMAP/prune.jl")
+include("SIMMAP/transitions.jl")
