@@ -43,7 +43,7 @@ engine. Keyword arguments provide optimizer controls and optional trait naming.
 function fit_ou1(
     tree::CompactTree,
     trait::AbstractVector{<:Real};
-    max_iterations::Integer = 500,
+    max_iterations::Integer = 300,
     rel_tol::Float64 = 1e-5,
     trait_name = nothing,
 )

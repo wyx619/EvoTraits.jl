@@ -156,12 +156,12 @@ function multistartserial(
     objective,
     candidates::Vector{Vector{Float64}};
     max_iterations::Integer,
+    polish_iterations::Integer = 100,
     rel_tol::Float64,
     lower_bounds::Union{Nothing, AbstractVector{<:Real}} = nothing,
 )
     isempty(candidates) && throw(ArgumentError("at least one initial candidate is required"))
     rough_iterations = Int(max_iterations)
-    polish_iterations = 100
 
     best = twostageresult(
         objective,

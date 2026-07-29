@@ -11,6 +11,15 @@ function _ou_fit(
     _validate_ultrametric_tree(tree)
 
     nregimes = cache === nothing ? 1 : cache.nregimes
+
+    # geiger's OU fit uses root="max": alpha and sigma2 are optimized while
+    # the root state is profiled at every objective evaluation. Keep this
+    # special path local to OU1 so multi-regime models retain their current
+    # fixed-root semantics and parameter layout.
+    if spec.model === :OU1
+        return _ou1_profiled_fit(tree, tr; max_iterations = max_iterations, rel_tol = rel_tol)
+    end
+
     init = _ou_initial_params(spec, nregimes; tree = tree, trait = tr)
     objective = function (par)
         bundle = _ou_unpack_params(spec, par, nregimes)
@@ -40,6 +49,84 @@ function _ou_fit(
     bundle = _ou_unpack_params(spec, minimizer, nregimes)
     prof = _ou_loglikelihood(tree, tr, spec, bundle; cache = cache)
     return (bundle = bundle, profile = prof, result = result, nregimes = nregimes)
+end
+
+const _OU1_LOG_PARAMETER_LOWER = -500.0
+const _OU1_LOG_ALPHA_UPPER = 5.0
+const _OU1_LOG_SIGMA2_UPPER = 7.0
+
+function _ou1_profiled_candidates(trait::AbstractVector{<:Real})
+    observed = filter(!isnan, Float64.(trait))
+    observed_var = max(var(observed), 1e-8)
+    alpha_logs = [-8.0, -4.0, -1.0, 0.0, _OU1_LOG_ALPHA_UPPER]
+    sigma_scales = [-1.0, 0.0, 1.0]
+    candidates = Vector{Float64}[]
+    for alpha_log in alpha_logs
+        for sigma_scale in sigma_scales
+            sigma_log = log(observed_var) + sigma_scale * log(10.0)
+            push!(candidates, [alpha_log, clamp(sigma_log, _OU1_LOG_PARAMETER_LOWER, _OU1_LOG_SIGMA2_UPPER)])
+        end
+    end
+    return candidates
+end
+
+function _ou1_profiled_fit(
+    tree::CompactTree,
+    trait::AbstractVector{<:Real};
+    max_iterations::Integer,
+    rel_tol::Float64,
+)
+    objective = function (par)
+        alpha_log = clamp(Float64(par[1]), _OU1_LOG_PARAMETER_LOWER, _OU1_LOG_ALPHA_UPPER)
+        sigma_log = clamp(Float64(par[2]), _OU1_LOG_PARAMETER_LOWER, _OU1_LOG_SIGMA2_UPPER)
+        prof = _ou1_profiled_likelihood(tree, trait, exp(alpha_log), exp(sigma_log))
+        return prof.success ? -prof.loglik : Inf
+    end
+
+    result = _continuous_two_stage_multistart_serial(
+        objective,
+        _ou1_profiled_candidates(trait);
+        max_iterations = max_iterations,
+        polish_iterations = 60,
+        rel_tol = rel_tol,
+        lower_bounds = [_OU1_LOG_PARAMETER_LOWER, _OU1_LOG_PARAMETER_LOWER],
+    )
+
+    minimizer = _continuous_result_minimizer(result)
+    alpha_log = clamp(Float64(minimizer[1]), _OU1_LOG_PARAMETER_LOWER, _OU1_LOG_ALPHA_UPPER)
+    sigma_log = clamp(Float64(minimizer[2]), _OU1_LOG_PARAMETER_LOWER, _OU1_LOG_SIGMA2_UPPER)
+    fixed_profile = _ou1_profiled_likelihood(tree, trait, exp(alpha_log), exp(sigma_log))
+    fixed_bundle = OUParameterBundle(theta = [fixed_profile.root_state], alpha = [exp(alpha_log)], sigma2 = [exp(sigma_log)])
+    return (bundle = fixed_bundle, profile = fixed_profile, result = result, nregimes = 1)
+end
+
+function _ou1_profiled_likelihood(
+    tree::CompactTree,
+    trait::AbstractVector{<:Real},
+    alpha::Float64,
+    sigma2::Float64,
+)
+    spec = ou_spec(:OU1)
+    observed = filter(!isnan, Float64.(trait))
+    center = mean(observed)
+    step = max(sqrt(var(observed)), 1.0)
+    eval_at = function (theta)
+        bundle = OUParameterBundle(theta = [theta], alpha = [alpha], sigma2 = [sigma2])
+        return _ou_loglikelihood(tree, trait, spec, bundle)
+    end
+
+    at_center = eval_at(center)
+    at_plus = eval_at(center + step)
+    at_minus = eval_at(center - step)
+    at_center.success && at_plus.success && at_minus.success ||
+        return (success = false, loglik = -Inf, root_state = NaN)
+
+    curvature = (2.0 * at_center.loglik - at_plus.loglik - at_minus.loglik) / (step * step)
+    curvature > 0.0 && isfinite(curvature) || return (success = false, loglik = -Inf, root_state = NaN)
+    slope = (at_plus.loglik - at_minus.loglik) / (2.0 * step)
+    theta = center + slope / curvature
+    prof = eval_at(theta)
+    return (success = prof.success, loglik = prof.loglik, root_state = theta)
 end
 
 function _ou_fit_with_starts(
