@@ -163,46 +163,54 @@ function _mk_rerooted_ancestral_likelihoods(
     evals, V, Vinv = _mk_eigen_cache(Q)
     P = zeros(Float64, nstates, nstates)
 
-    log_up = zeros(Float64, tree.nnodes, nstates)
-    for node in internal_nodes
-        @inbounds for s in 1:nstates
-            log_up[node, s] = 0.0
-        end
-    end
-
+    log_up = fill(-Inf, tree.nnodes, nstates)
     root = tree.root
-    if !tree.is_tip[root]
-        root_prior_vec = _root_prior_vector(Q, root_prior, root_prior_probs)
-        if root_prior_vec !== nothing
-            @inbounds for s in 1:nstates
-                log_up[root, s] = log(max(root_prior_vec[s], EVOTRAITS_TINY))
-            end
-        end
+    root_prior_vec = _mk_effective_root_prior(
+        tree,
+        cache;
+        root_prior = root_prior,
+        root_prior_probs = root_prior_probs,
+    )
+    @inbounds for s in 1:nstates
+        log_up[root, s] = log(max(root_prior_vec[s], EVOTRAITS_TINY))
     end
 
+    sibling_message = zeros(Float64, nstates)
+    child_message = zeros(Float64, nstates)
     for node in tree.preorder
         tree.is_tip[node] && continue
-        parent = tree.parent_of_edge[tree.first_child_edge[node]]
-        parent == node && continue
-
-        @inbounds for s in 1:nstates
-            log_up[node, s] = -Inf
-        end
-
         first_edge = tree.first_child_edge[node]
         last_edge = tree.last_child_edge[node]
         for edge in first_edge:last_edge
+            fill!(sibling_message, 0.0)
+            for sibling_edge in first_edge:last_edge
+                sibling_edge == edge && continue
+                sibling = tree.child_of_edge[sibling_edge]
+                _fill_transition_matrix!(P, tree.edge_length[sibling_edge], evals, V, Vinv)
+                @inbounds for parent_state in 1:nstates
+                    acc = -Inf
+                    for sibling_state in 1:nstates
+                        down = tree.is_tip[sibling] ?
+                               log(max(cache.node_priors[sibling, sibling_state], EVOTRAITS_TINY)) :
+                               cache.logpost[sibling, sibling_state]
+                        acc = logaddexp2(acc, log(max(P[parent_state, sibling_state], EVOTRAITS_TINY)) + down)
+                    end
+                    sibling_message[parent_state] += acc
+                end
+            end
+
             child = tree.child_of_edge[edge]
             _fill_transition_matrix!(P, tree.edge_length[edge], evals, V, Vinv)
-
-            @inbounds for s in 1:nstates
+            @inbounds for child_state in 1:nstates
                 acc = -Inf
-                for t in 1:nstates
-                    v = log(max(P[s, t], EVOTRAITS_TINY)) + log_up[node, t]
-                    acc = logaddexp2(acc, v)
+                for parent_state in 1:nstates
+                    value = log_up[node, parent_state] + sibling_message[parent_state] +
+                            log(max(P[parent_state, child_state], EVOTRAITS_TINY))
+                    acc = logaddexp2(acc, value)
                 end
-                log_up[child, s] = acc
+                child_message[child_state] = acc
             end
+            @views log_up[child, :] .= child_message
         end
     end
 

@@ -36,7 +36,7 @@ function sample_mk_endpoints(
 
     Qf = cache.transition_matrix
     nstates = cache.nstates
-    root_prior_vec = _root_prior_vector(Qf, root_prior, root_prior_probs)
+    root_prior_vec = _mk_effective_root_prior(tree, cache; root_prior = root_prior, root_prior_probs = root_prior_probs)
     evals, V, Vinv = _mk_eigen_cache(Qf)
     node_states = fill(Int32(0), tree.nnodes)
     edge_start_states = fill(Int32(0), tree.nedges)
@@ -52,15 +52,8 @@ function sample_mk_endpoints(
             probs[s] = exp(cache.logpost[root, s])
         end
     end
-
-    if root_prior === :custom || root_prior === :stationary || root_prior === :flat
-        @inbounds for s in 1:nstates
-            probs[s] *= root_prior_vec[s]
-        end
-    elseif root_prior === :max_likelihood
-        best = argmax(probs)
-        fill!(probs, 0.0)
-        probs[best] = 1.0
+    @inbounds for s in 1:nstates
+        probs[s] *= root_prior_vec[s]
     end
     node_states[root] = _sample_categorical!(rng, probs)
 
@@ -108,7 +101,7 @@ function _sample_mk_endpoints_from_cache(
 
     Qf = cache.transition_matrix
     nstates = cache.nstates
-    root_prior_vec = _root_prior_vector(Qf, root_prior, root_prior_probs)
+    root_prior_vec = _mk_effective_root_prior(tree, cache; root_prior = root_prior, root_prior_probs = root_prior_probs)
     node_states = fill(Int32(0), tree.nnodes)
     edge_start_states = fill(Int32(0), tree.nedges)
     edge_end_states = fill(Int32(0), tree.nedges)
@@ -123,15 +116,8 @@ function _sample_mk_endpoints_from_cache(
             probs[s] = exp(cache.logpost[root, s])
         end
     end
-
-    if root_prior === :custom || root_prior === :stationary || root_prior === :flat
-        @inbounds for s in 1:nstates
-            probs[s] *= root_prior_vec[s]
-        end
-    elseif root_prior === :max_likelihood
-        best = argmax(probs)
-        fill!(probs, 0.0)
-        probs[best] = 1.0
+    @inbounds for s in 1:nstates
+        probs[s] *= root_prior_vec[s]
     end
     node_states[root] = _sample_categorical!(rng, probs)
 

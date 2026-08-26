@@ -198,6 +198,12 @@ function preparesampler(
     Qf = cache.transition_matrix
     evals, V, Vinv = _mk_eigen_cache(Qf)
     labels = isempty(state_labels) ? string.(collect(1:cache.nstates)) : string.(state_labels)
+    effective_root_prior = _mk_effective_root_prior(
+        tree,
+        cache;
+        root_prior = root_prior,
+        root_prior_probs = root_prior_probs,
+    )
     return SimmapSampler(
         tree = tree,
         cache = cache,
@@ -206,7 +212,7 @@ function preparesampler(
         V = V,
         Vinv = Vinv,
         root_prior = root_prior,
-        root_prior_probs = root_prior_probs === nothing ? nothing : Float64.(root_prior_probs),
+        root_prior_probs = effective_root_prior,
         nparams = Int(something(nparams, cache.nparams)),
         state_labels = labels,
     )

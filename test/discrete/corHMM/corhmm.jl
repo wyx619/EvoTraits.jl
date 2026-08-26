@@ -139,6 +139,57 @@ end
     @test_throws ArgumentError simmap_corhmm(fit; max_attempt = 0)
 end
 
+@testset "corHMM SIMMAP applies the Yang root prior once" begin
+    tree_path = joinpath(mktempdir(), "toy_corhmm_root_prior_tree.tre")
+    write(tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
+    tree = to_compact_tree(load_newick_tree(tree_path))
+    states = Dict("A" => "red", "B" => "red", "C" => "blue", "D" => "blue")
+    fit = fit_corhmm(
+        tree,
+        states;
+        model = :ARD,
+        rate_cat = 1,
+        root_prior = :yang,
+        node_states = :none,
+        max_iterations = 40,
+    )
+
+    @test fit.success
+    raw = EvoTraits.corhmm_pruning_cache(
+        fit.tree,
+        fit.tip_priors_hidden,
+        fit.transition_matrix;
+        root_prior = EvoTraits._corhmm_root_prior(fit.root_prior),
+        nparams = fit.nparams,
+        rate_cat = fit.rate_cat,
+        branch_lengths = fit.branch_lengths,
+    )
+    conditional = EvoTraits._corhmm_conditional_node_likelihoods(fit)
+    root = fit.tree.root
+    @test conditional.node_liks[root, :] ≈ raw.node_liks[root, :]
+
+    expected = raw.node_liks[root, :] .* raw.root_prior_probs
+    expected ./= sum(expected)
+    evals, V, Vinv = EvoTraits._mk_eigen_cache(conditional.transition_matrix)
+    counts = zeros(Int, length(expected))
+    rng = MersenneTwister(20260826)
+    for _ in 1:5_000
+        endpoints = EvoTraits.sample_conditioned_endpoints(
+            fit.tree,
+            conditional.node_liks,
+            conditional.transition_matrix;
+            root_prior_probs = conditional.root_prior_probs,
+            branch_lengths = fit.branch_lengths,
+            rng = rng,
+            evals = evals,
+            V = V,
+            Vinv = Vinv,
+        )
+        counts[Int(endpoints.root_state)] += 1
+    end
+    @test all(isapprox.(counts ./ sum(counts), expected; atol = 0.025))
+end
+
 @testset "corHMM zero branch length adjustment" begin
     tree_path = joinpath(mktempdir(), "toy_corhmm_zero_tree.tre")
     write(tree_path, "((A:0,B:1):1,(C:1,D:1):1);")

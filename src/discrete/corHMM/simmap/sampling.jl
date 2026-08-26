@@ -10,8 +10,6 @@
         branch_lengths = isempty(fit.branch_lengths) ? _corhmm_branch_lengths(fit.tree) : fit.branch_lengths,
     )
     cache.success || return cache
-    root = fit.tree.root
-    @views cache.node_liks[root, :] .*= cache.root_prior_probs
     return cache
 end
 

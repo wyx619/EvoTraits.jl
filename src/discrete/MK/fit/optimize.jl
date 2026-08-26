@@ -223,6 +223,15 @@ function _mk_fit_with_nstates(
     best_result = _mk_select_best_result(candidates)
     best_result === nothing && return MkFitResult(success=false, nstates=nstates, root_prior=(root_prior isa Symbol ? root_prior : :custom))
 
+    stored_root_prior_probs =
+        if root_prior isa AbstractVector
+            Float64.(normalize_probability_vector(root_prior))
+        elseif root_prior === :custom
+            root_prior_probs === nothing ? nothing : Float64.(normalize_probability_vector(root_prior_probs))
+        else
+            nothing
+        end
+
     return MkFitResult(
         success = best_result.success,
         loglik = best_result.loglik,
@@ -230,6 +239,7 @@ function _mk_fit_with_nstates(
         nparams = best_result.nparams,
         nstates = best_result.nstates,
         root_prior = best_result.root_prior,
+        root_prior_probs = stored_root_prior_probs,
         nrates = best_result.nrates,
         rates = best_result.rates,
         transition_matrix = best_result.transition_matrix,

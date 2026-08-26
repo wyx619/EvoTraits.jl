@@ -1,7 +1,7 @@
 name = "EvoTraits"
 uuid = "3d9a2f92-5b0c-4aa3-92a4-1b8f22c6d2d9"
-version = "0.1.0"
-authors = ["MSI + OpenAI Codex"]
+version = "1.1.0"
+authors = ["Yuxuan Wang <wyx1743@gmail.com>"]
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"

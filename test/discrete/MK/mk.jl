@@ -262,6 +262,103 @@ end
     @test all(isapprox.(sum(asr.ancestral_likelihoods; dims = 2), 1.0; atol = 1e-8))
 end
 
+@testset "Mk root priors are applied once in endpoint sampling" begin
+    mk_tree_path = joinpath(mktempdir(), "toy_root_prior_sampling.tre")
+    write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
+    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    states = Int32[1, 1, 2, 2]
+    priors = tip_priors_from_states(toy_tree, states, 2)
+    Q = [-0.3 0.3; 0.1 -0.1]
+
+    function root_frequency(root_prior; root_prior_probs = nothing)
+        cache = mk_pruning_cache(
+            toy_tree,
+            priors,
+            Q;
+            root_prior = root_prior,
+            root_prior_probs = root_prior_probs,
+        )
+        root = toy_tree.root
+        evidence = exp.(cache.logpost[root, :])
+        expected_prior =
+            root_prior === :likelihoods ? evidence ./ sum(evidence) :
+            root_prior === :max_likelihood ? [evidence[1] >= evidence[2] ? 1.0 : 0.0, evidence[1] >= evidence[2] ? 0.0 : 1.0] :
+            root_prior === :flat ? [0.5, 0.5] :
+            root_prior === :stationary ? EvoTraits.stationary_distribution(Q) :
+            Float64.(root_prior_probs ./ sum(root_prior_probs))
+        expected = evidence .* expected_prior
+        expected ./= sum(expected)
+
+        counts = zeros(Int, 2)
+        rng = MersenneTwister(20260826)
+        for _ in 1:4_000
+            sample = sample_mk_endpoints(
+                toy_tree,
+                priors,
+                Q;
+                root_prior = root_prior,
+                root_prior_probs = root_prior_probs,
+                rng = rng,
+            )
+            counts[Int(sample.root_state)] += 1
+        end
+        return counts ./ sum(counts), expected
+    end
+
+    for (root_prior, root_prior_probs) in ((:flat, nothing), (:stationary, nothing), (:likelihoods, nothing), (:custom, [0.8, 0.2]), (:max_likelihood, nothing))
+        observed, expected = root_frequency(root_prior; root_prior_probs = root_prior_probs)
+        if root_prior === :max_likelihood
+            @test observed == expected
+        else
+            @test all(isapprox.(observed, expected; atol = 0.03))
+        end
+    end
+
+    fit = fit_mk(
+        toy_tree,
+        2;
+        tip_states = states,
+        rate_model = :ER,
+        root_prior = [0.8, 0.2],
+        max_iterations = 40,
+    )
+    @test fit.success
+    @test fit.root_prior == :custom
+    @test fit.root_prior_probs ≈ [0.8, 0.2]
+    from_fit = simmap_sample(toy_tree, fit; tip_states = states, rng = MersenneTwister(17))
+    @test from_fit.success
+end
+
+@testset "Mk rerooted ASR propagates sibling and root information" begin
+    mk_tree_path = joinpath(mktempdir(), "toy_reroot_messages.tre")
+    write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
+    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    states = Int32[1, 1, 2, 2]
+
+    local_asr = asr_mk(
+        toy_tree,
+        2;
+        tip_states = states,
+        rate_model = :ER,
+        root_prior = :flat,
+        reroot = false,
+        max_iterations = 40,
+    )
+    rerooted_asr = asr_mk(
+        toy_tree,
+        2;
+        tip_states = states,
+        rate_model = :ER,
+        root_prior = :flat,
+        reroot = true,
+        max_iterations = 40,
+    )
+    @test local_asr.success
+    @test rerooted_asr.success
+    @test all(isapprox.(sum(rerooted_asr.ancestral_likelihoods; dims = 2), 1.0; atol = 1e-8))
+    @test any(!isapprox(local_asr.ancestral_likelihoods[i, :], rerooted_asr.ancestral_likelihoods[i, :]; atol = 1e-8) for i in axes(local_asr.ancestral_likelihoods, 1))
+end
+
 @testset "Mk ASR argument errors" begin
     mk_tree_path = joinpath(mktempdir(), "toy_asr_tree5.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")

@@ -59,6 +59,35 @@ function _root_prior_vector(Q::Matrix{Float64}, root_prior::Symbol, root_prior_p
     end
 end
 
+"""
+    _mk_effective_root_prior(tree, cache; root_prior, root_prior_probs)
+
+Return the root prior vector used by Mk endpoint sampling and rerooted ASR.
+For `:likelihoods`, Mk defines the root prior from the normalized conditional
+root likelihood; `:max_likelihood` is represented by a one-hot vector.
+"""
+function _mk_effective_root_prior(
+    tree::CompactTree,
+    cache;
+    root_prior::Symbol = cache.root_prior,
+    root_prior_probs::Union{Nothing, AbstractVector{<:Real}} = nothing,
+)
+    root = tree.root
+    evidence = tree.is_tip[root] ? cache.node_priors[root, :] : exp.(cache.logpost[root, :])
+    if root_prior === :likelihoods
+        total = sum(evidence)
+        total > 0.0 || throw(ArgumentError("Root conditional likelihoods sum to zero"))
+        return Float64.(evidence ./ total)
+    elseif root_prior === :max_likelihood
+        prior = zeros(Float64, cache.nstates)
+        prior[argmax(evidence)] = 1.0
+        return prior
+    end
+    prior = _root_prior_vector(cache.transition_matrix, root_prior, root_prior_probs)
+    prior === nothing && throw(ArgumentError("Unable to resolve Mk root prior=$root_prior"))
+    return prior
+end
+
 function _mk_eigen_cache(Q::Matrix{Float64})
     F = eigen(ComplexF64.(Q))
     Icomplex = Matrix{ComplexF64}(I, size(F.vectors, 1), size(F.vectors, 2))

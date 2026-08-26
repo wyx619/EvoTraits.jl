@@ -42,7 +42,7 @@ function simmap_samples(
         priors,
         fit.transition_matrix;
         root_prior = fit.root_prior,
-        root_prior_probs = root_prior_probs,
+        root_prior_probs = root_prior_probs === nothing ? fit.root_prior_probs : root_prior_probs,
         nparams = fit.nparams,
         state_labels = state_labels,
     )
@@ -79,7 +79,7 @@ function simmap_samples(
         priors,
         fit.transition_matrix;
         root_prior = fit.root_prior,
-        root_prior_probs = root_prior_probs,
+        root_prior_probs = root_prior_probs === nothing ? fit.root_prior_probs : root_prior_probs,
         nparams = fit.nparams,
         state_labels = state_labels,
     )

@@ -12,6 +12,7 @@ Base.@kwdef struct MkFitResult
     nparams::Int = 0
     nstates::Int = 0
     root_prior::Symbol = :likelihoods
+    root_prior_probs::Union{Nothing, Vector{Float64}} = nothing
     nrates::Int = 0
     rates::Vector{Float64} = Float64[]
     transition_matrix::Matrix{Float64} = zeros(0, 0)
@@ -51,6 +52,7 @@ function _with_mk_fit_state_metadata(res::MkFitResult, state_labels::Vector{Any}
         nparams = res.nparams,
         nstates = res.nstates,
         root_prior = res.root_prior,
+        root_prior_probs = res.root_prior_probs,
         nrates = res.nrates,
         rates = res.rates,
         transition_matrix = res.transition_matrix,
