@@ -39,6 +39,7 @@ export CompactTree
 
 # Tree I/O and conversion
 export read_tree
+export load_tree
 export write_tree
 export serialize_tree
 export to_newick

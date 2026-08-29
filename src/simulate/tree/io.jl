@@ -224,7 +224,16 @@ through the disk roundtrip.
 """
 function from_compact_tree(tree::CompactTree)
     children_dl = _build_children_with_lengths(tree)
-    return _build_nw_node(tree, Int(tree.root), children_dl)
+    tip_label_index = _compact_tip_label_index(tree)
+    return _build_nw_node(tree, Int(tree.root), children_dl, tip_label_index)
+end
+
+function _compact_tip_label_index(tree::CompactTree)
+    tip_label_index = fill(Int32(0), tree.nnodes)
+    for (i, node) in enumerate(tree.tip_ids)
+        tip_label_index[Int(node)] = Int32(i)
+    end
+    return tip_label_index
 end
 
 function _build_children_with_lengths(tree::CompactTree)
@@ -241,42 +250,109 @@ function _build_children_with_lengths(tree::CompactTree)
     return children_dl
 end
 
-function _build_nw_node(tree::CompactTree, node::Int, children_dl::Dict{Int, Vector{Tuple{Int, Float64}}})
+function _build_nw_node(
+    tree::CompactTree,
+    node::Int,
+    children_dl::Dict{Int, Vector{Tuple{Int, Float64}}},
+    tip_label_index::Vector{Int32},
+)
     has_children = haskey(children_dl, node)
-    label = tree.is_tip[node] ? _compact_tip_label(tree, node) : _compact_internal_label(tree, node)
+    label = tree.is_tip[node] ? _compact_tip_label(tree, node, tip_label_index) : _compact_internal_label(tree, node)
     if !has_children
         return NewickTree.Node(UInt32(node), NewickData(d = 0.0, n = label))
     end
     nw = NewickTree.Node(UInt32(node), NewickData(d = 0.0, n = label))
     for (child, d) in children_dl[node]
-        cnw = _build_nw_node_with_distance(tree, child, d, children_dl)
+        cnw = _build_nw_node_with_distance(tree, child, d, children_dl, tip_label_index)
         push!(nw, cnw)
     end
     return nw
 end
 
-function _build_nw_node_with_distance(tree::CompactTree, node::Int, d::Float64, children_dl::Dict{Int, Vector{Tuple{Int, Float64}}})
+function _build_nw_node_with_distance(
+    tree::CompactTree,
+    node::Int,
+    d::Float64,
+    children_dl::Dict{Int, Vector{Tuple{Int, Float64}}},
+    tip_label_index::Vector{Int32},
+)
     has_children = haskey(children_dl, node)
-    label = tree.is_tip[node] ? _compact_tip_label(tree, node) : _compact_internal_label(tree, node)
+    label = tree.is_tip[node] ? _compact_tip_label(tree, node, tip_label_index) : _compact_internal_label(tree, node)
     if !has_children
         return NewickTree.Node(UInt32(node), NewickData(d = d, n = label))
     end
     nw = NewickTree.Node(UInt32(node), NewickData(d = d, n = label))
     for (child, cd) in children_dl[node]
-        push!(nw, _build_nw_node_with_distance(tree, child, cd, children_dl))
+        push!(nw, _build_nw_node_with_distance(tree, child, cd, children_dl, tip_label_index))
     end
     return nw
 end
 
-function _compact_tip_label(tree::CompactTree, node::Int)
-    idx = findfirst(==(Int32(node)), tree.tip_ids)
-    idx === nothing && return ""
-    return tree.tip_labels[idx]
+function _compact_tip_label(tree::CompactTree, node::Int, tip_label_index::Vector{Int32})
+    idx = tip_label_index[node]
+    idx == 0 && return ""
+    return tree.tip_labels[Int(idx)]
 end
 
 function _compact_internal_label(tree::CompactTree, node::Int)
     label = tree.node_labels[node]
     return isempty(label) ? "" : label
+end
+
+function _compact_newick(tree::CompactTree)
+    tip_label_index = _compact_tip_label_index(tree)
+    edge_length_by_node = fill(NaN, tree.nnodes)
+    for edge in 1:tree.nedges
+        edge_length_by_node[Int(tree.child_of_edge[edge])] = tree.edge_length[edge]
+    end
+
+    io = IOBuffer()
+    nodes = Int32[tree.root]
+    next_child = Int[1]
+    entered = falses(1)
+
+    while !isempty(nodes)
+        node = Int(last(nodes))
+        if !entered[end]
+            entered[end] = true
+            if tree.is_tip[node]
+                idx = tip_label_index[node]
+                idx == 0 || write(io, tree.tip_labels[Int(idx)])
+            else
+                write(io, '(')
+            end
+        end
+
+        if tree.is_tip[node]
+            branch_length = edge_length_by_node[node]
+            isnan(branch_length) || print(io, ':', branch_length)
+            pop!(nodes)
+            pop!(next_child)
+            pop!(entered)
+            continue
+        end
+
+        children = tree.children[node]
+        child_index = next_child[end]
+        if child_index <= length(children)
+            child_index > 1 && write(io, ',')
+            next_child[end] += 1
+            child = children[child_index]
+            push!(nodes, child)
+            push!(next_child, 1)
+            push!(entered, false)
+        else
+            write(io, ')')
+            branch_length = edge_length_by_node[node]
+            node == tree.root || (isnan(branch_length) || print(io, ':', branch_length))
+            pop!(nodes)
+            pop!(next_child)
+            pop!(entered)
+        end
+    end
+
+    write(io, ';')
+    return String(take!(io))
 end
 
 """
@@ -365,9 +441,7 @@ function write_tree(path::AbstractString, simtree::SimulatedTree; append::Bool =
 end
 
 function write_tree(path::AbstractString, tree::CompactTree; append::Bool = false)
-    io = IOBuffer()
-    NewickTree.writenw(io, from_compact_tree(tree))
-    return _write_newick_file(path, _buffer_to_string(io), append)
+    return _write_newick_file(path, _compact_newick(tree), append)
 end
 
 function write_tree(path::AbstractString, nw::NewickTree.Node; append::Bool = false)
