@@ -1,4 +1,4 @@
-﻿module EvoTraits
+module EvoTraits
 
 using MKL
 using LinearAlgebra
@@ -38,9 +38,9 @@ include("continuous/workflows.jl")
 export CompactTree
 
 # Tree I/O and conversion
-export load_newick_tree
-export save_newick_tree
-export to_compact_tree
+export read_tree
+export write_tree
+export serialize_tree
 export to_newick
 export from_compact_tree
 export to_real_tree

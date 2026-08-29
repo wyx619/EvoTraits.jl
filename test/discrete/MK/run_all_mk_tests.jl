@@ -1,4 +1,4 @@
-﻿using Test
+using Test
 using EvoTraits
 using Random
 using LinearAlgebra
@@ -12,7 +12,7 @@ const MK_TEST_ROOT = normpath(joinpath(@__DIR__, "..", "..", ".."))
     tree_path = joinpath(asset_root, "no_subshrub_phylo.tre")
     data_path = joinpath(asset_root, "no_subshrub_H.csv")
 
-    big_tree = to_compact_tree(load_newick_tree(tree_path))
+    big_tree = serialize_tree(read_tree(tree_path))
     df = CSV.read(data_path, DataFrame)
     tip_order = [string(t) for t in big_tree.tip_labels]
     growth_vec = [df[findfirst(==(tip), df.species), :growth_checked] for tip in tip_order]
@@ -44,7 +44,7 @@ end
     tree_path = joinpath(asset_root, "no_subshrub_phylo.tre")
     data_path = joinpath(asset_root, "no_subshrub_H.csv")
 
-    big_tree = to_compact_tree(load_newick_tree(tree_path))
+    big_tree = serialize_tree(read_tree(tree_path))
     df = CSV.read(data_path, DataFrame)
     tip_order = [string(t) for t in big_tree.tip_labels]
     growth_vec = [df[findfirst(==(tip), df.species), :growth_checked] for tip in tip_order]
@@ -70,5 +70,6 @@ end
     @test isfinite(asr.loglik)
     @test isfinite(asr.aic)
 end
+
 
 

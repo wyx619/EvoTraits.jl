@@ -19,7 +19,7 @@ function simulate_mvbm1_dataset(
         tip_prefix = tip_prefix,
         rng = rng,
     )
-    tree = to_compact_tree(simtree)
+    tree = serialize_tree(simtree)
     newick = to_newick(simtree)
     traits = simulate_trait(:BM1, tree, Sigma; root_state = root_state, rng = rng)
     p = size(Sigma, 1)

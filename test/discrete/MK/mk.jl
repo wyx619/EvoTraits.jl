@@ -1,7 +1,7 @@
-﻿@testset "Mk likelihood kernel" begin
+@testset "Mk likelihood kernel" begin
     mk_tree_path = joinpath(mktempdir(), "toy_tree.tre")
     write(mk_tree_path, "((A:1,B:1)100.0:1,(C:1,D:1)95.0:1);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
 
     states = Int32[1, 1, 2, 2]
     priors = tip_priors_from_states(toy_tree, states, 2)
@@ -22,7 +22,7 @@ end
 @testset "Mk likelihood smoke test on real tree" begin
     project_root = TEST_PROJECT_ROOT
     tree_path = joinpath(project_root, "validation", "seed_H", "种子植物高度_ultrametric.tre")
-    big_tree = to_compact_tree(load_newick_tree(tree_path))
+    big_tree = serialize_tree(read_tree(tree_path))
 
     states = Int32[mod1(i, 4) for i in 1:big_tree.ntips]
     priors = tip_priors_from_states(big_tree, states, 4)
@@ -42,7 +42,7 @@ end
 @testset "Mk ARD fitting" begin
     mk_tree_path = joinpath(mktempdir(), "toy_fit_tree.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
 
     states = Int32[1, 1, 2, 2]
     fit = fit_mk(
@@ -88,7 +88,7 @@ end
 @testset "Mk ER and SYM fitting" begin
     mk_tree_path = joinpath(mktempdir(), "toy_fit_tree_er_sym.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
 
     states = Int32[1, 1, 2, 2]
 
@@ -135,7 +135,7 @@ end
 @testset "Mk SUEDE and SRD fitting" begin
     mk_tree_path = joinpath(mktempdir(), "toy_fit_tree_suede_srd.tre")
     write(mk_tree_path, "((((A:1,B:1):1,C:1):1,D:1):1,E:4);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
 
     states = Int32[1, 2, 2, 3, 4]
 
@@ -179,7 +179,7 @@ end
 @testset "Mk pruning cache and simmap endpoints" begin
     mk_tree_path = joinpath(mktempdir(), "toy_simmap_tree.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
 
     states = Int32[1, 1, 2, 2]
     priors = tip_priors_from_states(toy_tree, states, 2)
@@ -205,7 +205,7 @@ end
 @testset "Mk ASR fitting wrapper" begin
     mk_tree_path = joinpath(mktempdir(), "toy_asr_tree.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
 
     states = Int32[1, 1, 2, 2]
     asr = asr_mk(
@@ -232,7 +232,7 @@ end
 @testset "Mk ASR with tip_priors" begin
     mk_tree_path = joinpath(mktempdir(), "toy_asr_tree2.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
 
     states = Int32[1, 1, 2, 2]
     priors = tip_priors_from_states(toy_tree, states, 2)
@@ -243,7 +243,7 @@ end
 @testset "Mk ASR with empirical root prior" begin
     mk_tree_path = joinpath(mktempdir(), "toy_asr_tree3.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
 
     states = Int32[1, 1, 2, 2]
     asr = asr_mk(toy_tree, 2; tip_states = states, rate_model = :ER, root_prior = :empirical, max_iterations = 40)
@@ -253,7 +253,7 @@ end
 @testset "Mk ASR reroot=false" begin
     mk_tree_path = joinpath(mktempdir(), "toy_asr_tree4.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
 
     states = Int32[1, 1, 2, 2]
     asr = asr_mk(toy_tree, 2; tip_states = states, rate_model = :ER, reroot = false, max_iterations = 40)
@@ -265,7 +265,7 @@ end
 @testset "Mk root priors are applied once in endpoint sampling" begin
     mk_tree_path = joinpath(mktempdir(), "toy_root_prior_sampling.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
     states = Int32[1, 1, 2, 2]
     priors = tip_priors_from_states(toy_tree, states, 2)
     Q = [-0.3 0.3; 0.1 -0.1]
@@ -332,7 +332,7 @@ end
 @testset "Mk rerooted ASR propagates sibling and root information" begin
     mk_tree_path = joinpath(mktempdir(), "toy_reroot_messages.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
     states = Int32[1, 1, 2, 2]
 
     local_asr = asr_mk(
@@ -362,7 +362,7 @@ end
 @testset "Mk ASR argument errors" begin
     mk_tree_path = joinpath(mktempdir(), "toy_asr_tree5.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
 
     states = Int32[1, 1, 2, 2]
     priors = tip_priors_from_states(toy_tree, states, 2)
@@ -376,7 +376,7 @@ end
     tree_path = joinpath(asset_root, "no_subshrub_phylo.tre")
     data_path = joinpath(asset_root, "no_subshrub_H.csv")
 
-    big_tree = to_compact_tree(load_newick_tree(tree_path))
+    big_tree = serialize_tree(read_tree(tree_path))
     df = CSV.read(data_path, DataFrame)
     tip_order = [string(t) for t in big_tree.tip_labels]
     growth_vec = [df[findfirst(==(tip), df.species), :growth_checked] for tip in tip_order]
@@ -402,6 +402,7 @@ end
     @test isfinite(asr.loglik)
     @test isfinite(asr.aic)
 end
+
 
 
 

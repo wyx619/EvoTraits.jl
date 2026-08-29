@@ -1,7 +1,7 @@
-﻿@testset "Simmap endpoints smoke test on real tree" begin
+@testset "Simmap endpoints smoke test on real tree" begin
     project_root = TEST_PROJECT_ROOT
     tree_path = joinpath(project_root, "validation", "seed_H", "种子植物高度_ultrametric.tre")
-    big_tree = to_compact_tree(load_newick_tree(tree_path))
+    big_tree = serialize_tree(read_tree(tree_path))
 
     states = Int32[mod1(i, 4) for i in 1:big_tree.ntips]
     priors = tip_priors_from_states(big_tree, states, 4)
@@ -21,7 +21,7 @@ end
 @testset "Full simmap sampling" begin
     mk_tree_path = joinpath(mktempdir(), "toy_full_simmap_tree.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
 
     states = Int32[1, 1, 2, 2]
     priors = tip_priors_from_states(toy_tree, states, 2)
@@ -51,7 +51,7 @@ end
 @testset "Simmap transition timing and rates" begin
     mk_tree_path = joinpath(mktempdir(), "toy_transition_simmap_tree.tre")
     write(mk_tree_path, "((A:1,B:1):1,C:2);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
 
     edge_segments = [
         [SimmapSegment(state = Int32(1), length = 0.25), SimmapSegment(state = Int32(2), length = 0.75)],
@@ -124,7 +124,7 @@ end
 @testset "Friendly simmap_samples wrapper" begin
     mk_tree_path = joinpath(mktempdir(), "toy_friendly_simmap_tree.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
     labels = collect(toy_tree.tip_labels)
     tip_states = Dict(labels[1] => :red, labels[2] => :red, labels[3] => :blue, labels[4] => :blue)
 
@@ -158,7 +158,7 @@ end
 @testset "Prepared simmap sampler and fit-based sampling" begin
     mk_tree_path = joinpath(mktempdir(), "toy_prepared_simmap_tree.tre")
     write(mk_tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    toy_tree = to_compact_tree(load_newick_tree(mk_tree_path))
+    toy_tree = serialize_tree(read_tree(mk_tree_path))
     labels = collect(toy_tree.tip_labels)
     tip_states = Dict(labels[1] => :red, labels[2] => :red, labels[3] => :blue, labels[4] => :blue)
 
@@ -237,7 +237,7 @@ end
 @testset "Full simmap smoke test on real tree" begin
     project_root = TEST_PROJECT_ROOT
     tree_path = joinpath(project_root, "validation", "seed_H", "种子植物高度_ultrametric.tre")
-    big_tree = to_compact_tree(load_newick_tree(tree_path))
+    big_tree = serialize_tree(read_tree(tree_path))
 
     states = Int32[mod1(i, 4) for i in 1:big_tree.ntips]
     priors = tip_priors_from_states(big_tree, states, 4)
@@ -328,7 +328,7 @@ end
 @testset "Phytools simmap nexus write" begin
     tree_path = joinpath(mktempdir(), "toy_nexus_simmap_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     states = Int32[1, 1, 2, 2]
     priors = tip_priors_from_states(tree, states, 2)
     Q = [-0.3 0.3; 0.1 -0.1]
@@ -348,7 +348,7 @@ end
     #   nexus v1.5 uses "BEGIN TREES;". Both use "TRANSLATE" block before the tree line.
     tree_path = joinpath(mktempdir(), "toy_4fmt_tree.tre")
     write(tree_path, "(((A:1,B:1):1,(C:0.5,D:0.5):0.5):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     states = Int32[1, 1, 2, 2]
     priors = tip_priors_from_states(tree, states, 2)
     Q = [-0.3 0.3; 0.1 -0.1]
@@ -401,7 +401,7 @@ end
     # confines the match to the first '=' (the TREE name separator).
     tree_path = joinpath(mktempdir(), "toy_bracket_eq_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     states = Int32[1, 1, 2, 2]
     priors = tip_priors_from_states(tree, states, 2)
     Q = [-0.3 0.3; 0.1 -0.1]
@@ -421,7 +421,7 @@ end
     # even if user passes version=1.0.
     tree_path = joinpath(mktempdir(), "toy_autodetect_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     states = Int32[1, 1, 2, 2]
     priors = tip_priors_from_states(tree, states, 2)
     Q = [-0.3 0.3; 0.1 -0.1]
@@ -431,6 +431,7 @@ end
     @test rt.tree.ntips == tree.ntips
     @test isapprox(sum(rt.simmap.mapped_edge), sum(simmap.mapped_edge); atol = 1e-5)
 end
+
 
 
 

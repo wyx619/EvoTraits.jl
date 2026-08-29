@@ -1,4 +1,4 @@
-﻿@inline function _state_label(simmap::SimmapSample, state::Int32)
+@inline function _state_label(simmap::SimmapSample, state::Int32)
     if 1 <= state <= length(simmap.state_labels)
         return simmap.state_labels[state]
     end
@@ -383,7 +383,7 @@ function _read_single_simmap_text(
     effective_version = _detect_simmap_version(translated, version)
     plain_newick, edge_segments_raw, signatures_raw = _parse_simmap_text_to_plain(translated, effective_version, rev_order)
     parsed_tree = NewickTree.readnw(plain_newick)
-    tree = to_compact_tree(parsed_tree)
+    tree = serialize_tree(parsed_tree)
     edge_segments_raw = _reorder_edge_segments(tree, edge_segments_raw, signatures_raw)
     edge_segments, state_labels = _encode_segments(edge_segments_raw; state_order = state_order)
     length(edge_segments) == tree.nedges || throw(ArgumentError("Parsed simmap edges do not match tree edge count"))

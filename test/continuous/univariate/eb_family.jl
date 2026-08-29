@@ -1,7 +1,7 @@
-﻿@testset "EB fitting" begin
+@testset "EB fitting" begin
     eb_tree_path = joinpath(mktempdir(), "toy_eb_tree.tre")
     write(eb_tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(eb_tree_path))
+    toy_tree = serialize_tree(read_tree(eb_tree_path))
     trait = [1.0, 1.15, 2.0, 2.2]
 
     ll = eb_loglikelihood(toy_tree, trait, 0.4, -0.2)
@@ -22,7 +22,7 @@ end
 @testset "EB and EBM missing likelihood" begin
     tree_path = joinpath(mktempdir(), "toy_eb_missing_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(tree_path))
+    toy_tree = serialize_tree(read_tree(tree_path))
     trait = [1.0, NaN, 2.0, 2.2]
 
     eb = eb_loglikelihood(toy_tree, trait, 0.4, -0.2)
@@ -48,7 +48,7 @@ end
 @testset "EBM fitting" begin
     ebm_tree_path = joinpath(mktempdir(), "toy_ebm_tree.tre")
     write(ebm_tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(ebm_tree_path))
+    toy_tree = serialize_tree(read_tree(ebm_tree_path))
     trait = [1.0, 1.1, 2.0, 2.1]
     edge_segments = [
         [SimmapSegment(state = 1, length = 1.0)],
@@ -92,7 +92,7 @@ end
 @testset "EB smoke test on real tree" begin
     project_root = TEST_PROJECT_ROOT
     tree_path = joinpath(project_root, "validation", "seed_H", "种子植物高度_ultrametric.tre")
-    big_tree = to_compact_tree(load_newick_tree(tree_path))
+    big_tree = serialize_tree(read_tree(tree_path))
     trait = collect(range(0.0, 1.0; length = big_tree.ntips))
 
     fit = fit_eb(big_tree, trait; max_iterations = 20)
@@ -101,6 +101,7 @@ end
     @test fit.sigma2 > 0.0
     @test isfinite(fit.loglik)
 end
+
 
 
 

@@ -188,5 +188,5 @@ function simulate_birth_death_simtree(
 end
 
 function simulate_birth_death_tree(args...; kwargs...)
-    return to_compact_tree(simulate_birth_death_simtree(args...; kwargs...))
+    return serialize_tree(simulate_birth_death_simtree(args...; kwargs...))
 end

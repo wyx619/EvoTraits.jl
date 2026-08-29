@@ -1,12 +1,12 @@
-﻿@testset "Multivariate simulation helpers" begin
+@testset "Multivariate simulation helpers" begin
     rng = MersenneTwister(20260420)
     simtree = simulate_yule_simtree(12; birth_rate = 1.2, tree_height = 2.5, rng = MersenneTwister(20260419))
-    direct_tree = to_compact_tree(simtree)
+    direct_tree = serialize_tree(simtree)
     yule_tree = simulate_yule_tree(12; birth_rate = 1.2, tree_height = 2.5, rng = MersenneTwister(20260419))
     yule_newick = to_newick(simtree)
     yule_path = joinpath(mktempdir(), "yule_tree.tre")
     write(yule_path, yule_newick)
-    yule_from_newick = to_compact_tree(load_newick_tree(yule_path))
+    yule_from_newick = serialize_tree(read_tree(yule_path))
     @test direct_tree.ntips == 12
     @test yule_tree.ntips == 12
     @test yule_from_newick.ntips == 12
@@ -22,7 +22,7 @@
         tree_height = 2.5,
         rng = MersenneTwister(20260421),
     )
-    bd_tree = to_compact_tree(bd_simtree)
+    bd_tree = serialize_tree(bd_simtree)
     bd_tip_depths = bd_tree.dist_from_root[bd_tree.tip_ids]
     @test bd_tree.ntips == 12
     @test isapprox(maximum(bd_tip_depths), 2.5; atol = 1e-8)
@@ -43,7 +43,7 @@
     newick = simulate_ultrametric_newick(12; tree_height = 2.5, rng = rng)
     tree_path = joinpath(mktempdir(), "mv_sim_tree.tre")
     write(tree_path, newick)
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
 
     @test tree.ntips == 12
     tip_depths = tree.dist_from_root[tree.tip_ids]
@@ -51,7 +51,7 @@
     @test isapprox(only(unique(round.(tip_depths; digits = 8))), 2.5; atol = 1e-6)
 
     simtree3 = simulate_yule_simtree(12; tree_height = 1.7, rng = MersenneTwister(6))
-    tree3 = to_compact_tree(simtree3)
+    tree3 = serialize_tree(simtree3)
     @test tree3.ntips == 12
     # Build simple single-state edge segments as a basic validity test
     three_regime_segments = [[SimmapSegment(state = Int32(i % 3 + 1), length = tree3.edge_length[e])] for (e, i) in enumerate(1:tree3.nedges)]
@@ -81,7 +81,7 @@
 
     tree_path2 = joinpath(mktempdir(), "mv_regime_tree.tre")
     write(tree_path2, "((A:0.5,B:0.5):0.5,(C:0.5,D:0.5):0.5);")
-    regime_tree = to_compact_tree(load_newick_tree(tree_path2))
+    regime_tree = serialize_tree(read_tree(tree_path2))
     edge_segments = [
         [SimmapSegment(state = 1, length = 0.5)],
         [SimmapSegment(state = 2, length = 0.25), SimmapSegment(state = 1, length = 0.25)],
@@ -139,13 +139,14 @@ end
 @testset "Multivariate hard limits" begin
     tmp = tempname() * ".tre"
     write(tmp, simulate_ultrametric_newick(4001; rng = MersenneTwister(202)))
-    tree = to_compact_tree(load_newick_tree(tmp))
+    tree = serialize_tree(read_tree(tmp))
     oversized_trait = zeros(Float64, 4001, 2)
     A = [1.0 0.0; 0.0 1.0]
     Sigma = [1.0 0.0; 0.0 1.0]
     theta = [0.0, 0.0]
     @test_throws ArgumentError mvou1_loglikelihood(tree, oversized_trait, A, Sigma, theta)
 end
+
 
 
 

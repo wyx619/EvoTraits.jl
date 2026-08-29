@@ -1,7 +1,7 @@
-﻿@testset "OU1 fitting" begin
+@testset "OU1 fitting" begin
     ou_tree_path = joinpath(mktempdir(), "toy_ou1_tree.tre")
     write(ou_tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(ou_tree_path))
+    toy_tree = serialize_tree(read_tree(ou_tree_path))
     trait = [1.0, 1.1, 2.0, 2.1]
 
     ll = ou1_loglikelihood(toy_tree, trait, 0.5, 0.3, 1.5)
@@ -24,7 +24,7 @@ end
 @testset "OU missing likelihood" begin
     tree_path = joinpath(mktempdir(), "toy_ou_missing_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(tree_path))
+    toy_tree = serialize_tree(read_tree(tree_path))
     trait = [1.0, NaN, 2.0, 2.1]
 
     ou = ou1_loglikelihood(toy_tree, trait, 0.5, 0.3, 1.5)
@@ -41,7 +41,7 @@ end
 @testset "OU1 smoke test on real tree" begin
     project_root = TEST_PROJECT_ROOT
     tree_path = joinpath(project_root, "validation", "seed_H", "种子植物高度_ultrametric.tre")
-    big_tree = to_compact_tree(load_newick_tree(tree_path))
+    big_tree = serialize_tree(read_tree(tree_path))
     trait = collect(range(0.0, 1.0; length = big_tree.ntips))
 
     fit = fit_ou1(big_tree, trait; max_iterations = 20)
@@ -55,7 +55,7 @@ end
 @testset "OUM fitting" begin
     oum_tree_path = joinpath(mktempdir(), "toy_oum_tree.tre")
     write(oum_tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(oum_tree_path))
+    toy_tree = serialize_tree(read_tree(oum_tree_path))
     trait = [1.0, 1.1, 2.0, 2.1]
     edge_segments = [
         [SimmapSegment(state = 1, length = 1.0)],
@@ -105,7 +105,7 @@ end
 @testset "OUM DataFrame and SIMMAP entrypoint" begin
     tree_path = joinpath(mktempdir(), "toy_oum_dataframe_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(tree_path))
+    toy_tree = serialize_tree(read_tree(tree_path))
     edge_segments = [
         [SimmapSegment(state = 1, length = 1.0)],
         [SimmapSegment(state = 1, length = 1.0)],
@@ -142,7 +142,7 @@ end
 @testset "OUMV fitting" begin
     oum_tree_path = joinpath(mktempdir(), "toy_oumv_tree.tre")
     write(oum_tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(oum_tree_path))
+    toy_tree = serialize_tree(read_tree(oum_tree_path))
     trait = [1.0, 1.1, 2.0, 2.1]
     edge_segments = [
         [SimmapSegment(state = 1, length = 1.0)],
@@ -178,7 +178,7 @@ end
 @testset "OUMA and OUMVA fitting" begin
     oum_tree_path = joinpath(mktempdir(), "toy_ouma_tree.tre")
     write(oum_tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(oum_tree_path))
+    toy_tree = serialize_tree(read_tree(oum_tree_path))
     trait = [1.0, 1.1, 2.0, 2.1]
     edge_segments = [
         [SimmapSegment(state = 1, length = 1.0)],
@@ -235,7 +235,7 @@ end
 @testset "OUM smoke test on real tree" begin
     project_root = TEST_PROJECT_ROOT
     tree_path = joinpath(project_root, "validation", "seed_H", "种子植物高度_ultrametric.tre")
-    big_tree = to_compact_tree(load_newick_tree(tree_path))
+    big_tree = serialize_tree(read_tree(tree_path))
     states = Int32[mod1(i, 4) for i in 1:big_tree.ntips]
     priors = tip_priors_from_states(big_tree, states, 4)
     Q = [
@@ -260,7 +260,7 @@ end
 @testset "OUM tolerates tiny simmap residue on zero-length internal edge" begin
     tree_path = joinpath(mktempdir(), "toy_oum_zero_internal.tre")
     write(tree_path, "((A:1,B:1):1,(C:2,D:2):0);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     trait = [1.0, 1.1, 2.0, 2.1]
 
     edge_segments = [SimmapSegment[] for _ in 1:tree.nedges]
@@ -279,6 +279,7 @@ end
     @test fit.success
     @test isfinite(fit.loglik)
 end
+
 
 
 

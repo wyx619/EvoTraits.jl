@@ -99,7 +99,7 @@ The goal is not interface mimicry. The goal is a cleaner computational architect
 using EvoTraits
 using CSV, DataFrames
 
-tree = to_compact_tree(load_newick_tree("tree.nwk"))
+tree = serialize_tree(read_tree("tree.nwk"))
 traits = CSV.read("trait.csv", DataFrame)
 
 fit = fit_ou1(tree, traits)

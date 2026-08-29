@@ -6,7 +6,7 @@ end
 
 @testset "simulate trait dispatch" begin
     simtree = simulate_yule_simtree(12; tree_height = 1.0, rng = MersenneTwister(701))
-    tree = to_compact_tree(simtree)
+    tree = serialize_tree(simtree)
     nedges = tree.nedges
 
     # Build a 2-regime edge_segments for regime-aware models:

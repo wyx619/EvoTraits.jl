@@ -1,7 +1,7 @@
-﻿@testset "BM1 fitting" begin
+@testset "BM1 fitting" begin
     bm_tree_path = joinpath(mktempdir(), "toy_bm1_tree.tre")
     write(bm_tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(bm_tree_path))
+    toy_tree = serialize_tree(read_tree(bm_tree_path))
     trait = [1.0, 1.2, 2.5, 2.8]
 
     ll = bm1_loglikelihood(toy_tree, trait, 0.5)
@@ -23,7 +23,7 @@ end
 @testset "BM1 DataFrame entrypoint" begin
     tree_path = joinpath(mktempdir(), "toy_bm_dataframe_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(tree_path))
+    toy_tree = serialize_tree(read_tree(tree_path))
     df = DataFrame(taxon = ["A", "B", "C", "D"], lnH = [1.0, 1.2, 2.5, 2.8])
 
     fit = fit_bm1(toy_tree, df; max_iterations = 20)
@@ -41,7 +41,7 @@ end
 @testset "BM1 and BMM missing likelihood" begin
     tree_path = joinpath(mktempdir(), "toy_bm_missing_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(tree_path))
+    toy_tree = serialize_tree(read_tree(tree_path))
     trait = [1.0, NaN, 2.5, 2.8]
 
     bm = bm1_loglikelihood(toy_tree, trait, 0.5)
@@ -70,7 +70,7 @@ end
 @testset "BM1 smoke test on real tree" begin
     project_root = TEST_PROJECT_ROOT
     tree_path = joinpath(project_root, "validation", "seed_H", "种子植物高度_ultrametric.tre")
-    big_tree = to_compact_tree(load_newick_tree(tree_path))
+    big_tree = serialize_tree(read_tree(tree_path))
     trait = collect(range(0.0, 1.0; length = big_tree.ntips))
 
     fit = fit_bm1(big_tree, trait; max_iterations = 30)
@@ -84,7 +84,7 @@ end
 @testset "BMM fitting" begin
     bmm_tree_path = joinpath(mktempdir(), "toy_bmm_tree.tre")
     write(bmm_tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(bmm_tree_path))
+    toy_tree = serialize_tree(read_tree(bmm_tree_path))
     trait = [1.0, 1.2, 2.5, 2.8]
     mapped = [
         1.0 0.0;
@@ -134,7 +134,7 @@ end
 @testset "BMM smoke test on real tree" begin
     project_root = TEST_PROJECT_ROOT
     tree_path = joinpath(project_root, "validation", "seed_H", "种子植物高度_ultrametric.tre")
-    big_tree = to_compact_tree(load_newick_tree(tree_path))
+    big_tree = serialize_tree(read_tree(tree_path))
     trait = collect(range(0.0, 1.0; length = big_tree.ntips))
     mapped = zeros(Float64, big_tree.nedges, 4)
     for edge in 1:big_tree.nedges
@@ -149,6 +149,7 @@ end
     @test all(>(0.0), fit.sigma2)
     @test isfinite(fit.loglik)
 end
+
 
 
 

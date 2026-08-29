@@ -1,7 +1,7 @@
-﻿@testset "corHMM state parsing with polymorphic and missing states" begin
+@testset "corHMM state parsing with polymorphic and missing states" begin
     tree_path = joinpath(mktempdir(), "toy_corhmm_tree.tre")
     write(tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
 
     states = Dict("A" => "red", "B" => "red&blue", "C" => "?", "D" => "red&blue&yellow")
     fit = fit_corhmm(
@@ -31,7 +31,7 @@ end
 @testset "corHMM DataFrame and vector inputs" begin
     tree_path = joinpath(mktempdir(), "toy_corhmm_df_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
 
     df = DataFrame(taxon = ["A", "B", "C", "D"], state = ["x", "y", missing, "x&y"])
     fit_df = fit_corhmm(tree, df; model = :ER, rate_cat = 1, root_prior = :flat, max_iterations = 40)
@@ -53,7 +53,7 @@ end
 @testset "corHMM rate_cat hidden states and Mk model families" begin
     tree_path = joinpath(mktempdir(), "toy_corhmm_hidden_tree.tre")
     write(tree_path, "((((A:1,B:1):1,C:1):1,D:1):1,E:4);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     states = Dict("A" => "s1", "B" => "s2", "C" => "s2", "D" => "s3", "E" => "s1")
 
     for model in (:ER, :SYM, :ARD, :SUEDE, :SRD)
@@ -82,7 +82,7 @@ end
 @testset "corHMM ASR modes" begin
     tree_path = joinpath(mktempdir(), "toy_corhmm_asr_tree.tre")
     write(tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     states = Dict("A" => "red", "B" => "red", "C" => "blue", "D" => "?")
 
     fit = fit_corhmm(tree, states; model = :ER, rate_cat = 2, root_prior = :flat, node_states = :none, max_iterations = 40)
@@ -115,7 +115,7 @@ end
 @testset "corHMM SIMMAP sampling and collapse" begin
     tree_path = joinpath(mktempdir(), "toy_corhmm_simmap_tree.tre")
     write(tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     states = Dict("A" => "red", "B" => "red&blue", "C" => "blue", "D" => "?")
 
     fit = fit_corhmm(tree, states; model = :ER, rate_cat = 2, root_prior = :flat, node_states = :none, max_iterations = 40)
@@ -142,7 +142,7 @@ end
 @testset "corHMM SIMMAP applies the Yang root prior once" begin
     tree_path = joinpath(mktempdir(), "toy_corhmm_root_prior_tree.tre")
     write(tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     states = Dict("A" => "red", "B" => "red", "C" => "blue", "D" => "blue")
     fit = fit_corhmm(
         tree,
@@ -193,7 +193,7 @@ end
 @testset "corHMM zero branch length adjustment" begin
     tree_path = joinpath(mktempdir(), "toy_corhmm_zero_tree.tre")
     write(tree_path, "((A:0,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     states = Dict("A" => "x", "B" => "y", "C" => "x", "D" => "y")
     fit = fit_corhmm(tree, states; model = :ER, root_prior = :flat, node_states = :none, max_iterations = 20)
     @test fit.success
@@ -204,7 +204,7 @@ end
 @testset "corHMM rate_cat=1 equivalence to Mk tip-prior fitting" begin
     tree_path = joinpath(mktempdir(), "toy_corhmm_equiv_tree.tre")
     write(tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     states = Dict("A" => "red", "B" => "red", "C" => "blue", "D" => "blue")
 
     cor = fit_corhmm(tree, states; model = :ER, rate_cat = 1, root_prior = :flat, node_states = :none, max_iterations = 40)
@@ -250,7 +250,7 @@ end
 @testset "corHMM fixed nodes, tip fog, and Lewis correction" begin
     tree_path = joinpath(mktempdir(), "toy_corhmm_update_tree.tre")
     write(tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     states = Dict("A" => "red", "B" => "red", "C" => "blue", "D" => "blue")
 
     base = fit_corhmm(tree, states; model = :ER, root_prior = :flat, node_states = :none, max_iterations = 30)
@@ -312,7 +312,7 @@ end
 @testset "corHMM combined multi-character hidden-rate features" begin
     tree_path = joinpath(mktempdir(), "toy_corhmm_combined_tree.tre")
     write(tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     states = DataFrame(
         taxon = ["A", "B", "C", "D"],
         growth = ["herb", "shrub", "tree", "herb"],
@@ -383,4 +383,3 @@ end
     @test isfinite(corrected.loglik)
     @test corrected.loglik < raw.loglik
 end
-

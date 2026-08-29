@@ -1,5 +1,5 @@
-﻿@testset "mvBM1 fitting" begin
-    tree = to_compact_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(401)))
+@testset "mvBM1 fitting" begin
+    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(401)))
     Sigma_true = [
         0.8  0.25;
         0.25 0.6;
@@ -27,7 +27,7 @@
 end
 
 @testset "mvBM1 p>=2 and missing likelihood" begin
-    tree = to_compact_tree(simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(310)))
+    tree = serialize_tree(simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(310)))
     Sigma3 = [
         0.8 0.2 0.1;
         0.2 0.7 0.15;
@@ -60,7 +60,7 @@ end
 end
 
 @testset "mvBM1 ancestral reconstruction" begin
-    tree = to_compact_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(403)))
+    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(403)))
     Sigma = [
         0.8 0.25;
         0.25 0.6;
@@ -85,7 +85,7 @@ end
 
 @testset "mvBMM fitting and ancestral reconstruction" begin
     simtree = simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(405))
-    tree = to_compact_tree(simtree)
+    tree = serialize_tree(simtree)
     edge_segments = [[SimmapSegment(state = Int32(iseven(e) ? 2 : 1), length = tree.edge_length[e])] for e in 1:tree.nedges]
     Sig1 = [
         0.8 0.25;
@@ -147,7 +147,7 @@ end
 @testset "multivariate BM family initializes without complete rows" begin
     tree_path = joinpath(mktempdir(), "mv_missing_no_complete_rows.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     traits = [
         1.0 NaN;
         NaN 1.2;
@@ -173,7 +173,7 @@ end
 end
 
 @testset "mvEB fitting and ancestral reconstruction" begin
-    tree = to_compact_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(407)))
+    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(407)))
     Sigma = [
         0.8 0.25;
         0.25 0.6;
@@ -190,6 +190,7 @@ end
     @test size(eb_asr.estimates, 2) == 2
 
 end
+
 
 
 

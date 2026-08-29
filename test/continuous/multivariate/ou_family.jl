@@ -1,4 +1,4 @@
-﻿# Helper to build edge_segments for N regimes that satisfy the
+# Helper to build edge_segments for N regimes that satisfy the
 # root-outgoing-edges-same-initial-state constraint.
 function _test_edge_segments(tree::CompactTree, nregimes::Int)
     root = tree.root
@@ -15,7 +15,7 @@ function _test_edge_segments(tree::CompactTree, nregimes::Int)
 end
 
 @testset "mvOU1 fitting and ancestral reconstruction" begin
-    tree = to_compact_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(420)))
+    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(420)))
 
     A_true = [
         1.0 0.15;
@@ -59,7 +59,7 @@ end
 end
 
 @testset "mvOU1 p>=2 and missing likelihood" begin
-    tree = to_compact_tree(simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(320)))
+    tree = serialize_tree(simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(320)))
     A3 = [
         1.0 0.1 0.0;
         0.1 0.9 0.08;
@@ -103,7 +103,7 @@ end
 end
 
 @testset "mvOU1 near-BM alpha remains numerically valid" begin
-    tree = to_compact_tree(simulate_yule_simtree(40; tree_height = 1.0, rng = MersenneTwister(326)))
+    tree = serialize_tree(simulate_yule_simtree(40; tree_height = 1.0, rng = MersenneTwister(326)))
     A = [
         1.0681614698559785 -0.14938292367880018 0.023523131284298147;
         -0.14938292367880018 2.057137236721755 0.014946846700781051;
@@ -126,7 +126,7 @@ end
 @testset "mvOU1 initializes without complete rows" begin
     tree_path = joinpath(mktempdir(), "mvou_missing_no_complete_rows.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     traits = [
         1.0 NaN;
         NaN 1.2;
@@ -139,7 +139,7 @@ end
 end
 
 @testset "mvOUM diagonal likelihood uses stationary design" begin
-    tree = to_compact_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(421)))
+    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(421)))
 
     edge_segments = _test_edge_segments(tree, 2)
     rng = MersenneTwister(233)
@@ -165,7 +165,7 @@ end
 end
 
 @testset "mvOUM fitting and ancestral reconstruction" begin
-    tree = to_compact_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(422)))
+    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(422)))
 
     A_true = [
         0.9 0.12;
@@ -211,7 +211,7 @@ end
 
 @testset "mvOUM DataFrame and SimmapSample metadata" begin
     ou_simtree = simulate_yule_simtree(14; tree_height = 1.0, rng = MersenneTwister(2241))
-    tree = to_compact_tree(ou_simtree)
+    tree = serialize_tree(ou_simtree)
     edge_segments = _test_edge_segments(tree, 2)
     A = [0.8 0.1; 0.1 0.9]
     Sigma = [0.5 0.05; 0.05 0.4]
@@ -250,7 +250,7 @@ end
 end
 
 @testset "mvOUMV/OUMA/OUMVA fixed likelihood degeneracies" begin
-    tree = to_compact_tree(simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(425)))
+    tree = serialize_tree(simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(425)))
     edge_segments = _test_edge_segments(tree, 3)
     rng = MersenneTwister(427)
     traits = randn(rng, tree.ntips, 2)
@@ -290,7 +290,7 @@ end
 @testset "mvOUMV/OUMA/OUMVA p=1 fixed likelihood matches univariate" begin
     tree_path = joinpath(mktempdir(), "mvou_p1_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     y = [1.0, 1.1, 2.0, 2.1]
     X = reshape(y, :, 1)
     edge_segments = [
@@ -373,7 +373,7 @@ function _test_simulate_mvou_family(tree, edge_segments, A_regimes, Sigma_regime
 end
 
 @testset "mvOUMV/OUMA/OUMVA fixed likelihood favors simulation parameters" begin
-    tree = to_compact_tree(simulate_yule_simtree(80; tree_height = 1.0, rng = MersenneTwister(428)))
+    tree = serialize_tree(simulate_yule_simtree(80; tree_height = 1.0, rng = MersenneTwister(428)))
     edge_segments = _test_edge_segments(tree, 2)
     theta = [
         -0.6 0.4;
@@ -449,7 +449,7 @@ end
 end
 
 @testset "mvOUMV fitting and ancestral reconstruction" begin
-    tree = to_compact_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(423)))
+    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(423)))
 
     A_true = [
         0.95 0.10;
@@ -499,7 +499,7 @@ end
 end
 
 @testset "fit_mvoumv profiles theta and dominates nested mvOUM on simulated data" begin
-    tree = to_compact_tree(simulate_yule_simtree(40; tree_height = 1.0, rng = MersenneTwister(433)))
+    tree = serialize_tree(simulate_yule_simtree(40; tree_height = 1.0, rng = MersenneTwister(433)))
     edge_segments = _test_edge_segments(tree, 2)
     A = [
         1.1 0.06;
@@ -539,7 +539,7 @@ end
 end
 
 @testset "mvOUMA and mvOUMVA fitting and ancestral reconstruction" begin
-    tree = to_compact_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(424)))
+    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(424)))
 
     A_regimes = Array{Float64, 3}(undef, 2, 2, 2)
     A_regimes[:, :, 1] = [
@@ -611,7 +611,7 @@ end
 @testset "mvOUM tolerates tiny simmap residue on zero-length internal edge" begin
     tree_path = joinpath(mktempdir(), "toy_mvoum_zero_internal.tre")
     write(tree_path, "((A:1,B:1):1,(C:2,D:2):0);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     traits = [
         1.0 0.2;
         1.1 0.3;
@@ -637,7 +637,7 @@ end
 end
 
 @testset "mvOU1 schur supports asymmetric A for p=2" begin
-    tree = to_compact_tree(simulate_yule_simtree(24; tree_height = 1.0, rng = MersenneTwister(6101)))
+    tree = serialize_tree(simulate_yule_simtree(24; tree_height = 1.0, rng = MersenneTwister(6101)))
     A_true = [
         1.1 0.8;
         -0.2 0.6;
@@ -663,7 +663,7 @@ end
 end
 
 @testset "mvOUM schur supports asymmetric shared A for p=2" begin
-    tree = to_compact_tree(simulate_yule_simtree(24; tree_height = 1.0, rng = MersenneTwister(6201)))
+    tree = serialize_tree(simulate_yule_simtree(24; tree_height = 1.0, rng = MersenneTwister(6201)))
     edge_segments = _test_edge_segments(tree, 2)
     A_true = [
         0.9 0.7;
@@ -693,7 +693,7 @@ end
 end
 
 @testset "schur rejects p!=2" begin
-    tree = to_compact_tree(simulate_yule_simtree(12; tree_height = 1.0, rng = MersenneTwister(6301)))
+    tree = serialize_tree(simulate_yule_simtree(12; tree_height = 1.0, rng = MersenneTwister(6301)))
     A3 = [
         1.0 0.1 0.0;
         0.2 0.9 0.1;
@@ -711,7 +711,7 @@ end
 end
 
 @testset "mvOUMV/OUMA/OUMVA schur fixed likelihood supports asymmetric A" begin
-    tree = to_compact_tree(simulate_yule_simtree(20; tree_height = 1.0, rng = MersenneTwister(6401)))
+    tree = serialize_tree(simulate_yule_simtree(20; tree_height = 1.0, rng = MersenneTwister(6401)))
     edge_segments = _test_edge_segments(tree, 2)
     A_shared = [
         0.95 0.65;
@@ -751,6 +751,7 @@ end
     @test oumva.A_decomp == :schur
     @test isfinite(oumva.loglik)
 end
+
 
 
 

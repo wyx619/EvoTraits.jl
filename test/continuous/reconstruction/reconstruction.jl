@@ -1,7 +1,7 @@
-﻿@testset "Branch posterior for BM-derived multi-regime models" begin
+@testset "Branch posterior for BM-derived multi-regime models" begin
     tree_path = joinpath(mktempdir(), "toy_branch_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     trait = [1.0, 1.2, 1.8, 2.0]
     edge_segments = [
         [SimmapSegment(state = 1, length = 1.0)],
@@ -23,7 +23,7 @@ end
 @testset "estim_branch_for_simmap accepts SimmapSample directly" begin
     tree_path = joinpath(mktempdir(), "toy_branch_simmap_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
 
     edge_segments = [
         [SimmapSegment(state = 1, length = 1.0)],
@@ -83,7 +83,7 @@ end
 
 @testset "Multivariate OU branch posterior" begin
     simtree = simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(510))
-    tree = to_compact_tree(simtree)
+    tree = serialize_tree(simtree)
     root = tree.root
     edge_segments = [
         [SimmapSegment(
@@ -127,7 +127,7 @@ end
 
 @testset "Advanced multivariate OU branch posterior" begin
     simtree = simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(512))
-    tree = to_compact_tree(simtree)
+    tree = serialize_tree(simtree)
     root = tree.root
     edge_segments = [
         [SimmapSegment(
@@ -200,7 +200,7 @@ end
 @testset "Multivariate BM branch posterior" begin
     tree_path = joinpath(mktempdir(), "toy_mvbm_branch_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     trait = [
         1.0 0.2;
         1.2 0.4;
@@ -260,7 +260,7 @@ end
 @testset "Missing tip reconstruction fields" begin
     tree_path = joinpath(mktempdir(), "toy_missing_tip_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
 
     trait = [1.0, NaN, 2.0, 2.2]
     fit = fit_bm1(tree, trait; max_iterations = 30)
@@ -306,7 +306,7 @@ end
 @testset "Continuous ancestral reconstruction" begin
     tree_path = joinpath(mktempdir(), "toy_estim_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(tree_path))
+    toy_tree = serialize_tree(read_tree(tree_path))
     trait = [1.0, 1.1, 2.0, 2.1]
 
     mapped = [
@@ -368,7 +368,7 @@ end
 @testset "estim_node accepts SimmapSample directly" begin
     tree_path = joinpath(mktempdir(), "toy_estim_simmap_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
 
     edge_segments = [
         [SimmapSegment(state = 1, length = 1.0)],
@@ -428,7 +428,7 @@ end
 @testset "estim_node_table integrates phyloref" begin
     tree_path = joinpath(mktempdir(), "toy_estim_table_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     map = build_phyloref(tree)
     edge_segments = [
         [SimmapSegment(state = 1, length = 1.0)],
@@ -496,7 +496,7 @@ end
 @testset "estim_branch_table integrates phyloref" begin
     tree_path = joinpath(mktempdir(), "toy_branch_table_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     map = build_phyloref(tree)
 
     edge_segments = [
@@ -564,7 +564,7 @@ end
 @testset "BM1 ancestral reconstruction smoke test on real tree" begin
     project_root = TEST_PROJECT_ROOT
     tree_path = joinpath(project_root, "validation", "seed_H", "种子植物高度_ultrametric.tre")
-    big_tree = to_compact_tree(load_newick_tree(tree_path))
+    big_tree = serialize_tree(read_tree(tree_path))
     trait = collect(range(0.0, 1.0; length = big_tree.ntips))
 
     fit = fit_bm1(big_tree, trait; max_iterations = 20)
@@ -578,7 +578,7 @@ end
 @testset "OUM ancestral reconstruction smoke test on real tree" begin
     project_root = TEST_PROJECT_ROOT
     tree_path = joinpath(project_root, "validation", "seed_H", "种子植物高度_ultrametric.tre")
-    big_tree = to_compact_tree(load_newick_tree(tree_path))
+    big_tree = serialize_tree(read_tree(tree_path))
     states = Int32[mod1(i, 4) for i in 1:big_tree.ntips]
     priors = tip_priors_from_states(big_tree, states, 4)
     Q = [
@@ -596,6 +596,7 @@ asr = estim_node(big_tree, trait, fit; edge_segments = simmap.edge_segments)
     @test length(asr.node_ids) == big_tree.ntips - 1
     @test all(isfinite, asr.estimates)
 end
+
 
 
 

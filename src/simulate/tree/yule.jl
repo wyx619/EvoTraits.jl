@@ -56,5 +56,5 @@ function simulate_yule_simtree(
 end
 
 function simulate_yule_tree(args...; kwargs...)
-    return to_compact_tree(simulate_yule_simtree(args...; kwargs...))
+    return serialize_tree(simulate_yule_simtree(args...; kwargs...))
 end

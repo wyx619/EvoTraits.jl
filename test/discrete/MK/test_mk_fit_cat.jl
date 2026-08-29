@@ -1,10 +1,10 @@
-﻿using EvoTraits
+using EvoTraits
 using Test
 
 function _categorical_mk_test_tree()
     path = joinpath(mktempdir(), "categorical_mk_tree_mkfit.tre")
     write(path, "(((A:1,B:1):1,C:1):1,D:3);")
-    return to_compact_tree(load_newick_tree(path))
+    return serialize_tree(read_tree(path))
 end
 
 function _assert_mkfit_metadata(res, state_labels)

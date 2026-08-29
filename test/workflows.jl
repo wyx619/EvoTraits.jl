@@ -35,7 +35,7 @@ end
 @testset "AIC model comparison helpers" begin
     tree_path = joinpath(mktempdir(), "toy_aic_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(tree_path))
+    toy_tree = serialize_tree(read_tree(tree_path))
     trait = [1.0, 1.1, 2.0, 2.1]
 
     fit_bm = fit_bm1(toy_tree, trait; max_iterations = 30)
@@ -61,7 +61,7 @@ end
 @testset "Continuous workflow wrappers" begin
     tree_path = joinpath(mktempdir(), "toy_workflow_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    toy_tree = to_compact_tree(load_newick_tree(tree_path))
+    toy_tree = serialize_tree(read_tree(tree_path))
     trait = [1.0, 1.1, 2.0, 2.1]
 
     edge_segments = [
@@ -92,7 +92,7 @@ end
 end
 
 @testset "Multivariate workflow wrappers" begin
-    tree = to_compact_tree(simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(500)))
+    tree = serialize_tree(simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(500)))
     Sigma = [
         0.7 0.15;
         0.15 0.5;
@@ -105,7 +105,7 @@ end
     @test bm_workflow.best_name in (:mvBM1, :mvEB)
 
     ou_simtree = simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(502))
-    ou_tree = to_compact_tree(ou_simtree)
+    ou_tree = serialize_tree(ou_simtree)
     ou_root = ou_tree.root
     edge_segments = [
         [SimmapSegment(

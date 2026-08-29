@@ -30,7 +30,7 @@ struct CompactTree
 end
 
 """
-    load_newick_tree(path::AbstractString)
+    read_tree(path::AbstractString)
 
 Load a tree from a Newick file.
 
@@ -43,14 +43,22 @@ such as bootstrap/support values (`)100.0:` -> `):`). This keeps the engine
 robust to large empirical trees whose support annotations are irrelevant to the
 core likelihood kernels.
 """
-function load_newick_tree(path::AbstractString)
+function _read_newick_text(path::AbstractString)
     isfile(path) || throw(ArgumentError("Tree file does not exist: $path"))
     newick = String(strip(read(path, String)))
     endswith(newick, ';') || throw(ArgumentError("Malformed Newick file: missing trailing semicolon"))
+    return newick
+end
+
+function _strip_internal_support_labels(newick::AbstractString)
+    return String(replace(newick, r"\)([^():;,]+):" => "):"))
+end
+
+function _parse_newick_text(newick::AbstractString)
     try
         return NewickTree.readnw(newick)
     catch first_error
-        cleaned = String(replace(newick, r"\)([^():;,]+):" => "):"))
+        cleaned = _strip_internal_support_labels(newick)
         cleaned == newick && rethrow(first_error)
         try
             return NewickTree.readnw(cleaned)
@@ -58,6 +66,10 @@ function load_newick_tree(path::AbstractString)
             rethrow(first_error)
         end
     end
+end
+
+function read_tree(path::AbstractString)
+    return _parse_newick_text(_read_newick_text(path))
 end
 
 @inline function _safe_node_children(node::T) where {T}
@@ -75,12 +87,12 @@ end
 end
 
 """
-    to_compact_tree(tree::NewickTree.Node)
+    serialize_tree(tree::NewickTree.Node)
 
 Convert a parsed `NewickTree` tree into the engine's internal `CompactTree`
 representation. This is the canonical ingest boundary for external tree input.
 """
-function to_compact_tree(tree::T) where {T <: NewickTree.Node}
+function serialize_tree(tree::T) where {T <: NewickTree.Node}
     root_node = tree
     while !NewickTree.isroot(root_node)
         root_node = root_node.parent

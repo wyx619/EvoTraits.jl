@@ -98,7 +98,7 @@ EvoTraits 不是对 R 包的简单封装，而是在 Julia 中重建一个更统
 using EvoTraits
 using CSV, DataFrames
 
-tree = to_compact_tree(load_newick_tree("tree.nwk"))
+tree = serialize_tree(read_tree("tree.nwk"))
 traits = CSV.read("trait.csv", DataFrame)
 
 fit = fit_ou1(tree, traits)

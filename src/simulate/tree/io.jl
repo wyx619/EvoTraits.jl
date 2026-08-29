@@ -7,7 +7,7 @@
 #
 #     SimulatedTree  (in-memory, produced by yule.jl / birth_death.jl)
 #            |
-#            | to_compact_tree    to_newick (string)
+#            | serialize_tree    to_newick (string)
 #            v
 #     CompactTree    (canonical internal representation)
 #            |
@@ -15,7 +15,7 @@
 #            v
 #     realTree = NewickTree.Node  (third-party type, used by src/io.jl)
 #            |
-#            | save_newick_tree   /   load_newick_tree (in src/io.jl)
+#            | write_tree   /   read_tree (in src/io.jl)
 #            v
 #     disk file (.tre / .nwk)
 #
@@ -75,7 +75,7 @@ function _simtree_validate(simtree::SimulatedTree)
     return Int32(only(roots))
 end
 
-function to_compact_tree(simtree::SimulatedTree)
+function serialize_tree(simtree::SimulatedTree)
     root = _simtree_validate(simtree)
     nnodes = length(simtree.parent)
     parent_of_node = copy(simtree.parent)
@@ -194,7 +194,7 @@ end
     to_newick(simtree::SimulatedTree) -> String
 
 Serialize a `SimulatedTree` to a Newick string. The returned string ends with
-a trailing semicolon. Use `save_newick_tree(path, simtree)` to write it
+a trailing semicolon. Use `write_tree(path, simtree)` to write it
 directly to disk.
 """
 function to_newick(simtree::SimulatedTree)
@@ -285,10 +285,10 @@ end
 
 Convenience aliases for [`from_compact_tree`](@ref). The first form takes a
 `CompactTree` directly; the second form converts a `SimulatedTree` first
-through `to_compact_tree`.
+through `serialize_tree`.
 """
 to_real_tree(tree::CompactTree) = from_compact_tree(tree)
-to_real_tree(simtree::SimulatedTree) = from_compact_tree(to_compact_tree(simtree))
+to_real_tree(simtree::SimulatedTree) = from_compact_tree(serialize_tree(simtree))
 
 # ---------------------------------------------------------------------------
 # Random-coalescence tree simulator (Newick string output)
@@ -343,7 +343,7 @@ end
 # ---------------------------------------------------------------------------
 
 """
-    save_newick_tree(path, source; append::Bool = false) -> String
+    write_tree(path, source; append::Bool = false) -> String
 
 Persist a Newick string to a file on disk. The `source` argument may be a
 `String`, a `SimulatedTree`, a `CompactTree`, or a `NewickTree.Node`. The
@@ -352,31 +352,31 @@ trailing semicolon is added if missing.
 Examples:
 
 ```julia
-save_newick_tree("tree.tre", simulate_yule_simtree(50))             # SimulatedTree
-save_newick_tree("tree.tre", to_compact_tree(simtree))               # CompactTree
-save_newick_tree("tree.tre", from_compact_tree(tree))                # NewickTree.Node
-save_newick_tree("tree.tre", simulate_ultrametric_newick(50))        # Newick string
+write_tree("tree.tre", simulate_yule_simtree(50))             # SimulatedTree
+write_tree("tree.tre", serialize_tree(simtree))               # CompactTree
+write_tree("tree.tre", from_compact_tree(tree))                # NewickTree.Node
+write_tree("tree.tre", simulate_ultrametric_newick(50))        # Newick string
 ```
 
 Returns the Newick string that was written.
 """
-function save_newick_tree(path::AbstractString, simtree::SimulatedTree; append::Bool = false)
+function write_tree(path::AbstractString, simtree::SimulatedTree; append::Bool = false)
     return _write_newick_file(path, to_newick(simtree), append)
 end
 
-function save_newick_tree(path::AbstractString, tree::CompactTree; append::Bool = false)
+function write_tree(path::AbstractString, tree::CompactTree; append::Bool = false)
     io = IOBuffer()
     NewickTree.writenw(io, from_compact_tree(tree))
     return _write_newick_file(path, _buffer_to_string(io), append)
 end
 
-function save_newick_tree(path::AbstractString, nw::NewickTree.Node; append::Bool = false)
+function write_tree(path::AbstractString, nw::NewickTree.Node; append::Bool = false)
     io = IOBuffer()
     NewickTree.writenw(io, nw)
     return _write_newick_file(path, _buffer_to_string(io), append)
 end
 
-function save_newick_tree(path::AbstractString, newick::AbstractString; append::Bool = false)
+function write_tree(path::AbstractString, newick::AbstractString; append::Bool = false)
     content = String(newick)
     endswith(strip(content), ';') || (content = string(strip(content), ';'))
     return _write_newick_file(path, content, append)

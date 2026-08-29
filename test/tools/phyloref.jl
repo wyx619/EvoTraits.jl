@@ -1,7 +1,7 @@
-﻿@testset "phyloref prototype" begin
+@testset "phyloref prototype" begin
     tree_path = joinpath(mktempdir(), "phyloref_tree.tre")
     write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
 
     map = build_phyloref(tree)
     @test isa(map, PhyloRef)
@@ -114,7 +114,7 @@ end
 @testset "phyloref ape ordering on asymmetric tree" begin
     tree_path = joinpath(mktempdir(), "phyloref_tree2.tre")
     write(tree_path, "(((A:1,B:1):1,C:1):1,(D:1,E:1):1);")
-    tree = to_compact_tree(load_newick_tree(tree_path))
+    tree = serialize_tree(read_tree(tree_path))
     map = build_phyloref(tree)
     node_table = phyloref_node_table(tree; map = map)
     edge_table = phyloref_edge_table(tree; map = map)
@@ -150,5 +150,6 @@ end
         6 9
     ]
 end
+
 
 
