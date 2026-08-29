@@ -8,6 +8,8 @@
         rate_cat = fit.rate_cat,
         order_test = get(fit.diagnostics, :order_test, false),
         branch_lengths = isempty(fit.branch_lengths) ? _corhmm_branch_lengths(fit.tree) : fit.branch_lengths,
+        fixed_node_states = get(fit.diagnostics, :fixed_node_states, nothing),
+        hidden_to_observed = fit.hidden_to_observed,
     )
     cache.success || return cache
     return cache

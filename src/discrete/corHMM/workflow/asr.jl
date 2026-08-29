@@ -14,6 +14,8 @@
         rate_cat = fit.rate_cat,
         order_test = get(fit.diagnostics, :order_test, false),
         branch_lengths = fitbranchlengths(fit),
+        fixed_node_states = get(fit.diagnostics, :fixed_node_states, nothing),
+        hidden_to_observed = fit.hidden_to_observed,
     )
     cache.success || return CorHMMASRResult(success = false, mode = mode, fit = fit)
 
@@ -26,6 +28,8 @@
             fit.tip_priors_hidden,
             fit.transition_matrix;
             root_prior = cache.root_prior,
+            fixed_node_states = get(fit.diagnostics, :fixed_node_states, nothing),
+            hidden_to_observed = fit.hidden_to_observed,
         )
         hidden_likelihoods = zeros(Float64, length(joint.node_ids), length(fit.hidden_labels))
         for (i, state) in enumerate(joint.internal_states)

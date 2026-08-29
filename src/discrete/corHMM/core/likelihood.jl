@@ -37,6 +37,61 @@ function _corhmm_aicc(loglik::Float64, nparams::Integer, ntips::Integer)
     return -2loglik + 2 * nparams * (ntips / denom)
 end
 
+function _corhmm_lewis_log_correction(
+    tree::CompactTree,
+    liks_tip::Matrix{Float64},
+    Qf::Matrix{Float64},
+    root_prior,
+    rate_cat::Integer,
+    branch_lengths::AbstractVector{<:Real},
+    fixed_node_states,
+    hidden_to_observed::Union{Nothing, AbstractVector{<:Integer}},
+    root_prior_probs::AbstractVector{<:Real},
+)
+    nstates = size(Qf, 1)
+    rate_cat >= 1 || throw(ArgumentError("rate_cat must be positive"))
+    nstates % rate_cat == 0 || throw(ArgumentError("Q size must be divisible by rate_cat"))
+    nobs = nstates ÷ rate_cat
+    hidden_to_observed === nothing && (hidden_to_observed = repeat(collect(1:nobs), rate_cat))
+    length(hidden_to_observed) == nstates || throw(ArgumentError("hidden_to_observed and Q disagree"))
+
+    dummy_loglik = fill(-Inf, nobs)
+    dummy = zeros(Float64, size(liks_tip))
+    for observed_state in 1:nobs
+        fill!(dummy, 0.0)
+        for hidden_state in eachindex(hidden_to_observed)
+            hidden_to_observed[hidden_state] == observed_state && (@views dummy[:, hidden_state] .= 1.0)
+        end
+        dummy_run = _corhmm_run_pruning_prevalidated(
+            tree,
+            dummy,
+            Qf;
+            root_prior = root_prior,
+            nparams = 0,
+            rate_cat = rate_cat,
+            order_test = false,
+            branch_lengths = branch_lengths,
+            fixed_node_states = fixed_node_states,
+            hidden_to_observed = hidden_to_observed,
+            workspace = nothing,
+            copy_outputs = false,
+        )
+        dummy_loglik[observed_state] = dummy_run.loglik
+    end
+
+    weighted = 0.0
+    for hidden_state in eachindex(root_prior_probs)
+        prior = Float64(root_prior_probs[hidden_state])
+        prior <= 0.0 && continue
+        observed_state = Int(hidden_to_observed[hidden_state])
+        1 <= observed_state <= nobs || throw(ArgumentError("hidden_to_observed contains an invalid observed state"))
+        dummy_probability = dummy_loglik[observed_state]
+        weighted += prior * (isfinite(dummy_probability) ? -expm1(dummy_probability) : 1.0)
+    end
+    weighted > 0.0 || return -Inf
+    return log(weighted)
+end
+
 function _corhmm_branch_lengths(tree::CompactTree)
     out = copy(tree.edge_length)
     bump = sqrt(eps(Float64))
@@ -85,6 +140,9 @@ function _corhmm_run_pruning_prevalidated(
     rate_cat::Integer = 1,
     order_test::Bool = false,
     branch_lengths::Union{Nothing, AbstractVector{<:Real}} = nothing,
+    fixed_node_states::Union{Nothing, AbstractVector{<:Integer}} = nothing,
+    hidden_to_observed::Union{Nothing, AbstractVector{<:Integer}} = nothing,
+    lewis_asc_bias::Bool = false,
     workspace::Union{Nothing, CorHMMPruningWorkspace} = nothing,
     copy_outputs::Bool = false,
 )
@@ -97,6 +155,10 @@ function _corhmm_run_pruning_prevalidated(
     end
 
     size(liks_tip, 2) == nstates || throw(ArgumentError("corHMM tip likelihoods and Q disagree on number of states"))
+    if fixed_node_states !== nothing
+        length(fixed_node_states) == tree.nnodes || throw(ArgumentError("fixed_node_states must have one entry per tree node"))
+        hidden_to_observed === nothing && throw(ArgumentError("hidden_to_observed is required with fixed_node_states"))
+    end
 
     ws =
         workspace === nothing ||
@@ -123,6 +185,14 @@ function _corhmm_run_pruning_prevalidated(
             mul!(tmp, P, @view node_liks[child, :])
             @views node_liks[node, :] .*= tmp
         end
+        if fixed_node_states !== nothing
+            fixed_observed = Int(fixed_node_states[node])
+            if fixed_observed > 0
+                for state in 1:nstates
+                    hidden_to_observed[state] == fixed_observed || (node_liks[node, state] = 0.0)
+                end
+            end
+        end
         c = sum(@view node_liks[node, :])
         c > 0.0 || return _CorHMMPruningRun(success = false, loglik = -Inf, nstates = nstates, nparams = nfree, root_prior = root_mode)
         comp[node] = c
@@ -140,6 +210,23 @@ function _corhmm_run_pruning_prevalidated(
         scale_loglik += log(comp[node])
     end
     loglik = scale_loglik + log(root_term)
+    if lewis_asc_bias
+        correction = _corhmm_lewis_log_correction(
+            tree,
+            liks_tip,
+            Qf,
+            root_prior,
+            rate_cat,
+            edge_length,
+            fixed_node_states,
+            hidden_to_observed,
+            root_vec,
+        )
+        isfinite(correction) || return _CorHMMPruningRun(success = false, loglik = -Inf, nstates = nstates, nparams = nfree, root_prior = root_mode)
+        # `_corhmm_run_pruning_prevalidated` returns log likelihood, whereas
+        # corHMM's devfun applies this term to the negative log likelihood.
+        loglik += correction
+    end
 
     return _CorHMMPruningRun(
         success = isfinite(loglik),
@@ -163,6 +250,9 @@ function _corhmm_loglik_prevalidated(
     rate_cat::Integer = 1,
     order_test::Bool = false,
     branch_lengths::Union{Nothing, AbstractVector{<:Real}} = nothing,
+    fixed_node_states::Union{Nothing, AbstractVector{<:Integer}} = nothing,
+    hidden_to_observed::Union{Nothing, AbstractVector{<:Integer}} = nothing,
+    lewis_asc_bias::Bool = false,
     workspace::Union{Nothing, CorHMMPruningWorkspace} = nothing,
 )
     run = _corhmm_run_pruning_prevalidated(
@@ -174,6 +264,9 @@ function _corhmm_loglik_prevalidated(
         rate_cat = rate_cat,
         order_test = order_test,
         branch_lengths = branch_lengths,
+        fixed_node_states = fixed_node_states,
+        hidden_to_observed = hidden_to_observed,
+        lewis_asc_bias = lewis_asc_bias,
         workspace = workspace,
         copy_outputs = false,
     )
@@ -189,6 +282,9 @@ function _corhmm_pruning_cache_prevalidated(
     rate_cat::Integer = 1,
     order_test::Bool = false,
     branch_lengths::Union{Nothing, AbstractVector{<:Real}} = nothing,
+    fixed_node_states::Union{Nothing, AbstractVector{<:Integer}} = nothing,
+    hidden_to_observed::Union{Nothing, AbstractVector{<:Integer}} = nothing,
+    lewis_asc_bias::Bool = false,
     workspace::Union{Nothing, CorHMMPruningWorkspace} = nothing,
 )
     run = _corhmm_run_pruning_prevalidated(
@@ -200,6 +296,9 @@ function _corhmm_pruning_cache_prevalidated(
         rate_cat = rate_cat,
         order_test = order_test,
         branch_lengths = branch_lengths,
+        fixed_node_states = fixed_node_states,
+        hidden_to_observed = hidden_to_observed,
+        lewis_asc_bias = lewis_asc_bias,
         workspace = workspace,
         copy_outputs = true,
     )
@@ -257,6 +356,9 @@ function corhmm_pruning_cache(
     rate_cat::Integer = 1,
     order_test::Bool = false,
     branch_lengths::Union{Nothing, AbstractVector{<:Real}} = nothing,
+    fixed_node_states::Union{Nothing, AbstractVector{<:Integer}} = nothing,
+    hidden_to_observed::Union{Nothing, AbstractVector{<:Integer}} = nothing,
+    lewis_asc_bias::Bool = false,
 )
     liks_tip = _corhmm_validate_liks(tree, tip_liks)
     Qf = _validate_rate_matrix(Q)
@@ -269,10 +371,27 @@ function corhmm_pruning_cache(
         rate_cat = rate_cat,
         order_test = order_test,
         branch_lengths = branch_lengths,
+        fixed_node_states = fixed_node_states,
+        hidden_to_observed = hidden_to_observed,
+        lewis_asc_bias = lewis_asc_bias,
     )
 end
 
-function corhmm_loglikelihood(tree::CompactTree, state_data::CorHMMStateData, Q::AbstractMatrix{<:Real}; root_prior = :yang, nparams = nothing)
-    return corhmm_pruning_cache(tree, state_data.tip_priors_hidden, Q; root_prior = root_prior, nparams = nparams)
+function corhmm_loglikelihood(
+    tree::CompactTree,
+    state_data::CorHMMStateData,
+    Q::AbstractMatrix{<:Real};
+    root_prior = :yang,
+    nparams = nothing,
+    lewis_asc_bias::Bool = false,
+)
+    return corhmm_pruning_cache(
+        tree,
+        state_data.tip_priors_hidden,
+        Q;
+        root_prior = root_prior,
+        nparams = nparams,
+        lewis_asc_bias = lewis_asc_bias,
+    )
 end
 

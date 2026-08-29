@@ -72,7 +72,7 @@ end
         @test fit.hidden_to_observed == [1, 2, 3, 1, 2, 3]
         @test size(fit.transition_matrix) == (6, 6)
         @test size(fit.index_matrix) == (6, 6)
-        expected_np = model === :ARD ? 3 * mk_nrates(model, 3) + 2 : 2 * mk_nrates(model, 3) + 2
+        expected_np = 2 * mk_nrates(model, 3) + 2
         @test maximum(fit.index_matrix) == expected_np
         @test all(diag(fit.index_matrix) .== 0)
         @test vec(sum(fit.tip_priors_hidden; dims = 2)) == fill(2.0, tree.ntips)
@@ -218,9 +218,9 @@ end
 
 @testset "corHMM order test and custom rate matrix" begin
     idx = EvoTraits.rateindex(2; model = :ARD, rate_cat = 2)
-    q_bad = EvoTraits.qfromindex([0.1, 0.1, 0.2, 0.2, 0.4, 0.4, 0.8, 0.8], idx)
+    q_bad = EvoTraits.qfromindex([0.1, 0.1, 0.2, 0.2, 0.4, 0.4], idx)
     @test !EvoTraits.corhmm_order_test(q_bad, 2)
-    q_good = EvoTraits.qfromindex([0.8, 0.8, 0.4, 0.4, 0.2, 0.2, 0.1, 0.1], idx)
+    q_good = EvoTraits.qfromindex([0.8, 0.8, 0.4, 0.4, 0.2, 0.2], idx)
     @test EvoTraits.corhmm_order_test(q_good, 2)
 
     custom = [0 1; 2 0]
@@ -233,10 +233,10 @@ end
 @testset "corHMM hidden-rate index matrix structure" begin
     idx = EvoTraits.rateindex(2; model = :ARD, rate_cat = 2)
     @test idx == [
-        0 2 8 0;
-        1 0 0 8;
-        7 0 0 6;
-        0 7 5 0;
+        0 2 6 0;
+        1 0 0 6;
+        5 0 0 4;
+        0 5 3 0;
     ]
 
     idx_er = EvoTraits.rateindex(3; model = :ER, rate_cat = 2)
@@ -247,4 +247,140 @@ end
     @test idx_er[4, 1] == idx_er[5, 2] == idx_er[6, 3] == 3
 end
 
+@testset "corHMM fixed nodes, tip fog, and Lewis correction" begin
+    tree_path = joinpath(mktempdir(), "toy_corhmm_update_tree.tre")
+    write(tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
+    tree = to_compact_tree(load_newick_tree(tree_path))
+    states = Dict("A" => "red", "B" => "red", "C" => "blue", "D" => "blue")
+
+    base = fit_corhmm(tree, states; model = :ER, root_prior = :flat, node_states = :none, max_iterations = 30)
+    fixed_fog = fit_corhmm(tree, states; model = :ER, root_prior = :flat, node_states = :none, tip_fog = 0.05, max_iterations = 30)
+    estimated_fog = fit_corhmm(tree, states; model = :ER, root_prior = :flat, node_states = :none, tip_fog = [1, 1], max_iterations = 30)
+
+    @test base.success
+    @test fixed_fog.success
+    @test fixed_fog.tip_fog == [0.05, 0.05]
+    @test fixed_fog.nparams == base.nparams
+    @test estimated_fog.success
+    @test length(estimated_fog.tip_fog) == 2
+    @test estimated_fog.nparams == base.nparams + 1
+    @test all(0.0 <= p < 0.5 for p in estimated_fog.tip_fog)
+
+    fixed_node = first(tree.postorder_internal)
+    fixed_label = base.observed_labels[1]
+    fixed = fit_corhmm(
+        tree,
+        states;
+        model = :ER,
+        root_prior = :flat,
+        node_states = :marginal,
+        fixed_nodes = Dict(Int(fixed_node) => fixed_label),
+        max_iterations = 30,
+    )
+    @test fixed.success
+    @test fixed.diagnostics[:fixed_node_states][Int(fixed_node)] == 1
+    row = findfirst(==(Int(fixed_node)), fixed.asr.node_ids)
+    @test row !== nothing
+    @test fixed.asr.observed_likelihoods[row, 1] == 1.0
+    @test fixed.asr.observed_likelihoods[row, 2] == 0.0
+
+    hidden_fixed = fit_corhmm(
+        tree,
+        states;
+        model = :ER,
+        rate_cat = 2,
+        root_prior = :flat,
+        node_states = :marginal,
+        fixed_nodes = Dict(Int(fixed_node) => fixed_label),
+        max_iterations = 30,
+    )
+    @test hidden_fixed.success
+    row_hidden = findfirst(==(Int(fixed_node)), hidden_fixed.asr.node_ids)
+    @test hidden_fixed.asr.observed_likelihoods[row_hidden, 1] == 1.0
+    @test hidden_fixed.asr.observed_likelihoods[row_hidden, 2] == 0.0
+
+    state_data = EvoTraits.parsestates(tree, states; state_order = ["blue", "red"])
+    Q = EvoTraits.qfromindex([0.3], EvoTraits.rateindex(2; model = :ER))
+    raw = EvoTraits.corhmm_pruning_cache(tree, state_data.tip_priors_hidden, Q; root_prior = :yang, nparams = 1)
+    corrected = EvoTraits.corhmm_pruning_cache(tree, state_data.tip_priors_hidden, Q; root_prior = :yang, nparams = 1, lewis_asc_bias = true)
+    @test raw.success
+    @test corrected.success
+    @test corrected.loglik < raw.loglik
+    @test corrected.aic == -2 * corrected.loglik + 2
+end
+
+@testset "corHMM combined multi-character hidden-rate features" begin
+    tree_path = joinpath(mktempdir(), "toy_corhmm_combined_tree.tre")
+    write(tree_path, "(((A:1,B:1):1,C:1):1,D:3);")
+    tree = to_compact_tree(load_newick_tree(tree_path))
+    states = DataFrame(
+        taxon = ["A", "B", "C", "D"],
+        growth = ["herb", "shrub", "tree", "herb"],
+        plate = ["scalariform", "scalariform", "simple", "simple"],
+    )
+    order = [["herb", "shrub", "tree"], ["scalariform", "simple"]]
+
+    hidden_fog = fit_corhmm(
+        tree,
+        states;
+        model = :ER,
+        rate_cat = 2,
+        state_order = order,
+        root_prior = :flat,
+        node_states = :none,
+        tip_fog = [1, 2, 1, 2],
+        max_iterations = 20,
+    )
+    @test hidden_fog.success
+    @test hidden_fog.diagnostics[:multi_character]
+    @test hidden_fog.diagnostics[:tip_fog_groups] == [1, 2, 1, 2]
+    @test length(hidden_fog.tip_fog) == length(hidden_fog.observed_labels)
+    @test hidden_fog.nparams == maximum(hidden_fog.index_matrix) + 2
+
+    fixed_node = first(tree.postorder_internal)
+    fixed = fit_corhmm(
+        tree,
+        states;
+        model = :ER,
+        rate_cat = 2,
+        state_order = order,
+        root_prior = :flat,
+        node_states = :marginal,
+        fixed_nodes = Dict(Int(fixed_node) => "herb_scalariform"),
+        max_iterations = 20,
+    )
+    @test fixed.success
+    @test fixed.diagnostics[:multi_character]
+    @test fixed.diagnostics[:fixed_node_states][Int(fixed_node)] == findfirst(==("herb_scalariform"), fixed.observed_labels)
+    fixed_row = findfirst(==(Int(fixed_node)), fixed.asr.node_ids)
+    @test fixed.asr.observed_likelihoods[fixed_row, fixed.diagnostics[:fixed_node_states][Int(fixed_node)]] == 1.0
+
+    state_data = EvoTraits.parsestates(tree, states; state_order = order, rate_cat = 2)
+    index_matrix = EvoTraits.rateindex(length(state_data.observed_labels); model = :ER, rate_cat = 2)
+    Q = EvoTraits.qfromindex(fill(0.3, maximum(index_matrix)), index_matrix)
+    raw = EvoTraits.corhmm_pruning_cache(
+        tree,
+        state_data.tip_priors_hidden,
+        Q;
+        root_prior = :yang,
+        nparams = maximum(index_matrix),
+        rate_cat = 2,
+        hidden_to_observed = state_data.hidden_to_observed,
+    )
+    corrected = EvoTraits.corhmm_pruning_cache(
+        tree,
+        state_data.tip_priors_hidden,
+        Q;
+        root_prior = :yang,
+        nparams = maximum(index_matrix),
+        rate_cat = 2,
+        hidden_to_observed = state_data.hidden_to_observed,
+        lewis_asc_bias = true,
+    )
+    @test raw.success
+    @test corrected.success
+    @test isfinite(raw.loglik)
+    @test isfinite(corrected.loglik)
+    @test corrected.loglik < raw.loglik
+end
 

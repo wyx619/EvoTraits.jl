@@ -20,10 +20,16 @@ function jointreconstruction(
     Q::AbstractMatrix{<:Real};
     root_prior::Symbol,
     root_prior_probs = nothing,
+    fixed_node_states = nothing,
+    hidden_to_observed = nothing,
 )
     priors = _corhmm_validate_liks(tree, tip_priors)
     Qf = _validate_rate_matrix(Q)
     nstates = size(Qf, 1)
+    if fixed_node_states !== nothing
+        length(fixed_node_states) == tree.nnodes || throw(ArgumentError("fixed_node_states must have one entry per tree node"))
+        hidden_to_observed === nothing && throw(ArgumentError("hidden_to_observed is required with fixed_node_states"))
+    end
     evals, V, Vinv = _mk_eigen_cache(Qf)
     P = zeros(Float64, nstates, nstates)
     score = zeros(Float64, tree.nnodes, nstates)
@@ -59,6 +65,12 @@ function jointreconstruction(
             end
             score[node, parent_state] = total
             choice[node, parent_state] = Int32(parent_state)
+        end
+        if fixed_node_states !== nothing && fixed_node_states[node] > 0
+            fixed_observed = Int(fixed_node_states[node])
+            for parent_state in 1:nstates
+                hidden_to_observed[parent_state] == fixed_observed || (score[node, parent_state] = -Inf)
+            end
         end
     end
 

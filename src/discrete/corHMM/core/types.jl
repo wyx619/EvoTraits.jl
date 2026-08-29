@@ -1,5 +1,9 @@
 ﻿Base.@kwdef struct CorHMMStateData
     observed_labels::Vector{String} = String[]
+    possible_labels::Vector{String} = String[]
+    character_labels::Vector{String} = String[]
+    character_state_labels::Vector{Vector{String}} = Vector{Vector{String}}()
+    multi_character::Bool = false
     hidden_labels::Vector{String} = String[]
     hidden_to_observed::Vector{Int} = Int[]
     tip_priors_observed::Matrix{Float64} = zeros(0, 0)
@@ -22,6 +26,7 @@ Base.@kwdef struct CorHMMFitResult
     node_states::Symbol = :marginal
     root_prior::Any = :yang
     collapse::Bool = true
+    tip_fog::Any = nothing
     observed_labels::Vector{String} = String[]
     hidden_labels::Vector{String} = String[]
     hidden_to_observed::Vector{Int} = Int[]
@@ -38,6 +43,11 @@ Base.@kwdef struct CorHMMFitResult
     fit::MkFitResult = MkFitResult()
     asr::Any = nothing
     diagnostics::Dict{Symbol, Any} = Dict{Symbol, Any}()
+end
+
+Base.@kwdef struct _CorHMMOptimizationResult
+    fit::MkFitResult = MkFitResult()
+    tip_fog::Union{Nothing, Vector{Float64}} = nothing
 end
 
 Base.@kwdef struct CorHMMPruningCache

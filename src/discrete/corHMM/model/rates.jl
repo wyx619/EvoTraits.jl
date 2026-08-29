@@ -63,19 +63,19 @@ function _corhmm_rate_class_matrix(rate_cat::Integer)
     return mat
 end
 
-function rateindex(observed_nstates::Integer; rate_cat::Integer = 1, model::Symbol = :ARD)
+function _corhmm_expand_rateindex(base::Matrix{Int}, rate_cat::Integer)
     rc = _validate_corhmm_rate_cat(rate_cat)
-    observed_nstates >= 2 || throw(ArgumentError("observed_nstates must be at least 2"))
-    base = _corhmm_base_index_matrix(observed_nstates, model)
     if rc == 1
         return base
     end
 
+    observed_nstates = size(base, 1)
     nstates = observed_nstates * rc
     out = zeros(Int, nstates, nstates)
     base_nparams = maximum(base)
     for r in 1:rc
-        offset = model === :ARD ? base_nparams * ((r - 1) * (r + 2) ÷ 2) : base_nparams * (r - 1)
+        # R/corHMM concatenates one complete within-category rate block at a time.
+        offset = base_nparams * (r - 1)
         block = _offset_positive_indices(base, offset)
         lo = (r - 1) * observed_nstates + 1
         hi = r * observed_nstates
@@ -94,6 +94,51 @@ function rateindex(observed_nstates::Integer; rate_cat::Integer = 1, model::Symb
         end
     end
     return out
+end
+
+function rateindex(observed_nstates::Integer; rate_cat::Integer = 1, model::Symbol = :ARD)
+    observed_nstates >= 2 || throw(ArgumentError("observed_nstates must be at least 2"))
+    base = _corhmm_base_index_matrix(observed_nstates, model)
+    return _corhmm_expand_rateindex(base, rate_cat)
+end
+
+function _corhmm_joint_rateindex(state_data::CorHMMStateData; model::Symbol)
+    labels = state_data.observed_labels
+    nstates = length(labels)
+    nstates >= 2 || throw(ArgumentError("Need at least two joint states"))
+    states = [split(label, '_') for label in labels]
+    nchar = length(first(states))
+    all(length(parts) == nchar for parts in states) || throw(ArgumentError("Joint state labels have inconsistent character counts"))
+    allowed = falses(nstates, nstates)
+    for i in 1:nstates, j in 1:nstates
+        i == j && continue
+        allowed[i, j] = count(states[i][k] != states[j][k] for k in 1:nchar) == 1
+    end
+
+    base = zeros(Int, nstates, nstates)
+    if model === :ER
+        any(allowed) || throw(ArgumentError("Joint state graph has no single-character transitions"))
+        base[allowed] .= 1
+    elseif model === :SYM
+        p = 1
+        for i in 1:(nstates - 1), j in (i + 1):nstates
+            allowed[i, j] || continue
+            base[i, j] = p
+            base[j, i] = p
+            p += 1
+        end
+    elseif model === :ARD
+        p = 1
+        for j in 1:nstates, i in 1:nstates
+            allowed[i, j] || continue
+            base[i, j] = p
+            p += 1
+        end
+    else
+        throw(ArgumentError("Joint corHMM data supports ER, SYM, or ARD; got $model"))
+    end
+    maximum(base) >= 1 || throw(ArgumentError("Joint state graph has no free transition rates"))
+    return _corhmm_expand_rateindex(base, state_data.rate_cat)
 end
 
 function rates_to_q(rates::AbstractVector{<:Real}, observed_nstates::Integer; model::Symbol = :ARD, rate_cat::Integer = 1)
