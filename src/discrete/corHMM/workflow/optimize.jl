@@ -124,6 +124,7 @@ function fitindexmodel(
     0.0 < fog_ip < 0.5 || throw(ArgumentError("fog_ip must be in (0, 0.5)"))
     _validate_parallel_controls(Ntrials, nothing, Nthreads)
     priors = _corhmm_validate_liks(tree, tip_priors)
+    effective_priors_without_fog = isempty(fog_groups) ? priors : nothing
     root = _corhmm_root_prior(root_prior)
     lower_bound > 0.0 || throw(ArgumentError("lower_bound must be positive"))
     upper_bound > lower_bound || throw(ArgumentError("upper_bound must be greater than lower_bound"))
@@ -151,14 +152,19 @@ function fitindexmodel(
         start_logparams = log.(vcat(start_fog, max.(start_rates, 1e-8)))
         Q = zeros(Float64, nstates, nstates)
         ws = _corhmm_pruning_workspace(tree, nstates)
+        params = Vector{Float64}(undef, nparams)
 
         objective = function (logparams)
             any(!isfinite, logparams) && return Inf
-            params = exp.(Float64.(logparams))
-            fog_values = nfog == 0 ? Float64[] : params[1:nfog]
-            rates = params[(nfog + 1):end]
+            @inbounds for i in eachindex(logparams)
+                params[i] = exp(logparams[i])
+            end
+            fog_values = nfog == 0 ? nothing : @view params[1:nfog]
+            rates = @view params[(nfog + 1):nparams]
             try
-                effective_priors = _corhmm_tip_priors_with_fog(priors, fog_values, fog_groups, hidden_to_observed)
+                effective_priors =
+                    nfog == 0 ? effective_priors_without_fog :
+                    _corhmm_tip_priors_with_fog(priors, fog_values, fog_groups, hidden_to_observed)
                 fill!(Q, 0.0)
                 @inbounds for i in axes(index_matrix, 1)
                     rowsum = 0.0
@@ -204,9 +210,11 @@ function fitindexmodel(
             NLopt.ftol_rel!(opt, rel_tol)
             NLopt.min_objective!(opt, (x, grad) -> objective(x))
             _, minx, ret = NLopt.optimize(opt, start_logparams)
-            params = exp.(minx)
-            fog_values = nfog == 0 ? Float64[] : params[1:nfog]
-            rates = params[(nfog + 1):end]
+            @inbounds for i in eachindex(minx)
+                params[i] = exp(minx[i])
+            end
+            fog_values = nfog == 0 ? nothing : @view params[1:nfog]
+            rates = @view params[(nfog + 1):nparams]
 
             fill!(Q, 0.0)
             @inbounds for i in axes(index_matrix, 1)
@@ -223,7 +231,9 @@ function fitindexmodel(
                 Q[i, i] = -rowsum
             end
 
-            effective_priors = _corhmm_tip_priors_with_fog(priors, fog_values, fog_groups, hidden_to_observed)
+            effective_priors =
+                nfog == 0 ? effective_priors_without_fog :
+                _corhmm_tip_priors_with_fog(priors, fog_values, fog_groups, hidden_to_observed)
             like = _corhmm_pruning_cache_prevalidated(
                 tree,
                 effective_priors,
@@ -239,9 +249,13 @@ function fitindexmodel(
                 workspace = ws,
             )
             trial_logliks[trial] = like.loglik
+            optimizer_converged = ret in (NLopt.SUCCESS, NLopt.STOPVAL_REACHED, NLopt.FTOL_REACHED, NLopt.XTOL_REACHED)
             candidates[trial] = _CorHMMOptimizationResult(
                 fit = MkFitResult(
-                success = like.success,
+                # A finite likelihood is not enough to call the optimization
+                # successful: MAXEVAL_REACHED means the requested tolerance
+                # was not established before the evaluation budget ran out.
+                success = like.success && optimizer_converged,
                 loglik = like.loglik,
                 aic = like.aic,
                 nparams = like.nparams,
@@ -252,7 +266,7 @@ function fitindexmodel(
                 transition_matrix = copy(Q),
                 start_rates = collect(start_rates),
                 trial_logliks = Float64[],
-                converged = ret in (NLopt.SUCCESS, NLopt.STOPVAL_REACHED, NLopt.FTOL_REACHED, NLopt.XTOL_REACHED, NLopt.MAXEVAL_REACHED),
+                converged = optimizer_converged,
                 iterations = NLopt.numevals(opt),
                 f_calls = NLopt.numevals(opt),
                 ),
@@ -278,7 +292,9 @@ function fitindexmodel(
     best = nothing
     for candidate in candidates
         candidate === nothing && continue
-        if best === nothing || candidate.fit.loglik > best.fit.loglik
+        if best === nothing ||
+           (candidate.fit.converged && !best.fit.converged) ||
+           (candidate.fit.converged == best.fit.converged && candidate.fit.loglik > best.fit.loglik)
             best = candidate
         end
     end

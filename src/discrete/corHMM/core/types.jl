@@ -70,6 +70,9 @@ Base.@kwdef mutable struct CorHMMPruningWorkspace
     tmp::Vector{Float64} = Float64[]
     comp::Vector{Float64} = Float64[]
     root_prior_probs::Vector{Float64} = Float64[]
+    exp_evals::Vector{ComplexF64} = ComplexF64[]
+    stationary_A::Matrix{Float64} = zeros(0, 0)
+    stationary_b::Vector{Float64} = Float64[]
 end
 
 Base.@kwdef struct CorHMMASRResult

@@ -102,11 +102,52 @@ function _fill_transition_matrix!(
     Vinv::Matrix{ComplexF64},
 )
     nstates = size(P, 1)
+    nstates == length(evals) || throw(ArgumentError("eigenvalue and P sizes disagree"))
+    fill!(P, 0.0)
+    # P doubles as the real accumulator, so the compatibility overload also
+    # stays allocation-free when used by MK, SIMMAP, and reconstruction.
+    @inbounds for k in 1:nstates
+        factor = exp(evals[k] * t)
+        for r in 1:nstates
+            vrk = V[r, k]
+            for c in 1:nstates
+                P[r, c] += real(vrk * factor * Vinv[k, c])
+            end
+        end
+    end
+    @inbounds for r in 1:nstates, c in 1:nstates
+        P[r, c] = max(P[r, c], 0.0)
+    end
+    for r in 1:nstates
+        rowsum = 0.0
+        @inbounds for c in 1:nstates
+            rowsum += P[r, c]
+        end
+        rowsum > 0.0 || continue
+        @inbounds for c in 1:nstates
+            P[r, c] /= rowsum
+        end
+    end
+end
+
+function _fill_transition_matrix!(
+    P::Matrix{Float64},
+    t::Float64,
+    evals::AbstractVector{<:Number},
+    V::Matrix{ComplexF64},
+    Vinv::Matrix{ComplexF64},
+    exp_evals::AbstractVector{<:Number},
+)
+    nstates = size(P, 1)
+    length(exp_evals) == nstates || throw(ArgumentError("exp_evals and P size disagree"))
+    @inbounds for k in 1:nstates
+        exp_evals[k] = exp(evals[k] * t)
+    end
     @inbounds for r in 1:nstates
         for c in 1:nstates
             acc = 0.0 + 0.0im
             for k in 1:nstates
-                acc += V[r, k] * exp(evals[k] * t) * Vinv[k, c]
+                acc += V[r, k] * exp_evals[k] * Vinv[k, c]
             end
             P[r, c] = max(real(acc), 0.0)
         end

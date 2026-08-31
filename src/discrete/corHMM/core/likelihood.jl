@@ -15,6 +15,74 @@ function _corhmm_stationary_root(Q::Matrix{Float64})
     return pi ./ total
 end
 
+function _corhmm_stationary_root!(
+    out::AbstractVector{Float64},
+    Q::Matrix{Float64},
+    A::Matrix{Float64},
+    b::Vector{Float64},
+)
+    n = size(Q, 1)
+    size(A) == (n, n) || throw(ArgumentError("stationary solver workspace has incompatible size"))
+    length(b) == n || throw(ArgumentError("stationary solver workspace has incompatible size"))
+    @inbounds for i in 1:n, j in 1:n
+        A[i, j] = Q[j, i]
+    end
+    @views A[n, :] .= 1.0
+    fill!(b, 0.0)
+    b[n] = 1.0
+    F = lu!(A; check = false)
+    ldiv!(F, b)
+    total = sum(b)
+    any(x -> x < 0.0, b) && throw(ArgumentError("Probability vector contains negative entries"))
+    total > 0.0 || throw(ArgumentError("Probability vector must have positive sum"))
+    @inbounds for i in 1:n
+        out[i] = b[i] / total
+    end
+    return out
+end
+
+function _corhmm_root_vector!(
+    out::AbstractVector{Float64},
+    root_prior,
+    Q::Matrix{Float64},
+    root_liks::AbstractVector{<:Real},
+    stationary_A::Matrix{Float64},
+    stationary_b::Vector{Float64},
+)
+    n = size(Q, 1)
+    length(out) == n || throw(ArgumentError("root prior workspace and Q size disagree"))
+    if root_prior === :yang
+        return _corhmm_stationary_root!(out, Q, stationary_A, stationary_b)
+    elseif root_prior === :flat || root_prior === nothing
+        fill!(out, 1.0 / n)
+    elseif root_prior === :maddfitz
+        total = sum(root_liks)
+        if total > 0.0
+            @inbounds for i in 1:n
+                out[i] = Float64(root_liks[i]) / total
+            end
+        else
+            fill!(out, 1.0 / n)
+        end
+    elseif root_prior isa AbstractVector
+        length(root_prior) == n || throw(ArgumentError("root_prior vector length and Q size disagree"))
+        total = 0.0
+        @inbounds for i in 1:n
+            value = Float64(root_prior[i])
+            value >= 0.0 || throw(ArgumentError("Probability vector contains negative entries"))
+            out[i] = value
+            total += value
+        end
+        total > 0.0 || throw(ArgumentError("Probability vector must have positive sum"))
+        @inbounds for i in 1:n
+            out[i] /= total
+        end
+    else
+        throw(ArgumentError("Unsupported corHMM root_prior=$root_prior"))
+    end
+    return out
+end
+
 function _corhmm_root_vector(root_prior, Q::Matrix{Float64}, root_liks::AbstractVector{<:Real})
     if root_prior === :yang
         return _corhmm_stationary_root(Q)
@@ -109,6 +177,9 @@ function _corhmm_pruning_workspace(tree::CompactTree, nstates::Integer)
         tmp = zeros(Float64, n),
         comp = ones(Float64, tree.nnodes),
         root_prior_probs = zeros(Float64, n),
+        exp_evals = zeros(ComplexF64, n),
+        stationary_A = zeros(Float64, n, n),
+        stationary_b = zeros(Float64, n),
     )
 end
 
@@ -162,8 +233,14 @@ function _corhmm_run_pruning_prevalidated(
 
     ws =
         workspace === nothing ||
-        size(workspace.node_liks, 1) != tree.nnodes ||
-        size(workspace.node_liks, 2) != nstates ? _corhmm_pruning_workspace(tree, nstates) : workspace
+        size(workspace.node_liks) != (tree.nnodes, nstates) ||
+        size(workspace.P) != (nstates, nstates) ||
+        length(workspace.tmp) != nstates ||
+        length(workspace.comp) != tree.nnodes ||
+        length(workspace.root_prior_probs) != nstates ||
+        length(workspace.exp_evals) != nstates ||
+        size(workspace.stationary_A) != (nstates, nstates) ||
+        length(workspace.stationary_b) != nstates ? _corhmm_pruning_workspace(tree, nstates) : workspace
 
     node_liks = ws.node_liks
     fill!(node_liks, 0.0)
@@ -172,16 +249,22 @@ function _corhmm_run_pruning_prevalidated(
     end
 
     evals, V, Vinv = _mk_eigen_cache(Qf)
-    edge_length = branch_lengths === nothing ? _corhmm_branch_lengths(tree) : Float64.(branch_lengths)
+    edge_length =
+        branch_lengths === nothing ?
+        _corhmm_branch_lengths(tree) :
+        branch_lengths isa Vector{Float64} ? branch_lengths : Float64.(branch_lengths)
     P = ws.P
     tmp = ws.tmp
     comp = ws.comp
+    exp_evals = ws.exp_evals
     fill!(comp, 1.0)
+
+    scale_loglik = 0.0
 
     foreach_postorder_internal(tree) do node
         @views fill!(node_liks[node, :], 1.0)
         foreach_child_edge(tree, node) do edge, child
-            _fill_transition_matrix!(P, edge_length[edge], evals, V, Vinv)
+            _fill_transition_matrix!(P, edge_length[edge], evals, V, Vinv, exp_evals)
             mul!(tmp, P, @view node_liks[child, :])
             @views node_liks[node, :] .*= tmp
         end
@@ -196,19 +279,19 @@ function _corhmm_run_pruning_prevalidated(
         c = sum(@view node_liks[node, :])
         c > 0.0 || return _CorHMMPruningRun(success = false, loglik = -Inf, nstates = nstates, nparams = nfree, root_prior = root_mode)
         comp[node] = c
+        scale_loglik += log(c)
         @views node_liks[node, :] ./= c
     end
 
     root = tree.root
     root_vec = ws.root_prior_probs
-    root_vec .= _corhmm_root_vector(root_prior, Qf, @view node_liks[root, :])
-    root_term = sum(root_vec .* @view node_liks[root, :])
+    _corhmm_root_vector!(root_vec, root_prior, Qf, @view(node_liks[root, :]), ws.stationary_A, ws.stationary_b)
+    root_term = 0.0
+    @inbounds for state in 1:nstates
+        root_term += root_vec[state] * node_liks[root, state]
+    end
     root_term > 0.0 || return _CorHMMPruningRun(success = false, loglik = -Inf, nstates = nstates, nparams = nfree, root_prior = root_mode)
 
-    scale_loglik = 0.0
-    foreach_postorder_internal(tree) do node
-        scale_loglik += log(comp[node])
-    end
     loglik = scale_loglik + log(root_term)
     if lewis_asc_bias
         correction = _corhmm_lewis_log_correction(
