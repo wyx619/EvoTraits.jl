@@ -163,16 +163,9 @@ function multistartserial(
     isempty(candidates) && throw(ArgumentError("at least one initial candidate is required"))
     rough_iterations = Int(max_iterations)
 
-    best = twostageresult(
-        objective,
-        candidates[1];
-        rough_iterations = rough_iterations,
-        polish_iterations = polish_iterations,
-        rel_tol = rel_tol,
-        lower_bounds = lower_bounds,
-    )
-    for i in 2:length(candidates)
-        current = twostageresult(
+    results = Vector{ContinuousCompositeOptResult}(undef, length(candidates))
+    for i in eachindex(candidates)
+        results[i] = twostageresult(
             objective,
             candidates[i];
             rough_iterations = rough_iterations,
@@ -180,9 +173,73 @@ function multistartserial(
             rel_tol = rel_tol,
             lower_bounds = lower_bounds,
         )
-        current.minimum < best.minimum && (best = current)
+    end
+    return _continuous_best_multistart_result(results)
+end
+
+function _continuous_best_multistart_result(results::Vector{ContinuousCompositeOptResult})
+    isempty(results) && throw(ArgumentError("at least one optimization result is required"))
+    best = results[1]
+    for i in 2:length(results)
+        candidate = results[i]
+        # Keep the earlier candidate on exact ties so task completion order
+        # cannot change the selected optimum.
+        candidate.minimum < best.minimum && (best = candidate)
     end
     return best
+end
+
+function multistartparallel(
+    objective,
+    candidates::Vector{Vector{Float64}};
+    max_iterations::Integer,
+    polish_iterations::Integer = 100,
+    rel_tol::Float64,
+    lower_bounds::Union{Nothing, AbstractVector{<:Real}} = nothing,
+)
+    isempty(candidates) && throw(ArgumentError("at least one initial candidate is required"))
+    workers = min(Threads.nthreads(), length(candidates))
+    workers <= 1 && return multistartserial(
+        objective,
+        candidates;
+        max_iterations = max_iterations,
+        polish_iterations = polish_iterations,
+        rel_tol = rel_tol,
+        lower_bounds = lower_bounds,
+    )
+
+    rough_iterations = Int(max_iterations)
+    results = Vector{ContinuousCompositeOptResult}(undef, length(candidates))
+    next_candidate = Threads.Atomic{Int}(1)
+
+    @sync for _ in 1:workers
+        Threads.@spawn begin
+            while true
+                candidate_index = Threads.atomic_add!(next_candidate, 1)
+                candidate_index > length(candidates) && break
+                results[candidate_index] = twostageresult(
+                    objective,
+                    candidates[candidate_index];
+                    rough_iterations = rough_iterations,
+                    polish_iterations = polish_iterations,
+                    rel_tol = rel_tol,
+                    lower_bounds = lower_bounds,
+                )
+            end
+        end
+    end
+
+    return _continuous_best_multistart_result(results)
+end
+
+function multistart(
+    objective,
+    candidates::Vector{Vector{Float64}};
+    kwargs...,
+)
+    return Threads.nthreads() > 1 ?
+           multistartparallel(objective, candidates; kwargs...) :
+           multistartserial(objective, candidates; kwargs...)
 end
 
 _continuous_result_minimizer(args...; kwargs...) = resultminimizer(args...; kwargs...)
@@ -193,3 +250,4 @@ _continuous_result_f_calls(args...; kwargs...) = resultfcalls(args...; kwargs...
 _continuous_optimize_objective(args...; kwargs...) = optimizeobjective(args...; kwargs...)
 _continuous_two_stage_result(args...; kwargs...) = twostageresult(args...; kwargs...)
 _continuous_two_stage_multistart_serial(args...; kwargs...) = multistartserial(args...; kwargs...)
+_continuous_two_stage_multistart(args...; kwargs...) = multistart(args...; kwargs...)

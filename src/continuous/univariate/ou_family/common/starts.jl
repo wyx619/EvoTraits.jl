@@ -192,7 +192,7 @@ function _ou_optimize_from_initial(
         )
     end
     candidates = _ou_multistart_candidates(spec, init, nregimes, tree, trait, cache)
-    return _continuous_two_stage_multistart_serial(
+    return _continuous_two_stage_multistart(
         objective,
         candidates;
         max_iterations = max_iterations,

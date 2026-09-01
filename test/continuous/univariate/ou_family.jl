@@ -280,6 +280,32 @@ end
     @test isfinite(fit.loglik)
 end
 
+@testset "Univariate OU multistart preserves the serial optimum" begin
+    objective = x -> (x[1] - 1.75)^2 + (x[2] + 0.25)^2
+    candidates = [
+        [-4.0, 3.0],
+        [2.0, 2.0],
+        [0.5, -1.0],
+        [4.0, -3.0],
+    ]
+    serial = EvoTraits._continuous_two_stage_multistart_serial(
+        objective,
+        candidates;
+        max_iterations = 20,
+        polish_iterations = 20,
+        rel_tol = 1e-8,
+    )
+    automatic = EvoTraits._continuous_two_stage_multistart(
+        objective,
+        candidates;
+        max_iterations = 20,
+        polish_iterations = 20,
+        rel_tol = 1e-8,
+    )
+    @test isapprox(EvoTraits._continuous_result_minimum(automatic), EvoTraits._continuous_result_minimum(serial); atol = 1e-10)
+    @test isapprox(EvoTraits._continuous_result_minimizer(automatic), EvoTraits._continuous_result_minimizer(serial); atol = 1e-8)
+end
+
 
 
 
