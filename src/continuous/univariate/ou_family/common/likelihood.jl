@@ -56,3 +56,67 @@ function _ou_loglikelihood(
         root = root,
     )
 end
+
+function _ou_prepare_context(
+    tree::CompactTree,
+    trait::AbstractVector{<:Real},
+    spec::OUSpec,
+    cache,
+)
+    tr = _validate_univariate_trait_allow_missing(tree, trait)
+    _validate_binary_tree(tree)
+    _validate_ultrametric_tree(tree)
+    tip_index = zeros(Int, tree.nnodes)
+    @inbounds for (i, node) in enumerate(tree.tip_ids)
+        tip_index[node] = i
+    end
+    return OULikelihoodContext(tree, tr, spec, cache, tip_index)
+end
+
+function _ou_context_loglikelihood(
+    context::OULikelihoodContext,
+    bundle::OUParameterBundle,
+    workspace::OULikelihoodWorkspace,
+)
+    tree = context.tree
+    edges = _build_ou_edges(
+        tree,
+        context.spec,
+        bundle;
+        cache = context.cache,
+        workspace = workspace,
+    )
+    root = _ou_root_prior(context.spec, bundle; cache = context.cache)
+    prof = _linear_gaussian_loglik(
+        tree,
+        context.trait,
+        edges.edge_a,
+        edges.edge_b,
+        edges.edge_v;
+        root_prior_mean = root.mean,
+        root_prior_var = root.var,
+        profile_root = root.profile_root,
+        workspace = workspace,
+        tip_index = context.tip_index,
+        validate = false,
+    )
+    return (
+        success = prof.success,
+        loglik = prof.loglik,
+        root_state = prof.root_state,
+        edges = edges,
+        root = root,
+    )
+end
+
+function _ou_context_objective(
+    context::OULikelihoodContext,
+    workspace::OULikelihoodWorkspace,
+)
+    nregimes = context.cache === nothing ? 1 : context.cache.nregimes
+    return function (par)
+        bundle = _ou_unpack_params(context.spec, par, nregimes)
+        prof = _ou_context_loglikelihood(context, bundle, workspace)
+        return prof.success ? -prof.loglik : Inf
+    end
+end

@@ -21,11 +21,13 @@ function _ou_fit(
     end
 
     init = _ou_initial_params(spec, nregimes; tree = tree, trait = tr)
+    context = _ou_prepare_context(tree, tr, spec, cache)
     objective = function (par)
         bundle = _ou_unpack_params(spec, par, nregimes)
         prof = _ou_loglikelihood(tree, tr, spec, bundle; cache = cache)
         return prof.success ? -prof.loglik : Inf
     end
+    objective_factory = _ -> _ou_context_objective(context, OULikelihoodWorkspace(tree))
     lower_bounds = vcat(
         fill(1e-8, spec.alpha_mode === :shared ? 1 : nregimes),
         fill(1e-8, spec.sigma_mode === :shared ? 1 : nregimes),
@@ -43,11 +45,12 @@ function _ou_fit(
         max_iterations = max_iterations,
         rel_tol = rel_tol,
         lower_bounds = lower_bounds,
+        objective_factory = objective_factory,
     )
 
     minimizer = _continuous_result_minimizer(result)
     bundle = _ou_unpack_params(spec, minimizer, nregimes)
-    prof = _ou_loglikelihood(tree, tr, spec, bundle; cache = cache)
+    prof = _ou_context_loglikelihood(context, bundle, OULikelihoodWorkspace(tree))
     return (bundle = bundle, profile = prof, result = result, nregimes = nregimes)
 end
 

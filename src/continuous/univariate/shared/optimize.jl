@@ -159,14 +159,16 @@ function multistartserial(
     polish_iterations::Integer = 100,
     rel_tol::Float64,
     lower_bounds::Union{Nothing, AbstractVector{<:Real}} = nothing,
+    objective_factory::Union{Nothing,Function} = nothing,
 )
     isempty(candidates) && throw(ArgumentError("at least one initial candidate is required"))
     rough_iterations = Int(max_iterations)
 
     results = Vector{ContinuousCompositeOptResult}(undef, length(candidates))
     for i in eachindex(candidates)
+        candidate_objective = objective_factory === nothing ? objective : objective_factory(candidates[i])
         results[i] = twostageresult(
-            objective,
+            candidate_objective,
             candidates[i];
             rough_iterations = rough_iterations,
             polish_iterations = polish_iterations,
@@ -196,6 +198,7 @@ function multistartparallel(
     polish_iterations::Integer = 100,
     rel_tol::Float64,
     lower_bounds::Union{Nothing, AbstractVector{<:Real}} = nothing,
+    objective_factory::Union{Nothing,Function} = nothing,
 )
     isempty(candidates) && throw(ArgumentError("at least one initial candidate is required"))
     workers = min(Threads.nthreads(), length(candidates))
@@ -206,6 +209,7 @@ function multistartparallel(
         polish_iterations = polish_iterations,
         rel_tol = rel_tol,
         lower_bounds = lower_bounds,
+        objective_factory = objective_factory,
     )
 
     rough_iterations = Int(max_iterations)
@@ -217,8 +221,9 @@ function multistartparallel(
             while true
                 candidate_index = Threads.atomic_add!(next_candidate, 1)
                 candidate_index > length(candidates) && break
+                candidate_objective = objective_factory === nothing ? objective : objective_factory(candidates[candidate_index])
                 results[candidate_index] = twostageresult(
-                    objective,
+                    candidate_objective,
                     candidates[candidate_index];
                     rough_iterations = rough_iterations,
                     polish_iterations = polish_iterations,

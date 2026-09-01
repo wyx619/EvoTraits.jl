@@ -7,26 +7,36 @@ function _linear_gaussian_loglik(
     root_prior_mean::Float64 = 0.0,
     root_prior_var::Float64 = Inf,
     profile_root::Bool = true,
+    workspace::Union{Nothing,OULikelihoodWorkspace} = nothing,
+    tip_index::Union{Nothing,Vector{Int}} = nothing,
+    validate::Bool = true,
 )
-    tr = _validate_univariate_trait_allow_missing(tree, trait)
-    _validate_binary_tree(tree)
-    length(edge_a) == tree.nedges || throw(ArgumentError("edge_a must have $(tree.nedges) entries"))
-    length(edge_b) == tree.nedges || throw(ArgumentError("edge_b must have $(tree.nedges) entries"))
-    length(edge_v) == tree.nedges || throw(ArgumentError("edge_v must have $(tree.nedges) entries"))
+    tr = validate ? _validate_univariate_trait_allow_missing(tree, trait) : trait
+    validate && _validate_binary_tree(tree)
+    validate && (length(edge_a) == tree.nedges || throw(ArgumentError("edge_a must have $(tree.nedges) entries")))
+    validate && (length(edge_b) == tree.nedges || throw(ArgumentError("edge_b must have $(tree.nedges) entries")))
+    validate && (length(edge_v) == tree.nedges || throw(ArgumentError("edge_v must have $(tree.nedges) entries")))
 
-    a = Float64.(edge_a)
-    b = Float64.(edge_b)
-    v = Float64.(edge_v)
-    any(x -> !isfinite(x) || x <= 0.0, a) && return (success = false, loglik = -Inf, root_state = NaN)
-    any(x -> !isfinite(x) || x < 0.0, v) && return (success = false, loglik = -Inf, root_state = NaN)
+    a = edge_a isa Vector{Float64} ? edge_a : Float64.(edge_a)
+    b = edge_b isa Vector{Float64} ? edge_b : Float64.(edge_b)
+    v = edge_v isa Vector{Float64} ? edge_v : Float64.(edge_v)
+    if validate
+        any(x -> !isfinite(x) || x <= 0.0, a) && return (success = false, loglik = -Inf, root_state = NaN)
+        any(x -> !isfinite(x) || x < 0.0, v) && return (success = false, loglik = -Inf, root_state = NaN)
+    end
 
-    precision = zeros(Float64, tree.nnodes)
-    linear = zeros(Float64, tree.nnodes)
-    logconst = zeros(Float64, tree.nnodes)
+    precision = workspace === nothing ? zeros(Float64, tree.nnodes) : workspace.precision
+    linear = workspace === nothing ? zeros(Float64, tree.nnodes) : workspace.linear
+    logconst = workspace === nothing ? zeros(Float64, tree.nnodes) : workspace.logconst
+    fill!(precision, 0.0)
+    fill!(linear, 0.0)
+    fill!(logconst, 0.0)
 
-    tip_index = zeros(Int, tree.nnodes)
-    for (i, node) in enumerate(tree.tip_ids)
-        tip_index[node] = i
+    if tip_index === nothing
+        tip_index = zeros(Int, tree.nnodes)
+        for (i, node) in enumerate(tree.tip_ids)
+            tip_index[node] = i
+        end
     end
 
     for node in tree.postorder_internal

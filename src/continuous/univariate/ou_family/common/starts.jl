@@ -180,6 +180,7 @@ function _ou_optimize_from_initial(
     max_iterations::Integer,
     rel_tol::Float64,
     lower_bounds::AbstractVector{<:Real},
+    objective_factory::Union{Nothing,Function} = nothing,
 )
     if spec.model === :OU1
         return _continuous_optimize_objective(
@@ -198,5 +199,6 @@ function _ou_optimize_from_initial(
         max_iterations = max_iterations,
         rel_tol = rel_tol,
         lower_bounds = lower_bounds,
+        objective_factory = objective_factory,
     )
 end

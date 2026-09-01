@@ -630,17 +630,25 @@ function _mvou_profile_theta_tree_pruning_profile(
         designs =
             ws === nothing ?
             _mvou_node_design_matrices(tree, bundle.A, precalc.edge_segments, precalc.nregimes, precalc.A_decomp) :
-            _mvou_node_design_matrices!(
-                ws.regime_designs,
-                ws.design_work,
-                ws.transition_work,
-                tree,
-                bundle.A,
-                precalc.edge_segments,
-                precalc.nregimes,
-                precalc.A_decomp,
-            )
-        _mvou_row_standardize_designs!(designs)
+            (same_shared_A && ws.shared_design_valid ?
+             ws.regime_designs :
+             _mvou_node_design_matrices!(
+                 ws.regime_designs,
+                 ws.design_work,
+                 ws.transition_work,
+                 tree,
+                 bundle.A,
+                 precalc.edge_segments,
+                 precalc.nregimes,
+                 precalc.A_decomp,
+             ))
+        if !(ws !== nothing && same_shared_A && ws.shared_design_valid)
+            _mvou_row_standardize_designs!(designs)
+        end
+        if ws !== nothing
+            _cache_shared_A!()
+            ws.shared_design_valid = true
+        end
         return _mvou_profile_theta_recursive(
             tree,
             data,

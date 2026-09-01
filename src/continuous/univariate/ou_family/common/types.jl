@@ -29,6 +29,45 @@ Base.@kwdef struct OUParameterBundle
     theta0::Union{Nothing, Float64} = nothing
 end
 
+struct OUMEdgeSegmentCache
+    nregimes::Int
+    root_regime::Int
+    edge_first_segment::Vector{Int32}
+    edge_last_segment::Vector{Int32}
+    segment_states::Vector{Int32}
+    segment_lengths::Vector{Float64}
+end
+
+"""Read-only inputs shared by all OUM-family starting points."""
+struct OULikelihoodContext
+    tree::CompactTree
+    trait::Vector{Float64}
+    spec::OUSpec
+    cache::Union{Nothing,OUMEdgeSegmentCache}
+    tip_index::Vector{Int}
+end
+
+"""Mutable arrays reused by one multistart candidate."""
+mutable struct OULikelihoodWorkspace
+    edge_a::Vector{Float64}
+    edge_b::Vector{Float64}
+    edge_v::Vector{Float64}
+    precision::Vector{Float64}
+    linear::Vector{Float64}
+    logconst::Vector{Float64}
+end
+
+function OULikelihoodWorkspace(tree::CompactTree)
+    return OULikelihoodWorkspace(
+        zeros(Float64, tree.nedges),
+        zeros(Float64, tree.nedges),
+        zeros(Float64, tree.nedges),
+        zeros(Float64, tree.nnodes),
+        zeros(Float64, tree.nnodes),
+        zeros(Float64, tree.nnodes),
+    )
+end
+
 @inline _ou_regime_value(mode::Symbol, values::Vector{Float64}, state::Integer) =
     mode === :shared ? values[1] : values[state]
 

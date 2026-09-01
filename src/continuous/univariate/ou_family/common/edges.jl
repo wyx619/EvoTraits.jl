@@ -1,12 +1,3 @@
-struct OUMEdgeSegmentCache
-    nregimes::Int
-    root_regime::Int
-    edge_first_segment::Vector{Int32}
-    edge_last_segment::Vector{Int32}
-    segment_states::Vector{Int32}
-    segment_lengths::Vector{Float64}
-end
-
 @inline function _allow_zero_internal_edge_mismatch(tree::CompactTree, edge::Integer, segsum::Float64; atol::Float64 = 1e-8)
     child = Int(tree.child_of_edge[edge])
     tree.is_tip[child] && return false
@@ -93,10 +84,55 @@ end
     return (a = a, b = b, v = v)
 end
 
-function _build_ou_edges(tree::CompactTree, spec::OUSpec, bundle::OUParameterBundle; cache = nothing)
-    edge_a = zeros(Float64, tree.nedges)
-    edge_b = zeros(Float64, tree.nedges)
-    edge_v = zeros(Float64, tree.nedges)
+function _build_ou_edges_oum!(
+    tree::CompactTree,
+    cache::OUMEdgeSegmentCache,
+    bundle::OUParameterBundle,
+    edge_a::Vector{Float64},
+    edge_b::Vector{Float64},
+    edge_v::Vector{Float64},
+)
+    alpha = bundle.alpha[1]
+    sigma2 = bundle.sigma2[1]
+    @inbounds for edge in 1:tree.nedges
+        total_length = tree.edge_length[edge]
+        a = exp(-alpha * total_length)
+        edge_a[edge] = a
+        edge_v[edge] = sigma2 * (1.0 - a * a) / (2.0 * alpha)
+
+        b = 0.0
+        first_seg = Int(cache.edge_first_segment[edge])
+        last_seg = Int(cache.edge_last_segment[edge])
+        for seg_idx in first_seg:last_seg
+            phi = exp(-alpha * cache.segment_lengths[seg_idx])
+            theta = bundle.theta[Int(cache.segment_states[seg_idx])]
+            b = phi * b + (1.0 - phi) * theta
+        end
+        edge_b[edge] = b
+    end
+    return (edge_a = edge_a, edge_b = edge_b, edge_v = edge_v)
+end
+
+function _build_ou_edges(
+    tree::CompactTree,
+    spec::OUSpec,
+    bundle::OUParameterBundle;
+    cache = nothing,
+    workspace::Union{Nothing,OULikelihoodWorkspace} = nothing,
+)
+    if workspace === nothing
+        edge_a = zeros(Float64, tree.nedges)
+        edge_b = zeros(Float64, tree.nedges)
+        edge_v = zeros(Float64, tree.nedges)
+    else
+        edge_a = workspace.edge_a
+        edge_b = workspace.edge_b
+        edge_v = workspace.edge_v
+    end
+
+    if cache !== nothing && spec.model === :OUM
+        return _build_ou_edges_oum!(tree, cache, bundle, edge_a, edge_b, edge_v)
+    end
 
     if cache === nothing
         spec.model === :OU1 || throw(ArgumentError("cache is required for $(spec.model)"))

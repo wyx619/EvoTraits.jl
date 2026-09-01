@@ -71,6 +71,8 @@ function _mvoumv_tree_pruning_profile(
         root_mean = zeros(Float64, p),
         root_cov = zeros(Float64, p, p),
         workspace = workspace,
+        edge_Qinv = branch.Qinv,
+        edge_logdet_Q = branch.logdet_Q,
     )
 end
 
@@ -116,6 +118,8 @@ function _mvoumv_tree_pruning_profile_root_regime(
         root_mean = zeros(Float64, p),
         root_cov = zeros(Float64, p, p),
         workspace = workspace,
+        edge_Qinv = branch.Qinv,
+        edge_logdet_Q = branch.logdet_Q,
     )
 end
 
@@ -155,6 +159,8 @@ function _mvouma_tree_pruning_profile(
         root_mean = zeros(Float64, p),
         root_cov = zeros(Float64, p, p),
         workspace = workspace,
+        edge_Qinv = branch.Qinv,
+        edge_logdet_Q = branch.logdet_Q,
     )
 end
 
@@ -192,6 +198,8 @@ function _mvouma_tree_pruning_profile_root_regime(
         root_mean = zeros(Float64, p),
         root_cov = zeros(Float64, p, p),
         workspace = workspace,
+        edge_Qinv = branch.Qinv,
+        edge_logdet_Q = branch.logdet_Q,
     )
 end
 
@@ -231,6 +239,8 @@ function _mvoumva_tree_pruning_profile(
         root_mean = zeros(Float64, p),
         root_cov = zeros(Float64, p, p),
         workspace = workspace,
+        edge_Qinv = branch.Qinv,
+        edge_logdet_Q = branch.logdet_Q,
     )
 end
 
@@ -268,5 +278,7 @@ function _mvoumva_tree_pruning_profile_root_regime(
         root_mean = zeros(Float64, p),
         root_cov = zeros(Float64, p, p),
         workspace = workspace,
+        edge_Qinv = branch.Qinv,
+        edge_logdet_Q = branch.logdet_Q,
     )
 end
