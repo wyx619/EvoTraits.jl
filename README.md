@@ -1,247 +1,237 @@
 # EvoTraits
 
-> Fit and Analyze Trait Evolution Models in Julia with High Efficiency
+> **Fit and Analysis Trait Evolution Models in Julia with High Efficiency**
 
-EvoTraits is a Julia-native framework for phylogenetic comparative analysis. It is built around one internal tree representation, one continuous/discrete workflow surface, and one structured result style, so model fitting, ancestral reconstruction, SIMMAP-aware analysis, and model comparison can stay inside the same engine instead of being spread across loosely connected scripts.
+EvoTraits is a Julia framework for phylogenetic comparative analysis. It brings tree I/O, discrete and continuous trait models, SIMMAP histories, ancestral-state reconstruction, and model comparison into one typed workflow.
+
+The project treats the phylogenetic tree as the computational backbone: data are aligned to tree tips, likelihoods are evaluated through tree-pruning kernels, and reconstruction results retain node, branch, and time coordinates for downstream analysis.
 
 ## Why EvoTraits
 
-Most comparative workflows are still fragmented:
+R has an exceptional comparative-methods ecosystem. EvoTraits is for users who need a complementary execution model:
 
-- one package for discrete models
-- another for continuous models
-- another for SIMMAP
-- another for ancestral reconstruction
-- custom code for data alignment and reporting
+- **Julia-native execution:** ordinary package use does not require R or an R bridge.
+- **One internal tree representation:** CompactTree stores topology, branch lengths, traversals, labels, and node distances in array-oriented form.
+- **Pruning-first likelihoods:** continuous and discrete calculations operate on tree structure; multivariate routines use trait-space matrix operators rather than an observation-sized dense VCV matrix.
+- **Structured results:** fit objects retain likelihood, AIC, convergence diagnostics, parameter estimates, trait names, regime names, and model metadata.
+- **A connected analysis path:** align data, fit models, compare AIC, sample histories, reconstruct nodes or branches, and export tables inside one engine.
+- **Validation-friendly output:** stable tree references and explicit time fields support comparisons with ape, corHMM, OUwie, mvMORPH, geiger, and castor.
 
-EvoTraits is designed to replace that fragmentation with a coherent Julia framework:
+EvoTraits is not an R wrapper. It preserves the statistical ideas users rely on while using Julia's type system, native execution, and composable workflows to make large analyses easier to control.
 
-- one core tree object: `CompactTree`
-- tree-aware computation paths where possible
-- structured fit and reconstruction result objects
-- unified handling of univariate and multivariate trait models
-- direct support for both continuous and discrete comparative workflows
+## Capabilities
 
-## What EvoTraits Covers
+### Continuous models
 
-### Continuous trait models
+Univariate:
 
-#### Univariate
+- Brownian motion: fit_bm1, fit_bmm
+- Early burst: fit_eb, fit_ebm
+- OU family: fit_ou1, fit_oum, fit_oumv, fit_ouma, fit_oumva
 
-- Brownian motion: `fit_bm1`, `fit_bmm`
-- Early burst / ACDC: `fit_eb`, `fit_ebm`
-- OU family: `fit_ou1`, `fit_oum`, `fit_oumv`, `fit_ouma`, `fit_oumva`
+Multivariate:
 
-#### Multivariate
+- Brownian motion: fit_mvbm1, fit_mvbmm
+- Early burst: fit_mveb
+- OU family: fit_mvou1, fit_mvoum, fit_mvoumv, fit_mvouma, fit_mvoumva
 
-- Brownian motion: `fit_mvbm1`, `fit_mvbmm`
-- Early burst: `fit_mveb`
-- OU family: `fit_mvou1`, `fit_mvoum`, `fit_mvoumv`, `fit_mvouma`, `fit_mvoumva`
+Regime-aware models accept SIMMAP edge segments. Model-specific optima, attraction matrices, and diffusion matrices are stored in dedicated result types.
 
-### Discrete trait models
+### Discrete models
 
-- Mk: `fit_mk`, `asr_mk`
-- corHMM-style hidden-rate models: `fit_corhmm`, `asr_corhmm`
+- Mk likelihood and reconstruction: fit_mk, asr_mk
+- corHMM-style observed and hidden-rate models: fit_corhmm, asr_corhmm
+- Rate-index and Q-matrix helpers: rateindex, rates_to_q, qfromindex
+- Missing and ambiguous tip states through tip-prior matrices
+- Root-prior modes including likelihood, flat, Yang, Maddison-FitzJohn, stationary, and explicit probabilities where supported
 
-### SIMMAP workflows
+### SIMMAP
 
-- sampling and simulation from fitted discrete models
-- read / write / summarize SIMMAP trees
-- SIMMAP-aware continuous model fitting and reconstruction
+- simmap_sample and simmap_samples for generic Mk/SIMMAP sampling
+- simmap_corhmm for corHMM fit results
+- read_simmap and write_simmap for file exchange
+- describe_simmap, summary_simmap, transition_times, and transition tables
+- drop_tip_simmap and keep_tip_simmap for tree and map restriction
 
-Main entry points include:
-
-- `simmap_corhmm`
-- `simmap_sample`
-- `simmap_samples`
-- `read_simmap`
-- `write_simmap`
-- `summary_simmap`
+A SimmapSample contains ordered per-edge segments and mapped regime durations. Segment lengths are checked against branch lengths before regime-aware continuous fitting.
 
 ### Ancestral reconstruction
 
-- node reconstruction: `estim_node`, `estim_node_table`
-- branch reconstruction: `estim_branch_for_simmap`, `estim_branch_table`
-- time-binned summaries: `summarize_node_estimates_by_time`
+- Continuous nodes: estim_node and estim_node_table
+- SIMMAP-aware continuous branches: estim_branch_for_simmap and estim_branch_table
+- Discrete marginal or joint reconstruction: asr_mk and asr_corhmm
+- Time-window summaries: summarize_node_estimates_by_time
 
-### Model-comparison workflows
+Node and branch results expose both time_from_root and time_before_present. This supports parent-child change analysis, temporal summaries, and joins between continuous reconstruction and discrete regimes.
 
-- univariate workflow: `fit_compare_estim`
-- multivariate workflow: `fit_compare_multivariate`
-- shared model-comparison helpers: `aic`, `aicc`, `aic_table`, `best_model`
+### Model comparison and simulation
 
-### Simulation and tree references
+- Information criteria: aic, aicc, aic_table, delta_aic, best_model
+- Full comparison workflows: fit_compare_estim and fit_compare_multivariate
+- Yule and birth-death tree simulation
+- Univariate and multivariate BM, EB, and OU-family trait simulation
+- Cross-language node and edge references through PhyloRef
 
-- tree simulation
-- continuous trait simulation
-- cross-language tree reference mapping via `PhyloRef`
+## Quick start
 
-## Design Direction
+### Load a tree and fit OU1
 
-EvoTraits is not a wrapper around R packages. It is a rebuild in Julia, informed by the statistical logic and practical expectations established in the reference ecosystem:
+For a general Newick parse, use read_tree and explicitly serialize the result. For large-tree workflows, load_tree is the direct high-throughput path and returns CompactTree immediately.
 
-- `ape`
-- `phytools`
-- `geiger`
-- `castor`
-- `OUwie`
-- `mvMORPH`
-- `Rphylopars`
-- `corHMM`
-
-The goal is not interface mimicry. The goal is a cleaner computational architecture with comparable methodological scope.
-
-## Quick Start
-
-### 1. Read a tree and fit a univariate OU model
-
-```julia
+~~~julia
 using EvoTraits
 using CSV, DataFrames
 
-tree = serialize_tree(read_tree("tree.nwk"))
+tree = load_tree("tree.nwk")
 traits = CSV.read("trait.csv", DataFrame)
+lnH = align_traits_to_tree(tree, traits; taxon_col = :taxon, trait_cols = [:lnH])
 
-fit = fit_ou1(tree, traits)
-asr = estim_node(tree, traits, fit)
-tbl = estim_node_table(tree, asr)
-```
+fit = fit_ou1(tree, lnH; trait_name = "lnH")
+asr = estim_node(tree, lnH, fit)
+node_table = estim_node_table(tree, asr)
+~~~
 
-### 2. Fit a multivariate OU model on a SIMMAP
+The explicit conversion path remains available:
 
-```julia
+~~~julia
+parsed = read_tree("tree.nwk")
+tree = serialize_tree(parsed)
+~~~
+
+### Fit a multivariate OU model on a SIMMAP
+
+~~~julia
 using EvoTraits
 using CSV, DataFrames
 
+tree = load_tree("tree.nwk")
 sim = read_simmap("mapped_tree.simmap")
 traits = CSV.read("traits.csv", DataFrame)
+X = align_traits_to_tree(tree, traits; taxon_col = :taxon, trait_cols = [:lnH, :lnVD])
 
-fit = fit_mvoum(sim.tree, traits, sim.simmap)
-asr = estim_node(sim.tree, traits, fit, sim.simmap)
-tbl = estim_node_table(sim.tree, asr, fit)
-```
+fit = fit_mvoum(tree, X, sim; trait_names = ["lnH", "lnVD"])
+asr = estim_node(tree, X, fit, sim)
+node_table = estim_node_table(tree, asr, fit; simmap = sim)
+~~~
 
-### 3. Fit a hidden-rate discrete model and sample SIMMAP histories
+For two traits and a full asymmetric attraction matrix:
 
-```julia
-fit = fit_corhmm(tree, states; model = :ARD, rate_cat = 2)
-asr = asr_corhmm(fit)
+~~~julia
+fit = fit_mvoumva(
+    tree,
+    X,
+    sim;
+    trait_names = ["lnH", "lnVD"],
+    A_decomp = :schur,
+)
+~~~
+
+The current Schur path targets the p = 2 asymmetric-A implementation. Cholesky remains the default for the symmetric positive-definite attraction parameterization.
+
+### Fit a discrete model and sample histories
+
+~~~julia
+states = ["A", "B", "?", "A"]  # ordered to match tree tips
+fit = fit_corhmm(tree; tip_states = states, model = :ARD)
+asr = asr_corhmm(fit; mode = :marginal)
 maps = simmap_corhmm(fit; nsim = 100)
-```
+~~~
 
-### 4. Run a model-comparison workflow
+For strict cross-language comparisons, provide state_order explicitly so Q-matrix rows, ASR columns, and SIMMAP labels have stable meanings.
 
-```julia
-res = fit_compare_estim(tree, y, [:BM1, :OU1, :EB])
-res.best_name
-res.aic_table
-```
+### Compare models
 
-## Data Conventions
+~~~julia
+workflow = fit_compare_estim(
+    tree,
+    lnH,
+    [:BM1, :OU1, :EB];
+    max_iterations = 400,
+)
 
-- primary tree object: `CompactTree`
-- tree tip order is the alignment backbone
-- `DataFrame` trait input is expected to use the first column for taxon labels
-- multivariate continuous input may contain partial missing values
-- SIMMAP segments must sum to branch length
+workflow.aic_table
+workflow.best_name
+workflow.asr
+~~~
 
-## Result Style
+The multivariate counterpart is fit_compare_multivariate. The workflow returns all fits, a ranked AIC table, the selected model name, the selected fit, and its reconstruction.
 
-EvoTraits favors structured result objects over ad hoc tuples. Typical fields include:
+## Tree and data conventions
 
-- `model`
-- `success`
-- `loglik`
-- `aic`
-- `nparams`
-- `converged`
-- `iterations`
-- `f_calls`
+- CompactTree is the internal representation used by likelihood, SIMMAP, and reconstruction kernels.
+- load_tree(path) parses one Newick tree directly into CompactTree and rejects multiple trees in one file.
+- read_tree(path) returns NewickTree.Node; serialize_tree converts it to CompactTree.
+- write_tree(path, tree) writes supported tree objects; to_newick and from_compact_tree provide conversion helpers.
+- DataFrame alignment uses tree tip labels as the backbone. Trait columns may contain missing values where supported.
+- Current continuous pruning models require bifurcating trees; OU paths validate ultrametricity where required.
+- SIMMAP segments must be ordered and sum to the corresponding branch length.
+- Pass state_order for reproducible state numbering.
 
-Model-specific parameters are stored directly in the fit result, for example:
+## Root treatment and numerical choices
 
-- `sigma2`
-- `alpha`
-- `beta`
-- `theta`
-- `A`
-- `Sigma`
-- `trait_names`
-- `regime_names`
+OU fit results record root metadata. Depending on the model, relevant keywords include root_mean_mode, root_cov_mode, and A_decomp.
 
-## Repository Layout
+- Root mean handling distinguishes regime-root optimum from stationary-design treatment.
+- Root covariance handling distinguishes fixed-root covariance from stationary root covariance.
+- Multivariate OU defaults to A_decomp = :cholesky; the current asymmetric Schur implementation supports two traits.
 
-```text
+These are statistical model choices, not merely implementation details. Keep them fixed when comparing models or validating against an R implementation.
+
+## Threading
+
+Start Julia with the desired number of threads, for example `julia -t 8 --project=.`. Continuous OU-family multi-start paths use Julia threads when available. Mk and corHMM expose fit-level `Ntrials` and `Nthreads` controls for trial parallelism. When combining Julia threads with threaded BLAS, set the BLAS thread count explicitly with `set_engine_blas_threads!(1)` to avoid oversubscription.
+
+## Results and interoperability
+
+Fit objects commonly expose:
+
+~~~text
+model, success, loglik, aic, nparams,
+converged, iterations, f_calls
+~~~
+
+Model-specific fields include theta, alpha, sigma2, A, Sigma, trait_names, regime_names, root_mean_mode, root_cov_mode, and A_decomp as applicable.
+
+PhyloRef and estim_node_table provide stable mappings between EvoTraits node IDs and R/ape-style node IDs, together with tip anchors and descendant-tip signatures.
+
+## Repository layout
+
+~~~text
 src/
-  continuous/   continuous models, workflows, reconstruction
-  discrete/     Mk, corHMM, SIMMAP
-  phyloref/     cross-language tree mapping
-  simulate/     tree and trait simulation
-  io.jl         tree structure and Newick I/O
-  criteria.jl   shared information criteria
-```
+  io.jl          CompactTree and Newick I/O
+  criteria.jl    shared information criteria
+  phyloref/      tree identity and cross-language mappings
+  discrete/      Mk, corHMM, and SIMMAP
+  continuous/   univariate, multivariate, reconstruction, and workflows
+  simulate/      tree and trait simulation
 
-```text
-test/           unit and regression tests
-validation/     empirical and alignment workflows
-reference/      reference implementations and study material
-docs/           notebooks and support documents
-```
+test/            unit and regression tests
+validation/      empirical validation projects
+reference/       local reference implementations and study material
+docs/            notebooks and project documentation
+~~~
 
 ## Installation
 
-From the repository root:
+From a local checkout:
 
-```julia
+~~~julia
 import Pkg
 Pkg.activate(".")
 Pkg.instantiate()
-```
-
-From another Julia environment:
-
-```julia
-import Pkg
-Pkg.add(url = "https://github.com/<your-org-or-user>/EvoTraits.jl")
-```
+~~~
 
 ## Testing
 
-Run the full test suite:
-
-```julia
+~~~julia
 import Pkg
 Pkg.test()
-```
+~~~
 
-Run focused subsets:
+Focused test files can be run directly with the project environment while developing a subsystem. Validation projects remain separate from the ordinary package test suite.
 
-```powershell
-julia --project=. test/run_subset.jl discrete/corHMM/corhmm
-julia --project=. test/run_subset.jl continuous/univariate/ou_family
-julia --project=. test/run_subset.jl continuous/multivariate/ou_family
-julia --project=. test/run_subset.jl workflows
-```
+## Status and citation
 
-## Current Position
+EvoTraits is research software under active development. Formal analyses should be checked with simulated data and, where relevant, an independent implementation such as corHMM, OUwie, or mvMORPH.
 
-EvoTraits is already usable for a substantial comparative-analysis surface:
-
-- discrete trait modeling
-- continuous trait model fitting
-- SIMMAP-aware workflows
-- ancestral reconstruction
-- multivariate OU-family analysis
-- model-comparison workflows
-
-It is still active research software, but it is no longer a loose collection of experiments. The current codebase is organized as a unified comparative framework with explicit testing and validation.
-
-## Requirements
-
-- Julia `1.10` to `1.12`
-- R is not required for ordinary package use
-- some validation workflows may rely on separate R environments
-
-## Citation
-
-If you use EvoTraits in research, cite both this repository and the underlying comparative-method literature relevant to your workflow.
+If you use EvoTraits in research, cite this repository together with the original methodological papers for the models used in your analysis.
