@@ -11,7 +11,8 @@
         rate_cat = 1,
         root_prior = :flat,
         state_order = ["red", "blue", "yellow"],
-        max_iterations = 40,
+        max_iterations = 1000,
+        rng = MersenneTwister(20260903),
     )
 
     @test fit.success
@@ -64,7 +65,8 @@ end
             rate_cat = 2,
             root_prior = :flat,
             state_order = ["s1", "s2", "s3"],
-            max_iterations = 30,
+            max_iterations = 5000,
+            rng = MersenneTwister(20260903),
         )
         @test fit.success
         @test fit.rate_cat == 2
@@ -85,7 +87,7 @@ end
     tree = serialize_tree(read_tree(tree_path))
     states = Dict("A" => "red", "B" => "red", "C" => "blue", "D" => "?")
 
-    fit = fit_corhmm(tree, states; model = :ER, rate_cat = 2, root_prior = :flat, node_states = :none, max_iterations = 40)
+    fit = fit_corhmm(tree, states; model = :ER, rate_cat = 2, root_prior = :flat, node_states = :none, max_iterations = 500, rng = MersenneTwister(20260903))
     @test fit.success
     @test fit.asr === nothing
 
@@ -118,7 +120,7 @@ end
     tree = serialize_tree(read_tree(tree_path))
     states = Dict("A" => "red", "B" => "red&blue", "C" => "blue", "D" => "?")
 
-    fit = fit_corhmm(tree, states; model = :ER, rate_cat = 2, root_prior = :flat, node_states = :none, max_iterations = 40)
+    fit = fit_corhmm(tree, states; model = :ER, rate_cat = 2, root_prior = :flat, node_states = :none, max_iterations = 500, rng = MersenneTwister(20260903))
     sims = simmap_corhmm(fit; nsim = 2, rng = MersenneTwister(123))
 
     @test sims.success
@@ -151,7 +153,8 @@ end
         rate_cat = 1,
         root_prior = :yang,
         node_states = :none,
-        max_iterations = 40,
+        max_iterations = 500,
+        rng = MersenneTwister(20260903),
     )
 
     @test fit.success
@@ -207,7 +210,7 @@ end
     tree = serialize_tree(read_tree(tree_path))
     states = Dict("A" => "red", "B" => "red", "C" => "blue", "D" => "blue")
 
-    cor = fit_corhmm(tree, states; model = :ER, rate_cat = 1, root_prior = :flat, node_states = :none, max_iterations = 40)
+    cor = fit_corhmm(tree, states; model = :ER, rate_cat = 1, root_prior = :flat, node_states = :none, max_iterations = 500, rng = MersenneTwister(20260903))
     mk_like = mk_loglikelihood(tree, cor.tip_priors_hidden, cor.transition_matrix; root_prior = :flat, nparams = cor.nparams)
 
     @test cor.success
@@ -253,9 +256,9 @@ end
     tree = serialize_tree(read_tree(tree_path))
     states = Dict("A" => "red", "B" => "red", "C" => "blue", "D" => "blue")
 
-    base = fit_corhmm(tree, states; model = :ER, root_prior = :flat, node_states = :none, max_iterations = 30)
-    fixed_fog = fit_corhmm(tree, states; model = :ER, root_prior = :flat, node_states = :none, tip_fog = 0.05, max_iterations = 30)
-    estimated_fog = fit_corhmm(tree, states; model = :ER, root_prior = :flat, node_states = :none, tip_fog = [1, 1], max_iterations = 30)
+    base = fit_corhmm(tree, states; model = :ER, root_prior = :flat, node_states = :none, max_iterations = 500, rng = MersenneTwister(20260903))
+    fixed_fog = fit_corhmm(tree, states; model = :ER, root_prior = :flat, node_states = :none, tip_fog = 0.05, max_iterations = 500, rng = MersenneTwister(20260903))
+    estimated_fog = fit_corhmm(tree, states; model = :ER, root_prior = :flat, node_states = :none, tip_fog = [1, 1], max_iterations = 500, rng = MersenneTwister(20260903))
 
     @test base.success
     @test fixed_fog.success
@@ -275,7 +278,8 @@ end
         root_prior = :flat,
         node_states = :marginal,
         fixed_nodes = Dict(Int(fixed_node) => fixed_label),
-        max_iterations = 30,
+        max_iterations = 500,
+        rng = MersenneTwister(20260903),
     )
     @test fixed.success
     @test fixed.diagnostics[:fixed_node_states][Int(fixed_node)] == 1
@@ -292,7 +296,8 @@ end
         root_prior = :flat,
         node_states = :marginal,
         fixed_nodes = Dict(Int(fixed_node) => fixed_label),
-        max_iterations = 30,
+        max_iterations = 500,
+        rng = MersenneTwister(20260903),
     )
     @test hidden_fixed.success
     row_hidden = findfirst(==(Int(fixed_node)), hidden_fixed.asr.node_ids)
@@ -329,7 +334,8 @@ end
         root_prior = :flat,
         node_states = :none,
         tip_fog = [1, 2, 1, 2],
-        max_iterations = 20,
+        max_iterations = 500,
+        rng = MersenneTwister(20260903),
     )
     @test hidden_fog.success
     @test hidden_fog.diagnostics[:multi_character]
@@ -347,7 +353,8 @@ end
         root_prior = :flat,
         node_states = :marginal,
         fixed_nodes = Dict(Int(fixed_node) => "herb_scalariform"),
-        max_iterations = 20,
+        max_iterations = 500,
+        rng = MersenneTwister(20260903),
     )
     @test fixed.success
     @test fixed.diagnostics[:multi_character]
