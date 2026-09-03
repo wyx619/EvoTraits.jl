@@ -147,14 +147,18 @@ function _linear_gaussian_posterior_cache(
 
     desc_mean = zeros(Float64, tree.nnodes)
     desc_var = fill(Inf, tree.nnodes)
+    desc_precision = zeros(Float64, tree.nnodes)
+    desc_linear = zeros(Float64, tree.nnodes)
     outside_mean = zeros(Float64, tree.nnodes)
     outside_var = fill(Inf, tree.nnodes)
     full_mean = zeros(Float64, tree.nnodes)
     full_var = fill(Inf, tree.nnodes)
     edge_context_mean = zeros(Float64, tree.nedges)
     edge_context_var = fill(Inf, tree.nedges)
+    tip_index = zeros(Int, tree.nnodes)
 
     for (i, node) in enumerate(tree.tip_ids)
+        tip_index[node] = i
         if isnan(tr[i])
             desc_mean[node] = 0.0
             desc_var[node] = Inf
@@ -170,12 +174,31 @@ function _linear_gaussian_posterior_cache(
         edge1 = tree.first_child_edge[node]
         edge2 = tree.last_child_edge[node]
 
-        msg1 = _edge_message_to_parent(desc_mean[child1], desc_var[child1], a[edge1], b[edge1], v[edge1])
-        msg2 = _edge_message_to_parent(desc_mean[child2], desc_var[child2], a[edge2], b[edge2], v[edge2])
-        combined = _gaussian_product(msg1.mean, msg1.var, msg2.mean, msg2.var)
-        isfinite(combined.mean) || return (success = false,)
-        desc_mean[node] = combined.mean
-        desc_var[node] = combined.var
+        msg1 = tree.is_tip[child1] ?
+            _scalar_observation_info_to_parent(tr[tip_index[child1]], a[edge1], b[edge1], v[edge1]) :
+            _edge_information_to_parent(
+                desc_precision[child1],
+                desc_linear[child1],
+                a[edge1],
+                b[edge1],
+                v[edge1],
+            )
+        msg2 = tree.is_tip[child2] ?
+            _scalar_observation_info_to_parent(tr[tip_index[child2]], a[edge2], b[edge2], v[edge2]) :
+            _edge_information_to_parent(
+                desc_precision[child2],
+                desc_linear[child2],
+                a[edge2],
+                b[edge2],
+                v[edge2],
+            )
+        msg1.success && msg2.success || return (success = false,)
+        desc_precision[node] = msg1.precision + msg2.precision
+        desc_linear[node] = msg1.linear + msg2.linear
+        desc = _information_to_gaussian(desc_precision[node], desc_linear[node])
+        isfinite(desc.mean) || return (success = false,)
+        desc_mean[node] = desc.mean
+        desc_var[node] = desc.var
     end
 
     root = Int(tree.root)
@@ -199,11 +222,30 @@ function _linear_gaussian_posterior_cache(
         edge1 = tree.first_child_edge[node]
         edge2 = tree.last_child_edge[node]
 
-        msg1 = _edge_message_to_parent(desc_mean[child1], desc_var[child1], a[edge1], b[edge1], v[edge1])
-        msg2 = _edge_message_to_parent(desc_mean[child2], desc_var[child2], a[edge2], b[edge2], v[edge2])
+        msg1 = tree.is_tip[child1] ?
+            _scalar_observation_info_to_parent(tr[tip_index[child1]], a[edge1], b[edge1], v[edge1]) :
+            _edge_information_to_parent(
+                desc_precision[child1],
+                desc_linear[child1],
+                a[edge1],
+                b[edge1],
+                v[edge1],
+            )
+        msg2 = tree.is_tip[child2] ?
+            _scalar_observation_info_to_parent(tr[tip_index[child2]], a[edge2], b[edge2], v[edge2]) :
+            _edge_information_to_parent(
+                desc_precision[child2],
+                desc_linear[child2],
+                a[edge2],
+                b[edge2],
+                v[edge2],
+            )
+        msg1.success && msg2.success || return (success = false,)
 
-        parent_for_child1 = _gaussian_product(outside_mean[node], outside_var[node], msg2.mean, msg2.var)
-        parent_for_child2 = _gaussian_product(outside_mean[node], outside_var[node], msg1.mean, msg1.var)
+        msg1_gaussian = _information_to_gaussian(msg1.precision, msg1.linear)
+        msg2_gaussian = _information_to_gaussian(msg2.precision, msg2.linear)
+        parent_for_child1 = _gaussian_product(outside_mean[node], outside_var[node], msg2_gaussian.mean, msg2_gaussian.var)
+        parent_for_child2 = _gaussian_product(outside_mean[node], outside_var[node], msg1_gaussian.mean, msg1_gaussian.var)
         edge_context_mean[edge1] = parent_for_child1.mean
         edge_context_var[edge1] = parent_for_child1.var
         edge_context_mean[edge2] = parent_for_child2.mean
@@ -222,6 +264,8 @@ function _linear_gaussian_posterior_cache(
         success = true,
         desc_mean = desc_mean,
         desc_var = desc_var,
+        desc_precision = desc_precision,
+        desc_linear = desc_linear,
         outside_mean = outside_mean,
         outside_var = outside_var,
         full_mean = full_mean,
@@ -231,5 +275,27 @@ function _linear_gaussian_posterior_cache(
         edge_a = a,
         edge_b = b,
         edge_v = v,
+    )
+end
+
+@inline function _descendant_message(
+    post,
+    trait::AbstractVector{<:Real},
+    tip_index::Vector{Int},
+    tree::CompactTree,
+    child::Int,
+    a::Float64,
+    b::Float64,
+    v::Float64,
+)
+    if tree.is_tip[child]
+        return _scalar_observation_info_to_parent(trait[tip_index[child]], a, b, v)
+    end
+    return _edge_information_to_parent(
+        post.desc_precision[child],
+        post.desc_linear[child],
+        a,
+        b,
+        v,
     )
 end

@@ -57,7 +57,13 @@ function estim_branch_for_simmap(
         child = Int(tree.child_of_edge[edge])
         segments = edge_segments[edge]
         start_node_mean = node_means[parent]
-        kernel_cache = _mvou_edge_kernel_cache(fit.model, bundle, segments, p)
+        kernel_cache = _mvou_edge_kernel_cache(
+            fit.model,
+            bundle,
+            segments,
+            p;
+            A_decomp = fit.A_decomp,
+        )
         mean_prefix = _mvou_edge_mean_prefix_cache(fit.model, start_node_mean, bundle, segments)
         cum = 0.0
         for seg_idx in eachindex(segments)
@@ -81,6 +87,7 @@ function estim_branch_for_simmap(
                             bundle,
                             SimmapSegment(state = seg.state, length = split_len),
                             p,
+                            A_decomp = fit.A_decomp,
                         ),
                     )
                 suffix_kernel =
@@ -92,6 +99,7 @@ function estim_branch_for_simmap(
                             bundle,
                             SimmapSegment(state = seg.state, length = remain_len),
                             p,
+                            A_decomp = fit.A_decomp,
                         ),
                         kernel_cache.suffix[seg_idx + 1],
                     )

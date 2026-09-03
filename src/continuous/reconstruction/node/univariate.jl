@@ -12,7 +12,11 @@ function estim_node(
         edge_v = fit.sigma2 .* tree.edge_length
         return _linear_gaussian_asr(tree, trait, edge_a, edge_b, edge_v; model = :BM1)
     elseif fit.model === :OU1
-        spec = ou_spec(:OU1)
+        spec = ou_spec(
+            :OU1;
+            root_mean_mode = fit.root_mean_mode,
+            root_cov_mode = fit.root_cov_mode,
+        )
         _validate_ultrametric_tree(tree)
         bundle = OUParameterBundle(theta = [fit.theta], alpha = [fit.alpha], sigma2 = [fit.sigma2])
         edges = _build_ou_edges(tree, spec, bundle)
@@ -65,7 +69,11 @@ function estim_node(
         edge_v = _ebm_edge_variances(tree, edge_segments, fit.sigma2, fit.beta_regimes)
         return _linear_gaussian_asr(tree, trait, edge_a, edge_b, edge_v; model = :EBM)
     elseif fit.model === :OUM || fit.model === :OUMV || fit.model === :OUMA || fit.model === :OUMVA
-        spec = ou_spec(fit.model)
+        spec = ou_spec(
+            fit.model;
+            root_mean_mode = fit.root_mean_mode,
+            root_cov_mode = fit.root_cov_mode,
+        )
         edge_segments === nothing && throw(ArgumentError("$(fit.model) ancestral reconstruction requires edge_segments"))
         _validate_ultrametric_tree(tree)
         cache = _prepare_oum_edge_cache(tree, edge_segments)
@@ -73,6 +81,38 @@ function estim_node(
         bundle = OUParameterBundle(theta = fit.theta_regimes, alpha = alpha_values, sigma2 = fit.sigma2)
         edges = _build_ou_edges(tree, spec, bundle; cache = cache)
         root = _ou_root_prior(spec, bundle; cache = cache)
+        node_means =
+            fit.root_mean_mode === :stationary_design ?
+            _ou_stationary_design_node_means(tree, spec, bundle, cache) :
+            zeros(Float64, tree.nnodes)
+        if fit.root_mean_mode === :stationary_design
+            centered = copy(_validate_univariate_trait_allow_missing(tree, trait))
+            for (i, tip) in enumerate(tree.tip_ids)
+                centered[i] -= node_means[Int(tip)]
+            end
+            fill!(edges.edge_b, 0.0)
+            primary = _linear_gaussian_asr(
+                tree,
+                centered,
+                edges.edge_a,
+                edges.edge_b,
+                edges.edge_v;
+                root_prior_mean = root.mean,
+                root_prior_var = root.var,
+                model = fit.model,
+            )
+            primary.success || return primary
+            for node in 1:tree.nnodes
+                primary.all_node_estimates[node] += node_means[node]
+            end
+            for (i, node) in enumerate(primary.node_ids)
+                primary.estimates[i] += node_means[Int(node)]
+            end
+            for (i, tip) in enumerate(primary.tip_ids)
+                primary.tip_estimates[i] += node_means[Int(tip)]
+            end
+            return primary
+        end
         primary = _linear_gaussian_asr(
             tree,
             trait,

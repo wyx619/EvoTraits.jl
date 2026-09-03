@@ -280,6 +280,58 @@ end
     @test isfinite(fit.loglik)
 end
 
+@testset "OU1 stationary random root" begin
+    tree_path = joinpath(mktempdir(), "toy_ou_stationary_root.tre")
+    write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
+    tree = serialize_tree(read_tree(tree_path))
+    trait = [1.0, 1.1, 2.0, 2.1]
+
+    fixed = ou1_loglikelihood(tree, trait, 0.5, 0.3, 1.5)
+    random = ou1_loglikelihood(tree, trait, 0.5, 0.3, 1.5; root_cov_mode = :stationary)
+    @test fixed.success
+    @test random.success
+    @test random.root_cov_mode == :stationary
+    @test isfinite(random.loglik)
+
+    fit = fit_ou1(tree, trait; max_iterations = 20, root_cov_mode = :stationary)
+    @test fit.success
+    @test fit.root_cov_mode == :stationary
+    @test isfinite(fit.theta)
+    @test isfinite(fit.root_state)
+    @test estim_node(tree, trait, fit).success
+end
+
+@testset "OUM stationary design is used consistently by node and branch ASR" begin
+    tree_path = joinpath(mktempdir(), "toy_oum_stationary_design.tre")
+    write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
+    tree = serialize_tree(read_tree(tree_path))
+    trait = [1.0, 1.1, 2.0, 2.1]
+    edge_segments = [
+        [SimmapSegment(state = 1, length = 1.0)],
+        [SimmapSegment(state = 1, length = 1.0)],
+        [SimmapSegment(state = 2, length = 1.0)],
+        [SimmapSegment(state = 2, length = 1.0)],
+        [SimmapSegment(state = 1, length = 1.0)],
+        [SimmapSegment(state = 2, length = 1.0)],
+    ]
+    fit = fit_oum(
+        tree,
+        trait,
+        edge_segments;
+        max_iterations = 20,
+        root_mean_mode = :stationary_design,
+    )
+    @test fit.success
+    @test fit.root_mean_mode == :stationary_design
+    node = estim_node(tree, trait, fit; edge_segments = edge_segments)
+    branch = estim_branch_for_simmap(tree, trait, fit; edge_segments = edge_segments)
+    @test node.success
+    @test branch.success
+    @test all(isfinite, node.estimates)
+    @test all(isfinite, branch.start_estimates)
+    @test all(isfinite, branch.end_estimates)
+end
+
 @testset "Univariate OU multistart preserves the serial optimum" begin
     objective = x -> (x[1] - 1.75)^2 + (x[2] + 0.25)^2
     candidates = [

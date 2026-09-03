@@ -10,7 +10,12 @@ function _mvoum_family_tree_pruning_asr(
         throw(ArgumentError("OUM-family ASR supports mvOUM, mvOUMV, mvOUMA, and mvOUMVA"))
     p = fit.ntraits
     bundle = _mvou_asr_bundle(fit)
-    precalc = _mvou_precalc(tree, mvou_spec(fit.model); edge_segments = edge_segments)
+    spec = _mvou_spec_with_root(
+        fit.model;
+        root_mean_mode = fit.root_mean_mode,
+        root_cov_mode = fit.root_cov_mode,
+    )
+    precalc = _mvou_precalc(tree, spec; edge_segments = edge_segments)
     node_means = _mvou_asr_node_means(tree, fit, bundle, edge_segments, precalc.root_regime)
 
     centered = copy(data)
@@ -25,7 +30,7 @@ function _mvoum_family_tree_pruning_asr(
         branch.Phi,
         branch.Q;
         root_mean = zeros(Float64, p),
-        root_cov = zeros(Float64, p, p),
+        root_cov = _mvou_root_covariance(precalc, bundle),
         shift = zeros(Float64, p),
         model = fit.model,
     )

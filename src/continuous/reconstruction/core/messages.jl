@@ -18,11 +18,33 @@
     return (mean = mean, var = var)
 end
 
+@inline function _information_to_gaussian(precision::Float64, linear::Float64)
+    precision >= 0.0 || return (mean = NaN, var = NaN)
+    precision == 0.0 && return (mean = 0.0, var = Inf)
+    mean = linear / precision
+    isfinite(mean) || return (mean = NaN, var = NaN)
+    return (mean = mean, var = 1.0 / precision)
+end
+
+@inline function _edge_information_to_parent(
+    child_precision::Float64,
+    child_linear::Float64,
+    a::Float64,
+    b::Float64,
+    v::Float64,
+)
+    (a > 0.0 && isfinite(v) && v >= 0.0 && child_precision >= 0.0) ||
+        return (success = false, precision = 0.0, linear = 0.0)
+    denominator = muladd(v, child_precision, 1.0)
+    isfinite(denominator) && denominator > 0.0 ||
+        return (success = false, precision = 0.0, linear = 0.0)
+    precision = (a * a) * child_precision / denominator
+    linear = a * (child_linear - b * child_precision) / denominator
+    return (success = true, precision = precision, linear = linear)
+end
+
 @inline function _edge_message_to_parent(child_mean::Float64, child_var::Float64, a::Float64, b::Float64, v::Float64)
     (a > 0.0 && isfinite(v) && v >= 0.0) || return (mean = NaN, var = NaN)
-    if a < 1.0e-150
-        return (mean = 0.0, var = Inf)
-    end
     total_var = child_var + v
     parent_var = total_var / (a * a)
     isfinite(parent_var) || return (mean = 0.0, var = Inf)

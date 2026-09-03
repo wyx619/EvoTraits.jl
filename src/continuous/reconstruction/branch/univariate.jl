@@ -104,17 +104,36 @@ function estim_branch_for_simmap(
     fit.model in (:EBM, :OUM, :OUMV, :OUMA, :OUMVA) ||
         throw(ArgumentError("estim_branch_for_simmap currently supports EBM, OUM, OUMV, OUMA, and OUMVA"))
     _validate_ultrametric_tree(tree)
+    tr = _validate_univariate_trait_allow_missing(tree, trait)
+    tip_index = zeros(Int, tree.nnodes)
+    for (i, node) in enumerate(tree.tip_ids)
+        tip_index[node] = i
+    end
     cache = _prepare_oum_edge_cache(tree, edge_segments)
+    stationary_design = fit.root_mean_mode === :stationary_design
+    stationary_node_means = stationary_design ? _ou_stationary_design_node_means(tree, ou_spec(fit.model), OUParameterBundle(theta = fit.theta_regimes, alpha = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes, sigma2 = fit.sigma2), cache) : nothing
+    stationary_node_weights = stationary_design ? _ou_stationary_design_node_weights(tree, ou_spec(fit.model), OUParameterBundle(theta = fit.theta_regimes, alpha = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes, sigma2 = fit.sigma2), cache) : nothing
     post =
         if fit.model in (:OUM, :OUMV, :OUMA, :OUMVA)
-            spec = ou_spec(fit.model)
+            spec = ou_spec(
+                fit.model;
+                root_mean_mode = fit.root_mean_mode,
+                root_cov_mode = fit.root_cov_mode,
+            )
             alpha_values = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes
             bundle = OUParameterBundle(theta = fit.theta_regimes, alpha = alpha_values, sigma2 = fit.sigma2)
             edges = _build_ou_edges(tree, spec, bundle; cache = cache)
             root = _ou_root_prior(spec, bundle; cache = cache)
+            post_trait = stationary_design ? copy(tr) : tr
+            if stationary_design
+                for (i, tip) in enumerate(tree.tip_ids)
+                    post_trait[i] -= stationary_node_means[Int(tip)]
+                end
+                fill!(edges.edge_b, 0.0)
+            end
             _linear_gaussian_posterior_cache(
                 tree,
-                trait,
+                post_trait,
                 edges.edge_a,
                 edges.edge_b,
                 edges.edge_v;
@@ -165,19 +184,29 @@ function estim_branch_for_simmap(
                 prefix, suffix = _split_segment_point_segments(segments, seg_idx, frac)
                 prefix_aff =
                     if fit.model in (:OUM, :OUMV, :OUMA, :OUMVA)
-                        spec = ou_spec(fit.model)
+                        spec = ou_spec(
+                            fit.model;
+                            root_mean_mode = fit.root_mean_mode,
+                            root_cov_mode = fit.root_cov_mode,
+                        )
                         alpha_values = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes
                         bundle = OUParameterBundle(theta = fit.theta_regimes, alpha = alpha_values, sigma2 = fit.sigma2)
-                        _ou_segments_affine(spec, bundle, prefix)
+                        affine = _ou_segments_affine(spec, bundle, prefix)
+                        stationary_design ? (a = affine.a, b = 0.0, v = affine.v) : affine
                     elseif fit.model === :EBM
                         _bm_regime_segments_affine(tree, edge, prefix, fit, :eb)
                     end
                 suffix_aff =
                     if fit.model in (:OUM, :OUMV, :OUMA, :OUMVA)
-                        spec = ou_spec(fit.model)
+                        spec = ou_spec(
+                            fit.model;
+                            root_mean_mode = fit.root_mean_mode,
+                            root_cov_mode = fit.root_cov_mode,
+                        )
                         alpha_values = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes
                         bundle = OUParameterBundle(theta = fit.theta_regimes, alpha = alpha_values, sigma2 = fit.sigma2)
-                        _ou_segments_affine(spec, bundle, suffix)
+                        affine = _ou_segments_affine(spec, bundle, suffix)
+                        stationary_design ? (a = affine.a, b = 0.0, v = affine.v) : affine
                     elseif fit.model === :EBM
                         _bm_regime_segments_affine(tree, edge, suffix, fit, :eb)
                     end
@@ -193,14 +222,33 @@ function estim_branch_for_simmap(
                     prefix_aff.b,
                     prefix_aff.v,
                 )
-                backward = _edge_message_to_parent(
-                    post.desc_mean[child],
-                    post.desc_var[child],
+                backward_info = _descendant_message(
+                    post,
+                    tr,
+                    tip_index,
+                    tree,
+                    child,
                     suffix_aff.a,
                     suffix_aff.b,
                     suffix_aff.v,
                 )
-                return _gaussian_product(forward.mean, forward.var, backward.mean, backward.var)
+                backward_info.success || return (mean = NaN, var = NaN)
+                backward = _information_to_gaussian(backward_info.precision, backward_info.linear)
+                point = _gaussian_product(forward.mean, forward.var, backward.mean, backward.var)
+                if stationary_design
+                    parent_weights = stationary_node_weights[parent]
+                    point_mean = _ou_stationary_design_edge_mean(
+                        parent_weights,
+                        spec,
+                        bundle,
+                        cache,
+                        edge,
+                        seg_idx,
+                        frac,
+                    )
+                    point = (mean = point.mean + point_mean, var = point.var)
+                end
+                return point
             end
 
             start_post = _segment_point_posterior(0.0)

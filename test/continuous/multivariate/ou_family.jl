@@ -164,6 +164,83 @@ end
     @test mv.root_cov_mode == :fixed
 end
 
+@testset "mvOU root treatments propagate to reconstruction" begin
+    tree = serialize_tree(simulate_yule_simtree(12; tree_height = 1.0, rng = MersenneTwister(991)))
+    edge_segments = _test_edge_segments(tree, 2)
+    A = [0.9 0.1; 0.1 1.1]
+    Sigma = [0.6 0.15; 0.15 0.5]
+    theta = [0.2 -0.1; 0.8 0.4]
+    traits = simulate_mvoum(tree, edge_segments, A, Sigma, eachrow(theta) |> collect; rng = MersenneTwister(992))
+
+    fixed = mvoum_loglikelihood(
+        tree,
+        traits,
+        edge_segments,
+        A,
+        Sigma,
+        theta;
+        root_mean_mode = :root_regime_theta,
+    )
+    random = mvoum_loglikelihood(
+        tree,
+        traits,
+        edge_segments,
+        A,
+        Sigma,
+        theta;
+        root_mean_mode = :root_regime_theta,
+        root_cov_mode = :stationary,
+    )
+    @test fixed.success
+    @test random.success
+    @test fixed.root_mean_mode == :root_regime_theta
+    @test random.root_cov_mode == :stationary
+    @test isfinite(random.loglik)
+
+    fit = fit_mvoum(
+        tree,
+        traits,
+        edge_segments;
+        max_iterations = 20,
+        root_mean_mode = :root_regime_theta,
+        root_cov_mode = :stationary,
+    )
+    @test fit.success
+    @test fit.root_mean_mode == :root_regime_theta
+    @test fit.root_cov_mode == :stationary
+    asr = estim_node(tree, traits, fit; edge_segments = edge_segments)
+    @test asr.success
+    @test all(isfinite, asr.estimates)
+end
+
+@testset "multivariate stationary root covariance satisfies Lyapunov equation" begin
+    A = [1.1 0.35; -0.15 0.9]
+    Sigma = [0.8 0.12; 0.12 0.6]
+    stationary = EvoTraits._mvou_stationary_covariance(A, Sigma, :schur)
+    @test isapprox(A * stationary + stationary * A', Sigma; atol = 1e-8, rtol = 1e-8)
+    @test isapprox(stationary, stationary'; atol = 1e-12)
+end
+
+@testset "stationary root covariance changes multivariate root ASR variance" begin
+    tree = serialize_tree(simulate_yule_simtree(10; tree_height = 1.0, rng = MersenneTwister(993)))
+    traits = hcat(
+        collect(range(-0.7, 0.8; length = tree.ntips)),
+        collect(range(0.4, 1.7; length = tree.ntips)),
+    )
+    A = [0.9 0.14; 0.14 1.2]
+    Sigma = [0.7 0.16; 0.16 0.5]
+    theta = [0.15, 0.75]
+    fixed = mvou1_loglikelihood(tree, traits, A, Sigma, theta; root_cov_mode = :fixed)
+    stationary = mvou1_loglikelihood(tree, traits, A, Sigma, theta; root_cov_mode = :stationary)
+    @test fixed.success
+    @test stationary.success
+    fixed_asr = estim_node(tree, traits, fixed)
+    stationary_asr = estim_node(tree, traits, stationary)
+    root = Int(tree.root)
+    @test maximum(abs, fixed_asr.all_node_covariances[root, :, :]) <= 1e-12
+    @test maximum(abs, stationary_asr.all_node_covariances[root, :, :]) > 1e-8
+end
+
 @testset "mvOUM fitting and ancestral reconstruction" begin
     tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(422)))
 

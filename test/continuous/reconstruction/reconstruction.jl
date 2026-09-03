@@ -597,6 +597,32 @@ asr = estim_node(big_tree, trait, fit; edge_segments = simmap.edge_segments)
     @test all(isfinite, asr.estimates)
 end
 
+@testset "Extreme OU edge information is retained" begin
+    tree_path = joinpath(mktempdir(), "toy_extreme_edge_tree.tre")
+    write(tree_path, "((A:1,B:1):1,(C:1,D:1):1);")
+    tree = serialize_tree(read_tree(tree_path))
+    trait = [1.0, 3.0, 10.0, 12.0]
+    edge_a = ones(Float64, tree.nedges)
+    edge_b = zeros(Float64, tree.nedges)
+    edge_v = ones(Float64, tree.nedges)
+    for edge in eachindex(edge_a)
+        if tree.parent_of_edge[edge] == tree.root
+            edge_a[edge] = 1.0e-151
+        end
+    end
+
+    cache = EvoTraits._linear_gaussian_posterior_cache(tree, trait, edge_a, edge_b, edge_v)
+    root = Int(tree.root)
+    @test cache.success
+    @test cache.desc_precision[root] > 0.0
+    @test isfinite(cache.desc_mean[root])
+
+    message = EvoTraits._edge_information_to_parent(2.0, 6.0, 1.0e-151, 1.0, 0.5)
+    @test message.success
+    @test message.precision > 0.0
+    @test isapprox(message.linear / message.precision, 2.0e151; rtol = 1e-14)
+end
+
 
 
 

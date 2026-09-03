@@ -33,7 +33,7 @@ function _mvou1_tree_pruning_profile(
         branch.Phi,
         branch.Q;
         root_mean = zeros(Float64, p),
-        root_cov = zeros(Float64, p, p),
+        root_cov = _mvou_root_covariance(precalc, bundle),
         workspace = workspace,
         edge_Qinv = branch.Qinv,
         edge_logdet_Q = branch.logdet_Q,
@@ -52,15 +52,28 @@ function _mvou1_tree_pruning_asr(
     size(data, 2) == p || throw(ArgumentError("Trait dimension does not match fit"))
 
     centered = data .- repeat(fit.theta, tree.ntips, 1)
-    precalc = _mvou_precalc(tree, mvou_spec(:mvOU1))
-    branch = _mvou_branch_cache(precalc, fit.A[:, :, 1], fit.Sigma[:, :, 1])
+    precalc = _mvou_precalc(
+        tree,
+        _mvou_spec_with_root(
+            :mvOU1;
+            A_decomp = fit.A_decomp,
+            root_mean_mode = fit.root_mean_mode,
+            root_cov_mode = fit.root_cov_mode,
+        ),
+    )
+    bundle = MVOUParameterBundle(
+        theta = vec(fit.theta),
+        A = fit.A[:, :, 1],
+        Sigma = fit.Sigma[:, :, 1],
+    )
+    branch = _mvou_branch_cache(precalc, bundle.A, bundle.Sigma)
     return _mv_recursive_asr(
         tree,
         centered,
         branch.Phi,
         branch.Q;
         root_mean = zeros(Float64, p),
-        root_cov = zeros(Float64, p, p),
+        root_cov = _mvou_root_covariance(precalc, bundle),
         shift = vec(fit.theta),
         model = :mvOU1,
     )
