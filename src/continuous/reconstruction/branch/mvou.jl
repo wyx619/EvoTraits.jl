@@ -88,15 +88,12 @@ function _mvou_asr_node_means(
         if fit.root_mean_mode === :root_regime_theta
             return _mvou_node_path_means(tree, bundle, edge_segments, root_regime)
         elseif fit.root_mean_mode === :stationary_design
-            designs = _mvou_node_design_matrices(
+            return _mvou_node_path_means_zero(
                 tree,
                 bundle.A,
+                reshape(bundle.theta, size(bundle.A, 1), :),
                 edge_segments,
-                fit.nregimes,
-                fit.A_decomp,
             )
-            _mvou_row_standardize_designs!(designs)
-            return _mvou_node_means_from_design(tree, designs, reshape(bundle.theta, size(bundle.A, 1), :))
         end
         return _mvou_node_path_means_zero(
             tree,
@@ -108,15 +105,12 @@ function _mvou_asr_node_means(
         if fit.root_mean_mode === :root_regime_theta
             return _mvouma_node_path_means(tree, bundle, edge_segments, root_regime)
         elseif fit.root_mean_mode === :stationary_design
-            designs = _mvouma_node_design_matrices(
+            return _mvouma_node_path_means_zero(
                 tree,
                 bundle.A_regimes,
+                reshape(bundle.theta, size(bundle.A_regimes, 1), :),
                 edge_segments,
-                fit.nregimes,
-                fit.A_decomp,
             )
-            _mvou_row_standardize_designs!(designs)
-            return _mvou_node_means_from_design(tree, designs, reshape(bundle.theta, size(bundle.A_regimes, 1), :))
         end
         return _mvouma_node_path_means_zero(
             tree,

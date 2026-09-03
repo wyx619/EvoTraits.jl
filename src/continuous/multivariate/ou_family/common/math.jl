@@ -757,35 +757,6 @@ function _mvou_tip_means_from_design(
     return means
 end
 
-function _mvou_node_means_from_design(
-    tree::CompactTree,
-    designs::Vector{Matrix{Float64}},
-    theta_matrix::AbstractMatrix{<:Real},
-)
-    p, nregimes = size(theta_matrix)
-    theta_vec = vec(Matrix{Float64}(theta_matrix))
-    means = [zeros(Float64, p) for _ in 1:tree.nnodes]
-    for node in 1:tree.nnodes
-        W = designs[node]
-        for j in 1:p
-            denom = sum(@view W[j, :])
-            means[node][j] = abs(denom) <= 1e-12 ? 0.0 : dot(@view(W[j, :]), theta_vec) / denom
-        end
-    end
-    return means
-end
-
-function _mvou_row_standardize_designs!(designs::Vector{Matrix{Float64}})
-    for W in designs
-        for i in axes(W, 1)
-            denom = sum(@view W[i, :])
-            abs(denom) <= 1e-12 && continue
-            @views W[i, :] ./= denom
-        end
-    end
-    return designs
-end
-
 function _mvou_tip_path_means_from_matrix(
     tree::CompactTree,
     A::AbstractMatrix{<:Real},

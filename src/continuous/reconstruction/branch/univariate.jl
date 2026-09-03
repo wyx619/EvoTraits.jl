@@ -112,7 +112,6 @@ function estim_branch_for_simmap(
     cache = _prepare_oum_edge_cache(tree, edge_segments)
     stationary_design = fit.root_mean_mode === :stationary_design
     stationary_node_means = stationary_design ? _ou_stationary_design_node_means(tree, ou_spec(fit.model), OUParameterBundle(theta = fit.theta_regimes, alpha = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes, sigma2 = fit.sigma2), cache) : nothing
-    stationary_node_weights = stationary_design ? _ou_stationary_design_node_weights(tree, ou_spec(fit.model), OUParameterBundle(theta = fit.theta_regimes, alpha = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes, sigma2 = fit.sigma2), cache) : nothing
     post =
         if fit.model in (:OUM, :OUMV, :OUMA, :OUMVA)
             spec = ou_spec(
@@ -191,8 +190,7 @@ function estim_branch_for_simmap(
                         )
                         alpha_values = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes
                         bundle = OUParameterBundle(theta = fit.theta_regimes, alpha = alpha_values, sigma2 = fit.sigma2)
-                        affine = _ou_segments_affine(spec, bundle, prefix)
-                        stationary_design ? (a = affine.a, b = 0.0, v = affine.v) : affine
+                        _ou_segments_affine(spec, bundle, prefix)
                     elseif fit.model === :EBM
                         _bm_regime_segments_affine(tree, edge, prefix, fit, :eb)
                     end
@@ -205,8 +203,7 @@ function estim_branch_for_simmap(
                         )
                         alpha_values = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes
                         bundle = OUParameterBundle(theta = fit.theta_regimes, alpha = alpha_values, sigma2 = fit.sigma2)
-                        affine = _ou_segments_affine(spec, bundle, suffix)
-                        stationary_design ? (a = affine.a, b = 0.0, v = affine.v) : affine
+                        _ou_segments_affine(spec, bundle, suffix)
                     elseif fit.model === :EBM
                         _bm_regime_segments_affine(tree, edge, suffix, fit, :eb)
                     end
@@ -215,12 +212,14 @@ function estim_branch_for_simmap(
 
             local function _segment_point_posterior(frac::Float64)
                 prefix_aff, suffix_aff = _segment_affines(frac)
+                prefix_transition = stationary_design ? (a = prefix_aff.a, b = 0.0, v = prefix_aff.v) : prefix_aff
+                suffix_transition = stationary_design ? (a = suffix_aff.a, b = 0.0, v = suffix_aff.v) : suffix_aff
                 forward = _edge_predict_to_child(
                     post.edge_context_mean[edge],
                     post.edge_context_var[edge],
-                    prefix_aff.a,
-                    prefix_aff.b,
-                    prefix_aff.v,
+                    prefix_transition.a,
+                    prefix_transition.b,
+                    prefix_transition.v,
                 )
                 backward_info = _descendant_message(
                     post,
@@ -228,24 +227,15 @@ function estim_branch_for_simmap(
                     tip_index,
                     tree,
                     child,
-                    suffix_aff.a,
-                    suffix_aff.b,
-                    suffix_aff.v,
+                    suffix_transition.a,
+                    suffix_transition.b,
+                    suffix_transition.v,
                 )
                 backward_info.success || return (mean = NaN, var = NaN)
                 backward = _information_to_gaussian(backward_info.precision, backward_info.linear)
                 point = _gaussian_product(forward.mean, forward.var, backward.mean, backward.var)
                 if stationary_design
-                    parent_weights = stationary_node_weights[parent]
-                    point_mean = _ou_stationary_design_edge_mean(
-                        parent_weights,
-                        spec,
-                        bundle,
-                        cache,
-                        edge,
-                        seg_idx,
-                        frac,
-                    )
+                    point_mean = prefix_aff.a * stationary_node_means[parent] + prefix_aff.b
                     point = (mean = point.mean + point_mean, var = point.var)
                 end
                 return point

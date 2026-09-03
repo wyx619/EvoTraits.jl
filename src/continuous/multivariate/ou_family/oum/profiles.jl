@@ -26,6 +26,8 @@ function _mvoum_tree_pruning_profile(
             _mvou_node_path_means(tree, bundle, precalc.edge_segments, precalc.root_regime),
             size(data, 2),
         ) :
+        precalc.root_mean_mode === :stationary_design ?
+        _mvou_tip_path_means(tree, bundle, precalc, false) :
         _mvou_tip_path_means(tree, bundle, precalc)
     centered = data .- path_means
     branch = _mvou_branch_cache(precalc, bundle.A, bundle.Sigma)
@@ -74,6 +76,8 @@ function _mvoumv_tree_pruning_profile(
             _mvou_node_path_means(tree, bundle, precalc.edge_segments, precalc.root_regime),
             p,
         ) :
+        precalc.root_mean_mode === :stationary_design ?
+        _mvou_tip_path_means(tree, bundle, precalc, false) :
         _mvou_tip_path_means(tree, bundle, precalc)
     centered = data .- path_means
     branch = _mvoumv_branch_cache(precalc, bundle.A, bundle.Sigma_regimes)
@@ -169,6 +173,8 @@ function _mvouma_tree_pruning_profile(
             _mvouma_node_path_means(tree, bundle, precalc.edge_segments, precalc.root_regime),
             p,
         ) :
+        precalc.root_mean_mode === :stationary_design ?
+        _mvouma_tip_path_means(tree, bundle, precalc, false) :
         _mvouma_tip_path_means(tree, bundle, precalc)
     centered = data .- path_means
     branch = _mvouma_branch_cache(precalc, bundle.A_regimes, bundle.Sigma)
@@ -256,6 +262,8 @@ function _mvoumva_tree_pruning_profile(
             _mvouma_node_path_means(tree, bundle, precalc.edge_segments, precalc.root_regime),
             p,
         ) :
+        precalc.root_mean_mode === :stationary_design ?
+        _mvouma_tip_path_means(tree, bundle, precalc, false) :
         _mvouma_tip_path_means(tree, bundle, precalc)
     centered = data .- path_means
     branch = _mvoumva_branch_cache(precalc, bundle.A_regimes, bundle.Sigma_regimes)

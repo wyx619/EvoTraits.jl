@@ -597,9 +597,6 @@ function _mvou_profile_theta_tree_pruning_profile(
                  precalc.nregimes,
                  precalc.A_decomp,
              ))
-        if !(ws !== nothing && same_shared_A && ws.shared_design_valid)
-            _mvou_row_standardize_designs!(designs)
-        end
         if ws !== nothing
             _cache_shared_A!()
             ws.shared_phi_valid = true
@@ -646,9 +643,6 @@ function _mvou_profile_theta_tree_pruning_profile(
                  precalc.nregimes,
                  precalc.A_decomp,
              ))
-        if !(ws !== nothing && same_shared_A && ws.shared_design_valid)
-            _mvou_row_standardize_designs!(designs)
-        end
         if ws !== nothing
             _cache_shared_A!()
             ws.shared_design_valid = true
@@ -692,7 +686,6 @@ function _mvou_profile_theta_tree_pruning_profile(
                 precalc.nregimes,
                 precalc.A_decomp,
             )
-        _mvou_row_standardize_designs!(designs)
         return _mvou_profile_theta_recursive(
             tree,
             data,
@@ -732,7 +725,6 @@ function _mvou_profile_theta_tree_pruning_profile(
                 precalc.nregimes,
                 precalc.A_decomp,
             )
-        _mvou_row_standardize_designs!(designs)
         return _mvou_profile_theta_recursive(
             tree,
             data,
