@@ -1,6 +1,6 @@
 name = "EvoTraits"
 uuid = "3d9a2f92-5b0c-4aa3-92a4-1b8f22c6d2d9"
-version = "1.1.0"
+version = "1.2.0"
 authors = ["Yuxuan Wang <wyx1743@gmail.com>"]
 
 [deps]
