@@ -29,9 +29,9 @@ end
         nbins = max(1, ceil(Int, Float64(max_age) / width))
         return collect(0.0:width:((nbins - 1) * width))
     end
-    last_start = max(0.0, Float64(max_age) - width)
-    nwin = floor(Int, last_start / step) + 1
-    return [step * i for i in 0:(nwin - 1)]
+    # Extend the final window far enough to include the oldest node.
+    last_start = ceil(Int, max(0.0, Float64(max_age) - width) / step)
+    return [step * i for i in 0:last_start]
 end
 
 function _time_summary_stats(values::AbstractVector{<:Real})

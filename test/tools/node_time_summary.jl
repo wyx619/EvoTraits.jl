@@ -16,10 +16,10 @@
 
     res_smooth = summarize_node_estimates_by_time(tbl_uni, 5.0; w = 2.0)
     df_smooth = res_smooth["trait"]
-    @test df_smooth.start == [0.0, 0.0, 2.0, 4.0, 6.0]
-    @test df_smooth.end == [0.0, 5.0, 7.0, 9.0, 11.0]
-    @test df_smooth.n_nodes == [5, 2, 2, 2, 2]
-    @test df_smooth.mean == [30.0, 15.0, 25.0, 35.0, 35.0]
+    @test df_smooth.start == [0.0, 0.0, 2.0, 4.0, 6.0, 8.0]
+    @test df_smooth.end == [0.0, 5.0, 7.0, 9.0, 11.0, 13.0]
+    @test df_smooth.n_nodes == [5, 2, 2, 2, 2, 1]
+    @test df_smooth.mean == [30.0, 15.0, 25.0, 35.0, 35.0, 50.0]
 
     tbl_mv = DataFrame(
         node_id = 1:4,
