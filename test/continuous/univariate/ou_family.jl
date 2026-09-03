@@ -330,6 +330,20 @@ end
     @test all(isfinite, node.estimates)
     @test all(isfinite, branch.start_estimates)
     @test all(isfinite, branch.end_estimates)
+
+    spec = EvoTraits.ou_spec(:OUM; root_mean_mode = :stationary_design)
+    cache = EvoTraits._prepare_oum_edge_cache(tree, edge_segments)
+    bundle = EvoTraits.OUParameterBundle(theta = fit.theta_regimes, alpha = [fit.alpha], sigma2 = fit.sigma2)
+    means = EvoTraits._ou_stationary_design_node_means(tree, spec, bundle, cache)
+    edges = EvoTraits._build_ou_edges(tree, spec, bundle; cache = cache)
+    @test means[Int(tree.root)] == 0.0
+    @test all(
+        isapprox(
+            means[Int(tree.child_of_edge[edge])],
+            edges.edge_a[edge] * means[Int(tree.parent_of_edge[edge])] + edges.edge_b[edge];
+            atol = 1e-12,
+        ) for edge in 1:tree.nedges
+    )
 end
 
 @testset "Univariate OU multistart preserves the serial optimum" begin

@@ -284,6 +284,27 @@ end
     @test length(asr.node_ids) == tree.ntips - 1
     @test size(asr.estimates) == (tree.ntips - 1, 2)
     @test size(asr.node_covariances) == (tree.ntips - 1, 2, 2)
+
+    bundle = EvoTraits._mvou_asr_bundle(fit)
+    spec = EvoTraits._mvou_spec_with_root(
+        :mvOUM;
+        A_decomp = fit.A_decomp,
+        root_mean_mode = fit.root_mean_mode,
+        root_cov_mode = fit.root_cov_mode,
+    )
+    precalc = EvoTraits._mvou_precalc(tree, spec; edge_segments = edge_segments)
+    means = EvoTraits._mvou_asr_node_means(tree, fit, bundle, edge_segments, precalc.root_regime)
+    branch_cache = EvoTraits._mvou_branch_cache(precalc, bundle.A, bundle.Sigma)
+    theta_matrix = reshape(bundle.theta, fit.ntraits, :)
+    @test maximum(abs, means[Int(tree.root)]) == 0.0
+    @test all(
+        isapprox(
+            means[Int(tree.child_of_edge[edge])],
+            branch_cache.Phi[:, :, edge] * means[Int(tree.parent_of_edge[edge])] +
+            EvoTraits._mvou_edge_regime_mean(zeros(fit.ntraits), bundle.A, theta_matrix, edge_segments[edge]);
+            atol = 1e-12,
+        ) for edge in 1:tree.nedges
+    )
 end
 
 @testset "mvOUM DataFrame and SimmapSample metadata" begin
