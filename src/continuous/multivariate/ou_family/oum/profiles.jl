@@ -19,7 +19,14 @@ function _mvoum_tree_pruning_profile(
     catch
         return (success = false, loglik = -Inf)
     end
-    path_means = _mvou_tip_path_means(tree, bundle, precalc)
+    path_means =
+        precalc.root_mean_mode === :root_regime_theta ?
+        _mvou_tip_means_from_node_means(
+            tree,
+            _mvou_node_path_means(tree, bundle, precalc.edge_segments, precalc.root_regime),
+            size(data, 2),
+        ) :
+        _mvou_tip_path_means(tree, bundle, precalc)
     centered = data .- path_means
     branch = _mvou_branch_cache(precalc, bundle.A, bundle.Sigma)
     return _mv_recursive_profile(
@@ -28,7 +35,7 @@ function _mvoum_tree_pruning_profile(
         branch.Phi,
         branch.Q;
         root_mean = zeros(Float64, size(data, 2)),
-        root_cov = zeros(Float64, size(data, 2), size(data, 2)),
+        root_cov = _mvou_root_covariance(precalc, bundle),
         workspace = workspace,
         edge_Qinv = branch.Qinv,
         edge_logdet_Q = branch.logdet_Q,
@@ -60,7 +67,14 @@ function _mvoumv_tree_pruning_profile(
     catch
         return (success = false, loglik = -Inf)
     end
-    path_means = _mvou_tip_path_means(tree, bundle, precalc)
+    path_means =
+        precalc.root_mean_mode === :root_regime_theta ?
+        _mvou_tip_means_from_node_means(
+            tree,
+            _mvou_node_path_means(tree, bundle, precalc.edge_segments, precalc.root_regime),
+            p,
+        ) :
+        _mvou_tip_path_means(tree, bundle, precalc)
     centered = data .- path_means
     branch = _mvoumv_branch_cache(precalc, bundle.A, bundle.Sigma_regimes)
     return _mv_recursive_profile(
@@ -69,7 +83,7 @@ function _mvoumv_tree_pruning_profile(
         branch.Phi,
         branch.Q;
         root_mean = zeros(Float64, p),
-        root_cov = zeros(Float64, p, p),
+        root_cov = _mvou_root_covariance(precalc, bundle),
         workspace = workspace,
         edge_Qinv = branch.Qinv,
         edge_logdet_Q = branch.logdet_Q,
@@ -148,7 +162,14 @@ function _mvouma_tree_pruning_profile(
     catch
         return (success = false, loglik = -Inf)
     end
-    path_means = _mvouma_tip_path_means(tree, bundle, precalc)
+    path_means =
+        precalc.root_mean_mode === :root_regime_theta ?
+        _mvou_tip_means_from_node_means(
+            tree,
+            _mvouma_node_path_means(tree, bundle, precalc.edge_segments, precalc.root_regime),
+            p,
+        ) :
+        _mvouma_tip_path_means(tree, bundle, precalc)
     centered = data .- path_means
     branch = _mvouma_branch_cache(precalc, bundle.A_regimes, bundle.Sigma)
     return _mv_recursive_profile(
@@ -157,7 +178,7 @@ function _mvouma_tree_pruning_profile(
         branch.Phi,
         branch.Q;
         root_mean = zeros(Float64, p),
-        root_cov = zeros(Float64, p, p),
+        root_cov = _mvou_root_covariance(precalc, bundle),
         workspace = workspace,
         edge_Qinv = branch.Qinv,
         edge_logdet_Q = branch.logdet_Q,
@@ -228,7 +249,14 @@ function _mvoumva_tree_pruning_profile(
     catch
         return (success = false, loglik = -Inf)
     end
-    path_means = _mvouma_tip_path_means(tree, bundle, precalc)
+    path_means =
+        precalc.root_mean_mode === :root_regime_theta ?
+        _mvou_tip_means_from_node_means(
+            tree,
+            _mvouma_node_path_means(tree, bundle, precalc.edge_segments, precalc.root_regime),
+            p,
+        ) :
+        _mvouma_tip_path_means(tree, bundle, precalc)
     centered = data .- path_means
     branch = _mvoumva_branch_cache(precalc, bundle.A_regimes, bundle.Sigma_regimes)
     return _mv_recursive_profile(
@@ -237,7 +265,7 @@ function _mvoumva_tree_pruning_profile(
         branch.Phi,
         branch.Q;
         root_mean = zeros(Float64, p),
-        root_cov = zeros(Float64, p, p),
+        root_cov = _mvou_root_covariance(precalc, bundle),
         workspace = workspace,
         edge_Qinv = branch.Qinv,
         edge_logdet_Q = branch.logdet_Q,

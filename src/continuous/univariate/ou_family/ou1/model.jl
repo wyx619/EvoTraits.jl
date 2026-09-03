@@ -12,9 +12,10 @@ function ou1_loglikelihood(
     sigma2::Real,
     theta::Real,
     ;
+    root_cov_mode::Symbol = :fixed,
     trait_name = nothing,
 )
-    spec = ou_spec(:OU1)
+    spec = ou_spec(:OU1; root_cov_mode = root_cov_mode)
     bundle = OUParameterBundle(theta = [Float64(theta)], alpha = [Float64(alpha)], sigma2 = [Float64(sigma2)])
     prof = _ou_loglikelihood(tree, trait, spec, bundle)
     return ContinuousFitResult(
@@ -45,9 +46,10 @@ function fit_ou1(
     trait::AbstractVector{<:Real};
     max_iterations::Integer = 300,
     rel_tol::Float64 = 1e-5,
+    root_cov_mode::Symbol = :fixed,
     trait_name = nothing,
 )
-    spec = ou_spec(:OU1)
+    spec = ou_spec(:OU1; root_cov_mode = root_cov_mode)
     fit = _ou_fit(
         tree,
         trait,

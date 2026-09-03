@@ -104,15 +104,18 @@ function _mvou_root_info_loglik(
 
     C = Matrix{Float64}(root_cov)
     try
+        # Whiten the Gaussian root prior before integrating the root state.
+        # This keeps the reduced precision symmetric even when P and C do
+        # not commute, which is essential for correlated multivariate roots.
         cholC = _mvou_cholesky_psd(C)
-        Cinv_m = cholC \ m
-        b = h + Cinv_m
-        M = Matrix{Float64}(I, length(h), length(h)) + C * P
-        cholM = _mvou_cholesky_psd(M)
-        Tinv_b = cholM \ (C * b)
-        logdet_C = 2.0 * sum(log, diag(cholC.L))
-        logdet_M = 2.0 * sum(log, diag(cholM.L))
-        return Float64(logconst) - 0.5 * dot(m, Cinv_m) - 0.5 * logdet_M + 0.5 * dot(b, Tinv_b)
+        L = Matrix{Float64}(cholC.L)
+        d = transpose(L) * (h - P * m)
+        whitened_precision = Matrix{Float64}(I, length(h), length(h)) + transpose(L) * P * L
+        chol_whitened = _mvou_cholesky_psd(whitened_precision)
+        solved_d = chol_whitened \ d
+        logdet_whitened = 2.0 * sum(log, diag(chol_whitened.L))
+        base = Float64(logconst) + dot(h, m) - 0.5 * dot(m, P * m)
+        return base - 0.5 * logdet_whitened + 0.5 * dot(d, solved_d)
     catch
         return -Inf
     end
@@ -400,6 +403,7 @@ function _mvou_profile_theta_recursive(
     edge_Qinv::Union{Nothing, Array{Float64, 3}} = nothing,
     edge_logdet_Q::Union{Nothing, AbstractVector{<:Real}} = nothing,
     copy_theta::Bool = true,
+    root_cov::Union{Nothing, AbstractMatrix{<:Real}} = nothing,
 )
     data = trait isa Matrix{Float64} ? trait : Matrix{Float64}(trait)
     _validate_binary_tree(tree)

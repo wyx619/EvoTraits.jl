@@ -11,9 +11,10 @@ function mvou1_loglikelihood(
     Sigma::AbstractMatrix{<:Real},
     theta::AbstractVector{<:Real};
     A_decomp::Symbol = :cholesky,
+    root_cov_mode::Symbol = :fixed,
     trait_names = nothing,
 )
-    spec = mvou_spec(:mvOU1; A_decomp = A_decomp)
+    spec = _mvou_spec_with_root(:mvOU1; A_decomp = A_decomp, root_cov_mode = root_cov_mode)
     data = _validate_multivariate_trait(tree, trait)
     p = size(data, 2)
     theta_vec = Float64.(collect(theta))
@@ -57,12 +58,13 @@ function fit_mvou1(
     max_iterations::Integer = 400,
     rel_tol::Float64 = 1e-7,
     A_decomp::Symbol = :cholesky,
+    root_cov_mode::Symbol = :fixed,
     trait_names = nothing,
 )
     return _fit_mvou_recursive(
         tree,
         trait,
-        mvou_spec(:mvOU1; A_decomp = A_decomp);
+        _mvou_spec_with_root(:mvOU1; A_decomp = A_decomp, root_cov_mode = root_cov_mode);
         optimization = optimization,
         max_iterations = max_iterations,
         rel_tol = rel_tol,

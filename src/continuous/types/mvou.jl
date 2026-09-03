@@ -11,6 +11,8 @@ Base.@kwdef struct MVOUPrecalc
     nregimes::Int = 1
     root_regime::Int = 1
     A_decomp::Symbol = :cholesky
+    root_mean_mode::Symbol = :theta
+    root_cov_mode::Symbol = :fixed
 end
 
 """

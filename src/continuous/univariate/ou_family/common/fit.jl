@@ -17,7 +17,13 @@ function _ou_fit(
     # special path local to OU1 so multi-regime models retain their current
     # fixed-root semantics and parameter layout.
     if spec.model === :OU1
-        return _ou1_profiled_fit(tree, tr; max_iterations = max_iterations, rel_tol = rel_tol)
+        return _ou1_profiled_fit(
+            tree,
+            tr;
+            max_iterations = max_iterations,
+            rel_tol = rel_tol,
+            root_cov_mode = spec.root_cov_mode,
+        )
     end
 
     init = _ou_initial_params(spec, nregimes; tree = tree, trait = tr)
@@ -78,11 +84,12 @@ function _ou1_profiled_fit(
     trait::AbstractVector{<:Real};
     max_iterations::Integer,
     rel_tol::Float64,
+    root_cov_mode::Symbol = :fixed,
 )
     objective = function (par)
         alpha_log = clamp(Float64(par[1]), _OU1_LOG_PARAMETER_LOWER, _OU1_LOG_ALPHA_UPPER)
         sigma_log = clamp(Float64(par[2]), _OU1_LOG_PARAMETER_LOWER, _OU1_LOG_SIGMA2_UPPER)
-        prof = _ou1_profiled_likelihood(tree, trait, exp(alpha_log), exp(sigma_log))
+        prof = _ou1_profiled_likelihood(tree, trait, exp(alpha_log), exp(sigma_log); root_cov_mode = root_cov_mode)
         return prof.success ? -prof.loglik : Inf
     end
 
@@ -98,8 +105,8 @@ function _ou1_profiled_fit(
     minimizer = _continuous_result_minimizer(result)
     alpha_log = clamp(Float64(minimizer[1]), _OU1_LOG_PARAMETER_LOWER, _OU1_LOG_ALPHA_UPPER)
     sigma_log = clamp(Float64(minimizer[2]), _OU1_LOG_PARAMETER_LOWER, _OU1_LOG_SIGMA2_UPPER)
-    fixed_profile = _ou1_profiled_likelihood(tree, trait, exp(alpha_log), exp(sigma_log))
-    fixed_bundle = OUParameterBundle(theta = [fixed_profile.root_state], alpha = [exp(alpha_log)], sigma2 = [exp(sigma_log)])
+    fixed_profile = _ou1_profiled_likelihood(tree, trait, exp(alpha_log), exp(sigma_log); root_cov_mode = root_cov_mode)
+    fixed_bundle = OUParameterBundle(theta = [fixed_profile.theta], alpha = [exp(alpha_log)], sigma2 = [exp(sigma_log)])
     return (bundle = fixed_bundle, profile = fixed_profile, result = result, nregimes = 1)
 end
 
@@ -108,8 +115,10 @@ function _ou1_profiled_likelihood(
     trait::AbstractVector{<:Real},
     alpha::Float64,
     sigma2::Float64,
+    ;
+    root_cov_mode::Symbol = :fixed,
 )
-    spec = ou_spec(:OU1)
+    spec = ou_spec(:OU1; root_cov_mode = root_cov_mode)
     observed = filter(!isnan, Float64.(trait))
     center = mean(observed)
     step = max(sqrt(var(observed)), 1.0)
@@ -122,14 +131,14 @@ function _ou1_profiled_likelihood(
     at_plus = eval_at(center + step)
     at_minus = eval_at(center - step)
     at_center.success && at_plus.success && at_minus.success ||
-        return (success = false, loglik = -Inf, root_state = NaN)
+        return (success = false, loglik = -Inf, root_state = NaN, theta = NaN)
 
     curvature = (2.0 * at_center.loglik - at_plus.loglik - at_minus.loglik) / (step * step)
-    curvature > 0.0 && isfinite(curvature) || return (success = false, loglik = -Inf, root_state = NaN)
+    curvature > 0.0 && isfinite(curvature) || return (success = false, loglik = -Inf, root_state = NaN, theta = NaN)
     slope = (at_plus.loglik - at_minus.loglik) / (2.0 * step)
     theta = center + slope / curvature
     prof = eval_at(theta)
-    return (success = prof.success, loglik = prof.loglik, root_state = theta)
+    return (success = prof.success, loglik = prof.loglik, root_state = prof.root_state, theta = theta)
 end
 
 function _ou_fit_with_starts(

@@ -7,7 +7,29 @@ Base.@kwdef struct OUSpec
     root_cov_mode::Symbol = :nonstationary
 end
 
-function ou_spec(model::Symbol)
+function ou_spec(
+    model::Symbol;
+    root_mean_mode::Union{Nothing, Symbol} = nothing,
+    root_cov_mode::Union{Nothing, Symbol} = nothing,
+)
+    defaults = _ou_default_spec(model)
+    mean_mode = something(root_mean_mode, defaults.root_mean_mode)
+    cov_mode = something(root_cov_mode, defaults.root_cov_mode)
+    mean_mode in (:theta, :root_regime_theta, :stationary_design, :free_theta0) ||
+        throw(ArgumentError("Unsupported OU root_mean_mode=$mean_mode"))
+    cov_mode in (:fixed, :stationary, :nonstationary, :free) ||
+        throw(ArgumentError("Unsupported OU root_cov_mode=$cov_mode"))
+    return OUSpec(
+        model = defaults.model,
+        theta_mode = defaults.theta_mode,
+        alpha_mode = defaults.alpha_mode,
+        sigma_mode = defaults.sigma_mode,
+        root_mean_mode = mean_mode,
+        root_cov_mode = cov_mode,
+    )
+end
+
+function _ou_default_spec(model::Symbol)
     if model === :OU1
         return OUSpec(model = :OU1, theta_mode = :shared, alpha_mode = :shared, sigma_mode = :shared, root_mean_mode = :theta, root_cov_mode = :fixed)
     elseif model === :OUM

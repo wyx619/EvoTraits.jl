@@ -64,6 +64,76 @@ function _prepare_oum_edge_cache(tree::CompactTree, edge_segments::Vector{Vector
     )
 end
 
+function _ou_stationary_design_node_weights(
+    tree::CompactTree,
+    spec::OUSpec,
+    bundle::OUParameterBundle,
+    cache::OUMEdgeSegmentCache,
+)
+    weights = [zeros(Float64, cache.nregimes) for _ in 1:tree.nnodes]
+    for node in tree.preorder
+        tree.is_tip[node] && continue
+        for edge in tree.first_child_edge[node]:tree.last_child_edge[node]
+            edge == 0 && continue
+            child = Int(tree.child_of_edge[edge])
+            copyto!(weights[child], weights[node])
+            first_seg = Int(cache.edge_first_segment[edge])
+            last_seg = Int(cache.edge_last_segment[edge])
+            for seg_idx in first_seg:last_seg
+                state = Int(cache.segment_states[seg_idx])
+                alpha = _ou_regime_value(spec.alpha_mode, bundle.alpha, state)
+                phi = exp(-alpha * cache.segment_lengths[seg_idx])
+                weights[child] .*= phi
+                weights[child][state] += 1.0 - phi
+            end
+        end
+    end
+
+    return weights
+end
+
+function _ou_stationary_design_node_means(
+    tree::CompactTree,
+    spec::OUSpec,
+    bundle::OUParameterBundle,
+    cache::OUMEdgeSegmentCache,
+)
+    weights = _ou_stationary_design_node_weights(tree, spec, bundle, cache)
+    means = zeros(Float64, tree.nnodes)
+    for node in 1:tree.nnodes
+        denom = sum(weights[node])
+        means[node] = abs(denom) <= 1e-12 ? 0.0 : dot(weights[node], bundle.theta) / denom
+    end
+    return means
+end
+
+function _ou_stationary_design_edge_mean(
+    parent_weights::AbstractVector{<:Real},
+    spec::OUSpec,
+    bundle::OUParameterBundle,
+    cache::OUMEdgeSegmentCache,
+    edge::Integer,
+    segment_index::Integer,
+    fraction::Float64,
+)
+    weights = Vector{Float64}(parent_weights)
+    first_seg = Int(cache.edge_first_segment[edge])
+    last_seg = Int(cache.edge_last_segment[edge])
+    stop_seg = first_seg + Int(segment_index) - 1
+    stop_seg <= last_seg || throw(ArgumentError("segment index is outside edge cache"))
+    @inbounds for seg_idx in first_seg:stop_seg
+        length = cache.segment_lengths[seg_idx]
+        seg_fraction = seg_idx == stop_seg ? fraction : 1.0
+        state = Int(cache.segment_states[seg_idx])
+        alpha = _ou_regime_value(spec.alpha_mode, bundle.alpha, state)
+        phi = exp(-alpha * (length * seg_fraction))
+        weights .*= phi
+        weights[state] += 1.0 - phi
+    end
+    denom = sum(weights)
+    return abs(denom) <= 1e-12 ? 0.0 : dot(weights, bundle.theta) / denom
+end
+
 @inline function _ou_edge_affine(cache, edge::Integer, spec::OUSpec, bundle::OUParameterBundle)
     a = 1.0
     b = 0.0

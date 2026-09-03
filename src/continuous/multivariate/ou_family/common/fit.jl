@@ -13,7 +13,9 @@ Base.@kwdef struct MVOUCompositeOptResult
     f_calls::Int = 0
 end
 
-@inline _mvou_profiles_theta(spec::MVOUSpec) = spec.model in (:mvOU1, :mvOUM, :mvOUMV, :mvOUMA, :mvOUMVA)
+@inline _mvou_profiles_theta(spec::MVOUSpec) =
+    spec.root_cov_mode === :fixed &&
+    (spec.model === :mvOU1 || spec.root_mean_mode === :stationary_design)
 
 function _mvou_spd_block_valid(M::AbstractMatrix{<:Real}; mineig::Float64, maxeig::Float64 = 1e8)
     all(isfinite, M) || return false

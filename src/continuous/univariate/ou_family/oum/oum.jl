@@ -6,10 +6,12 @@ function oum_loglikelihood(
     sigma2::Real,
     theta_regimes::AbstractVector{<:Real},
     ;
+    root_mean_mode::Symbol = :root_regime_theta,
+    root_cov_mode::Symbol = :fixed,
     trait_name = nothing,
     regime_names = nothing,
 )
-    spec = ou_spec(:OUM)
+    spec = ou_spec(:OUM; root_mean_mode = root_mean_mode, root_cov_mode = root_cov_mode)
     cache = _prepare_oum_edge_cache(tree, edge_segments)
     length(theta_regimes) == cache.nregimes || throw(ArgumentError("theta_regimes length must match regime count"))
     bundle = OUParameterBundle(theta = Float64.(theta_regimes), alpha = [Float64(alpha)], sigma2 = [Float64(sigma2)])
@@ -23,10 +25,12 @@ function fit_oum(
     edge_segments::Vector{Vector{SimmapSegment}};
     max_iterations::Integer = 500,
     rel_tol::Float64 = 1e-5,
+    root_mean_mode::Symbol = :root_regime_theta,
+    root_cov_mode::Symbol = :fixed,
     trait_name = nothing,
     regime_names = nothing,
 )
-    spec = ou_spec(:OUM)
+    spec = ou_spec(:OUM; root_mean_mode = root_mean_mode, root_cov_mode = root_cov_mode)
     cache = _prepare_oum_edge_cache(tree, edge_segments)
     fit = _ou_fit(
         tree,

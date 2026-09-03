@@ -13,19 +13,16 @@ function mvouma_loglikelihood(
     Sigma::AbstractMatrix{<:Real},
     theta_regimes::AbstractMatrix{<:Real};
     root_mean_mode::Symbol = :stationary_design,
+    root_cov_mode::Symbol = :fixed,
     A_decomp::Symbol = :cholesky,
     trait_names = nothing,
     regime_names = nothing,
 )
-    base_spec = mvou_spec(:mvOUMA; A_decomp = A_decomp)
-    spec = MVOUSpec(
-        model = base_spec.model,
-        theta_mode = base_spec.theta_mode,
-        A_mode = base_spec.A_mode,
-        Sigma_mode = base_spec.Sigma_mode,
-        A_decomp = base_spec.A_decomp,
+    spec = _mvou_spec_with_root(
+        :mvOUMA;
+        A_decomp = A_decomp,
         root_mean_mode = root_mean_mode,
-        root_cov_mode = base_spec.root_cov_mode,
+        root_cov_mode = root_cov_mode,
     )
     data = _validate_multivariate_trait(tree, trait)
     p = size(data, 2)
@@ -41,12 +38,7 @@ function mvouma_loglikelihood(
         A_regimes = Float64.(A_regimes),
         Sigma = Matrix{Float64}(Sigma),
     )
-    prof =
-        root_mean_mode === :stationary_design ?
-        _mvou_profile_dispatch(tree, data, bundle, precalc) :
-        root_mean_mode === :root_regime_theta ?
-        _mvouma_tree_pruning_profile_root_regime(tree, data, bundle, precalc) :
-        throw(ArgumentError("Unsupported mvOUMA root_mean_mode=$root_mean_mode"))
+    prof = _mvou_profile_dispatch(tree, data, bundle, precalc)
     Ablock = _mvou_A_block_nparams(spec, p)
     Sblock = _mvou_sigma_block_nparams(p)
     nparams = Ablock * precalc.nregimes + Sblock + p * precalc.nregimes
@@ -85,13 +77,20 @@ function fit_mvouma(
     max_iterations::Integer = 500,
     rel_tol::Float64 = 1e-5,
     A_decomp::Symbol = :cholesky,
+    root_mean_mode::Symbol = :stationary_design,
+    root_cov_mode::Symbol = :fixed,
     trait_names = nothing,
     regime_names = nothing,
 )
     return _fit_mvou_recursive(
         tree,
         trait,
-        mvou_spec(:mvOUMA; A_decomp = A_decomp);
+        _mvou_spec_with_root(
+            :mvOUMA;
+            A_decomp = A_decomp,
+            root_mean_mode = root_mean_mode,
+            root_cov_mode = root_cov_mode,
+        );
         edge_segments = edge_segments,
         optimization = optimization,
         max_iterations = max_iterations,

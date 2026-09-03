@@ -13,10 +13,17 @@ function mvoum_loglikelihood(
     Sigma::AbstractMatrix{<:Real},
     theta_regimes::AbstractMatrix{<:Real};
     A_decomp::Symbol = :cholesky,
+    root_mean_mode::Symbol = :stationary_design,
+    root_cov_mode::Symbol = :fixed,
     trait_names = nothing,
     regime_names = nothing,
 )
-    spec = mvou_spec(:mvOUM; A_decomp = A_decomp)
+    spec = _mvou_spec_with_root(
+        :mvOUM;
+        A_decomp = A_decomp,
+        root_mean_mode = root_mean_mode,
+        root_cov_mode = root_cov_mode,
+    )
     data = _validate_multivariate_trait(tree, trait)
     p = size(data, 2)
     size(theta_regimes, 2) == p || throw(ArgumentError("theta_regimes column count must match trait dimension"))
@@ -61,13 +68,20 @@ function fit_mvoum(
     max_iterations::Integer = 300,
     rel_tol::Float64 = 1e-5,
     A_decomp::Symbol = :cholesky,
+    root_mean_mode::Symbol = :stationary_design,
+    root_cov_mode::Symbol = :fixed,
     trait_names = nothing,
     regime_names = nothing,
 )
     return _fit_mvou_recursive(
         tree,
         trait,
-        mvou_spec(:mvOUM; A_decomp = A_decomp);
+        _mvou_spec_with_root(
+            :mvOUM;
+            A_decomp = A_decomp,
+            root_mean_mode = root_mean_mode,
+            root_cov_mode = root_cov_mode,
+        );
         edge_segments = edge_segments,
         optimization = optimization,
         max_iterations = max_iterations,

@@ -6,10 +6,12 @@ function oumva_loglikelihood(
     sigma2_regimes::AbstractVector{<:Real},
     theta_regimes::AbstractVector{<:Real},
     ;
+    root_mean_mode::Symbol = :root_regime_theta,
+    root_cov_mode::Symbol = :fixed,
     trait_name = nothing,
     regime_names = nothing,
 )
-    spec = ou_spec(:OUMVA)
+    spec = ou_spec(:OUMVA; root_mean_mode = root_mean_mode, root_cov_mode = root_cov_mode)
     cache = _prepare_oum_edge_cache(tree, edge_segments)
     length(theta_regimes) == cache.nregimes || throw(ArgumentError("theta_regimes length must match regime count"))
     length(alpha_regimes) == cache.nregimes || throw(ArgumentError("alpha_regimes length must match regime count"))
@@ -29,10 +31,12 @@ function fit_oumva(
     edge_segments::Vector{Vector{SimmapSegment}};
     max_iterations::Integer = 800,
     rel_tol::Float64 = 1e-5,
+    root_mean_mode::Symbol = :root_regime_theta,
+    root_cov_mode::Symbol = :fixed,
     trait_name = nothing,
     regime_names = nothing,
 )
-    spec = ou_spec(:OUMVA)
+    spec = ou_spec(:OUMVA; root_mean_mode = root_mean_mode, root_cov_mode = root_cov_mode)
     cache = _prepare_oum_edge_cache(tree, edge_segments)
     fit = _ou_fit(
         tree,

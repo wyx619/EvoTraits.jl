@@ -294,6 +294,18 @@ function _mvou_stationary_covariance(eigA, Sigma::AbstractMatrix{<:Real})
     return (S + S') / 2
 end
 
+function _mvou_root_covariance(precalc::MVOUPrecalc, bundle::MVOUParameterBundle)
+    p = isempty(bundle.A) ? size(bundle.A_regimes, 1) : size(bundle.A, 1)
+    precalc.root_cov_mode === :fixed && return zeros(Float64, p, p)
+    precalc.root_cov_mode === :stationary ||
+        throw(ArgumentError("Unsupported multivariate OU root_cov_mode=$(precalc.root_cov_mode)"))
+
+    r = precalc.root_regime
+    A = isempty(bundle.A_regimes) ? bundle.A : @view(bundle.A_regimes[:, :, r])
+    Sigma = isempty(bundle.Sigma_regimes) ? bundle.Sigma : @view(bundle.Sigma_regimes[:, :, r])
+    return _mvou_stationary_covariance(A, Sigma, precalc.A_decomp)
+end
+
 
 
 function _mvou_branch_cache(
@@ -638,12 +650,18 @@ function _mvou_node_design_matrices(
     edge_segments::Vector{Vector{SimmapSegment}},
     nregimes::Integer,
     A_decomp::Symbol = :cholesky,
+    ;
+    root_regime::Integer = 0,
 )
     p = size(A, 1)
     designs = [zeros(Float64, p, p * nregimes) for _ in 1:tree.nnodes]
     factor = _mvou_transition_factor(A, A_decomp)
     transition_cache = Dict{Float64, Matrix{Float64}}(0.0 => Matrix{Float64}(I, p, p))
     identity = Matrix{Float64}(I, p, p)
+    if root_regime > 0
+        cols = ((root_regime - 1) * p + 1):(root_regime * p)
+        designs[Int(tree.root)][:, cols] .= identity
+    end
     getPhi(t) = get!(transition_cache, t) do
         _mvou_transition_from_factor(factor, A_decomp, t)
     end
@@ -675,6 +693,8 @@ function _mvou_node_design_matrices!(
     edge_segments::Vector{Vector{SimmapSegment}},
     nregimes::Integer,
     A_decomp::Symbol = :cholesky,
+    ;
+    root_regime::Integer = 0,
 )
     p = size(A, 1)
     length(designs) == tree.nnodes || throw(ArgumentError("design workspace node count does not match tree"))
@@ -685,6 +705,10 @@ function _mvou_node_design_matrices!(
         fill!(W, 0.0)
     end
     ncols = p * Int(nregimes)
+    if root_regime > 0
+        cols = ((root_regime - 1) * p + 1):(root_regime * p)
+        designs[Int(tree.root)][:, cols] .= Matrix{Float64}(I, p, p)
+    end
     for node in tree.preorder
         tree.is_tip[node] && continue
         for edge in tree.first_child_edge[node]:tree.last_child_edge[node]
@@ -728,6 +752,24 @@ function _mvou_tip_means_from_design(
         for j in 1:p
             denom = sum(@view W[j, :])
             means[i, j] = abs(denom) <= 1e-12 ? 0.0 : dot(@view(W[j, :]), theta_vec) / denom
+        end
+    end
+    return means
+end
+
+function _mvou_node_means_from_design(
+    tree::CompactTree,
+    designs::Vector{Matrix{Float64}},
+    theta_matrix::AbstractMatrix{<:Real},
+)
+    p, nregimes = size(theta_matrix)
+    theta_vec = vec(Matrix{Float64}(theta_matrix))
+    means = [zeros(Float64, p) for _ in 1:tree.nnodes]
+    for node in 1:tree.nnodes
+        W = designs[node]
+        for j in 1:p
+            denom = sum(@view W[j, :])
+            means[node][j] = abs(denom) <= 1e-12 ? 0.0 : dot(@view(W[j, :]), theta_vec) / denom
         end
     end
     return means
@@ -838,12 +880,18 @@ function _mvouma_node_design_matrices(
     edge_segments::Vector{Vector{SimmapSegment}},
     nregimes::Integer,
     A_decomp::Symbol = :cholesky,
+    ;
+    root_regime::Integer = 0,
 )
     p = size(A_regimes, 1)
     designs = [zeros(Float64, p, p * nregimes) for _ in 1:tree.nnodes]
     factors = [_mvou_transition_factor(A_regimes[:, :, r], A_decomp) for r in 1:nregimes]
     transition_cache = Dict{Tuple{Int, Float64}, Matrix{Float64}}()
     identity = Matrix{Float64}(I, p, p)
+    if root_regime > 0
+        cols = ((root_regime - 1) * p + 1):(root_regime * p)
+        designs[Int(tree.root)][:, cols] .= identity
+    end
     getPhi(r, t) = get!(transition_cache, (r, t)) do
         _mvou_transition_from_factor(factors[r], A_decomp, t)
     end
@@ -875,6 +923,8 @@ function _mvouma_node_design_matrices!(
     edge_segments::Vector{Vector{SimmapSegment}},
     nregimes::Integer,
     A_decomp::Symbol = :cholesky,
+    ;
+    root_regime::Integer = 0,
 )
     p = size(A_regimes, 1)
     q = p * Int(nregimes)
@@ -885,6 +935,10 @@ function _mvouma_node_design_matrices!(
     for W in designs
         size(W) == (p, q) || throw(ArgumentError("design workspace has incompatible dimensions"))
         fill!(W, 0.0)
+    end
+    if root_regime > 0
+        cols = ((root_regime - 1) * p + 1):(root_regime * p)
+        designs[Int(tree.root)][:, cols] .= Matrix{Float64}(I, p, p)
     end
     for node in tree.preorder
         tree.is_tip[node] && continue
@@ -977,4 +1031,3 @@ function _mvouma_node_path_means_zero(
     end
     return means
 end
-

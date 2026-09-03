@@ -8,6 +8,8 @@ function _ou_root_prior(spec::OUSpec, bundle::OUParameterBundle; cache = nothing
         elseif spec.root_mean_mode === :free_theta0
             bundle.theta0 === nothing && throw(ArgumentError("theta0 is required for free_theta0"))
             bundle.theta0
+        elseif spec.root_mean_mode === :stationary_design
+            0.0
         else
             throw(ArgumentError("Unsupported OU root_mean_mode=$(spec.root_mean_mode)"))
         end
@@ -38,9 +40,19 @@ function _ou_loglikelihood(
     _validate_ultrametric_tree(tree)
     edges = _build_ou_edges(tree, spec, bundle; cache = cache)
     root = _ou_root_prior(spec, bundle; cache = cache)
+    data = trait
+    if spec.root_mean_mode === :stationary_design
+        cache === nothing && throw(ArgumentError("cache is required for stationary_design"))
+        node_means = _ou_stationary_design_node_means(tree, spec, bundle, cache)
+        data = copy(Float64.(trait))
+        for (i, tip) in enumerate(tree.tip_ids)
+            data[i] -= node_means[Int(tip)]
+        end
+        fill!(edges.edge_b, 0.0)
+    end
     prof = _linear_gaussian_loglik(
         tree,
-        trait,
+        data,
         edges.edge_a,
         edges.edge_b,
         edges.edge_v;
@@ -87,9 +99,19 @@ function _ou_context_loglikelihood(
         workspace = workspace,
     )
     root = _ou_root_prior(context.spec, bundle; cache = context.cache)
+    data = context.trait
+    if context.spec.root_mean_mode === :stationary_design
+        context.cache === nothing && throw(ArgumentError("cache is required for stationary_design"))
+        node_means = _ou_stationary_design_node_means(tree, context.spec, bundle, context.cache)
+        data = copy(context.trait)
+        for (i, tip) in enumerate(tree.tip_ids)
+            data[i] -= node_means[Int(tip)]
+        end
+        fill!(edges.edge_b, 0.0)
+    end
     prof = _linear_gaussian_loglik(
         tree,
-        context.trait,
+        data,
         edges.edge_a,
         edges.edge_b,
         edges.edge_v;
