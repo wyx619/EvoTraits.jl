@@ -3,6 +3,43 @@ Base.@kwdef struct WorkflowModelSpec
     context_kind::Symbol = :none
 end
 
+"""
+    ContinuousModelCandidate(name, model, kwargs = (;))
+
+Describe one candidate in a continuous model-comparison workflow. `name`
+identifies the candidate in result and AIC tables, while `model` selects the
+registered fit function. `kwargs` are passed only to that candidate and
+override workflow-level fitting controls when keys overlap.
+"""
+Base.@kwdef struct ContinuousModelCandidate
+    name::Symbol
+    model::Symbol
+    kwargs::NamedTuple = (;)
+end
+
+_workflow_candidate(model::Symbol) = ContinuousModelCandidate(name = model, model = model)
+_workflow_candidate(candidate::ContinuousModelCandidate) = candidate
+
+function _workflow_candidate(candidate::NamedTuple)
+    allowed = (:name, :model, :kwargs)
+    issubset(keys(candidate), allowed) || throw(ArgumentError("candidate contains unsupported keys: $(setdiff(keys(candidate), allowed))"))
+    haskey(candidate, :name) || throw(ArgumentError("candidate name is required"))
+    haskey(candidate, :model) || throw(ArgumentError("candidate model is required"))
+    candidate.name isa Symbol || throw(ArgumentError("candidate name must be a Symbol"))
+    candidate.model isa Symbol || throw(ArgumentError("candidate model must be a Symbol"))
+    kwargs = get(candidate, :kwargs, (;))
+    kwargs isa NamedTuple || throw(ArgumentError("candidate kwargs must be a NamedTuple"))
+    return ContinuousModelCandidate(name = candidate.name, model = candidate.model, kwargs = kwargs)
+end
+
+function _normalize_workflow_candidates(models)
+    isempty(models) && throw(ArgumentError("models must not be empty"))
+    candidates = ContinuousModelCandidate[_workflow_candidate(model) for model in models]
+    names = getfield.(candidates, :name)
+    length(unique(names)) == length(names) || throw(ArgumentError("candidate names must be unique"))
+    return candidates
+end
+
 @inline _workflow_fit_kwargs(max_iterations::Integer, rel_tol::Float64) = (; max_iterations = max_iterations, rel_tol = rel_tol)
 @inline _workflow_error_prefix(multivariate::Bool) = multivariate ? "multivariate continuous model" : "continuous model"
 
@@ -96,8 +133,9 @@ function _workflow_dispatch_fit(
     edge_segments,
     max_iterations::Integer,
     rel_tol::Float64,
+    candidate_kwargs::NamedTuple = (;),
 )
-    kwargs = _workflow_fit_kwargs(max_iterations, rel_tol)
+    kwargs = merge(_workflow_fit_kwargs(max_iterations, rel_tol), candidate_kwargs)
     if spec.context_kind === :mapped_edge
         return spec.fit_fn(tree, trait; mapped_edge = mapped_edge, kwargs...)
     elseif spec.context_kind === :edge_segments
@@ -122,25 +160,31 @@ end
 function _fit_workflow_models(
     tree::CompactTree,
     trait,
-    models::AbstractVector{<:Symbol},
+    candidates::AbstractVector{<:ContinuousModelCandidate},
     multivariate::Bool;
     mapped_edge::Union{Nothing, AbstractMatrix{<:Real}} = nothing,
     edge_segments::Union{Nothing, Vector{Vector{SimmapSegment}}} = nothing,
     max_iterations::Integer = 400,
     rel_tol::Float64 = 1e-6,
 )
-    isempty(models) && throw(ArgumentError("models must not be empty"))
-    length(unique(models)) == length(models) || throw(ArgumentError("models contains duplicates"))
-
     fits =
         multivariate ?
         Dict{Symbol, AbstractMVContinuousFitResult}() :
         Dict{Symbol, AbstractContinuousFitResult}()
 
-    for model_name in models
-        spec = _lookup_workflow_spec(model_name, multivariate)
-        _validate_workflow_context(model_name, spec.context_kind, mapped_edge, edge_segments)
-        fits[model_name] = _workflow_dispatch_fit(spec, tree, trait, mapped_edge, edge_segments, max_iterations, rel_tol)
+    for candidate in candidates
+        spec = _lookup_workflow_spec(candidate.model, multivariate)
+        _validate_workflow_context(candidate.name, spec.context_kind, mapped_edge, edge_segments)
+        fits[candidate.name] = _workflow_dispatch_fit(
+            spec,
+            tree,
+            trait,
+            mapped_edge,
+            edge_segments,
+            max_iterations,
+            rel_tol,
+            candidate.kwargs,
+        )
     end
     return fits
 end
@@ -148,27 +192,29 @@ end
 function _fit_compare_workflow(
     tree::CompactTree,
     trait,
-    models::AbstractVector{<:Symbol},
+    models::AbstractVector,
     multivariate::Bool;
     mapped_edge::Union{Nothing, AbstractMatrix{<:Real}} = nothing,
     edge_segments::Union{Nothing, Vector{Vector{SimmapSegment}}} = nothing,
     max_iterations::Integer = 400,
     rel_tol::Float64 = 1e-6,
 )
+    candidates = _normalize_workflow_candidates(models)
     fits = _fit_workflow_models(
         tree,
         trait,
-        models,
+        candidates,
         multivariate;
         mapped_edge = mapped_edge,
         edge_segments = edge_segments,
         max_iterations = max_iterations,
         rel_tol = rel_tol,
     )
-    rows = aic_table((name => fits[name] for name in models)...)
+    rows = aic_table((candidate.name => fits[candidate.name] for candidate in candidates)...)
     best = best_model(rows)
     best_fit = fits[best.name]
-    best_spec = _lookup_workflow_spec(best.name, multivariate)
+    best_candidate = only(filter(candidate -> candidate.name === best.name, candidates))
+    best_spec = _lookup_workflow_spec(best_candidate.model, multivariate)
     asr = _workflow_estim(tree, trait, best_fit, best_spec.context_kind, mapped_edge, edge_segments)
 
     if multivariate
@@ -196,11 +242,14 @@ end
 Run the full continuous-model comparison workflow: fit all requested models,
 assemble the ranked AIC table, choose the best successful model, and perform
 continuous ancestral state reconstruction for that fit.
+
+`models` may contain registered model symbols or `ContinuousModelCandidate`
+objects.
 """
 function fit_compare_estim(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
-    models::AbstractVector{<:Symbol};
+    models::AbstractVector;
     mapped_edge::Union{Nothing, AbstractMatrix{<:Real}} = nothing,
     edge_segments::Union{Nothing, Vector{Vector{SimmapSegment}}} = nothing,
     max_iterations::Integer = 400,
@@ -224,11 +273,14 @@ end
 Run the full multivariate model-comparison workflow: fit all requested models,
 assemble the ranked AIC table, choose the best successful model, and perform
 multivariate ancestral state reconstruction for that fit.
+
+`models` may contain registered model symbols or `ContinuousModelCandidate`
+objects.
 """
 function fit_compare_multivariate(
     tree::CompactTree,
     trait::AbstractMatrix{<:Real},
-    models::AbstractVector{<:Symbol};
+    models::AbstractVector;
     mapped_edge::Union{Nothing, AbstractMatrix{<:Real}} = nothing,
     edge_segments::Union{Nothing, Vector{Vector{SimmapSegment}}} = nothing,
     max_iterations::Integer = 400,

@@ -139,6 +139,7 @@ export model
 export delta_aic
 export aic_table
 export best_model
+export ContinuousModelCandidate
 export fit_compare_estim
 export fit_compare_multivariate
 

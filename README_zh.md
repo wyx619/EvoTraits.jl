@@ -156,6 +156,30 @@ workflow.asr
 
 多变量对应接口是 fit_compare_multivariate。结果中包含全部 fit、排序后的 AIC 表、最佳模型名称、最佳 fit 和对应的重建结果。
 
+当多个候选属于同一模型族、但拟合设定不同，例如需要比较不同的 attraction matrix 分解方式时，使用 ContinuousModelCandidate：
+
+~~~julia
+candidates = [
+    ContinuousModelCandidate(
+        name = :mvOUM_full,
+        model = :mvOUM,
+        kwargs = (A_decomp = :cholesky,),
+    ),
+    ContinuousModelCandidate(
+        name = :mvOUM_diag,
+        model = :mvOUM,
+        kwargs = (A_decomp = :diagonal,),
+    ),
+]
+
+workflow = fit_compare_multivariate(
+    tree,
+    X,
+    candidates;
+    edge_segments = sim.edge_segments,
+)
+~~~
+
 ## 树与数据约定
 
 - CompactTree 是似然、SIMMAP 和重建内核使用的内部树表示。

@@ -156,6 +156,30 @@ workflow.asr
 
 The multivariate counterpart is fit_compare_multivariate. The workflow returns all fits, a ranked AIC table, the selected model name, the selected fit, and its reconstruction.
 
+Use ContinuousModelCandidate when candidates share a model family but differ in fit settings, such as competing attraction-matrix decompositions:
+
+~~~julia
+candidates = [
+    ContinuousModelCandidate(
+        name = :mvOUM_full,
+        model = :mvOUM,
+        kwargs = (A_decomp = :cholesky,),
+    ),
+    ContinuousModelCandidate(
+        name = :mvOUM_diag,
+        model = :mvOUM,
+        kwargs = (A_decomp = :diagonal,),
+    ),
+]
+
+workflow = fit_compare_multivariate(
+    tree,
+    X,
+    candidates;
+    edge_segments = sim.edge_segments,
+)
+~~~
+
 ## Tree and data conventions
 
 - CompactTree is the internal representation used by likelihood, SIMMAP, and reconstruction kernels.

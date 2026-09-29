@@ -133,4 +133,31 @@ end
     )
     @test ou_workflow.best_name in (:mvBM1, :mvBMM, :mvOUM)
     @test ou_workflow.asr !== nothing
+
+    candidates = [
+        ContinuousModelCandidate(
+            name = :mvOUM_full,
+            model = :mvOUM,
+            kwargs = (A_decomp = :cholesky,),
+        ),
+        (
+            name = :mvOUM_diag,
+            model = :mvOUM,
+            kwargs = (A_decomp = :diagonal,),
+        ),
+    ]
+    candidate_workflow = fit_compare_multivariate(
+        ou_tree,
+        ou_data,
+        candidates;
+        edge_segments = edge_segments,
+        max_iterations = 30,
+        rel_tol = 1e-6,
+    )
+    @test Set(keys(candidate_workflow.fits)) == Set((:mvOUM_full, :mvOUM_diag))
+    @test candidate_workflow.fits[:mvOUM_full].A_decomp == :cholesky
+    @test candidate_workflow.fits[:mvOUM_diag].A_decomp == :diagonal
+    @test length(candidate_workflow.aic_table) == 2
+    @test candidate_workflow.best_name in (:mvOUM_full, :mvOUM_diag)
+    @test candidate_workflow.asr !== nothing
 end
