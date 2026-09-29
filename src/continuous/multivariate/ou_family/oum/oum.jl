@@ -30,7 +30,7 @@ function mvoum_loglikelihood(
     precalc = _mvou_precalc(tree, spec; edge_segments = edge_segments)
     size(theta_regimes, 1) == precalc.nregimes || throw(ArgumentError("theta_regimes row count must match regime count"))
     bundle = MVOUParameterBundle(theta = vec(copy(theta_regimes')), A = Matrix{Float64}(A), Sigma = Matrix{Float64}(Sigma))
-    prof = _mvou_profile_dispatch(tree, data, bundle, precalc)
+    prof = _mvou_fixed_loglikelihood(tree, data, precalc, bundle)
     Ablock = _mvou_A_block_nparams(spec, p)
     Sblock = _mvou_sigma_block_nparams(p)
     nparams = Ablock + Sblock + p * precalc.nregimes

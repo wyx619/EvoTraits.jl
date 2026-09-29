@@ -38,7 +38,7 @@ function mvouma_loglikelihood(
         A_regimes = Float64.(A_regimes),
         Sigma = Matrix{Float64}(Sigma),
     )
-    prof = _mvou_profile_dispatch(tree, data, bundle, precalc)
+    prof = _mvou_fixed_loglikelihood(tree, data, precalc, bundle)
     Ablock = _mvou_A_block_nparams(spec, p)
     Sblock = _mvou_sigma_block_nparams(p)
     nparams = Ablock * precalc.nregimes + Sblock + p * precalc.nregimes

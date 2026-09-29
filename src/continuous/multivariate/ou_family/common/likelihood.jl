@@ -233,6 +233,59 @@ function _mv_recursive_asr(
         tip_estimates = tip_estimates,
         tip_covariances = tip_covariances,
         tip_observed_mask = .!isnan.(Matrix{Float64}(centered_trait)),
+        regression = regression === nothing ? zeros(Float64, 0, 0) : regression,
+    )
+end
+
+function _mvou_fixed_loglikelihood(
+    tree::CompactTree,
+    trait::AbstractMatrix{<:Real},
+    precalc::MVOUPrecalc,
+    bundle::MVOUParameterBundle,
+)
+    data = Matrix{Float64}(trait)
+    p = size(data, 2)
+    family = _mvou_profile_family(bundle)
+
+    branch =
+        if family === :mvOU1 || family === :mvOUM
+            _mvou_branch_cache(precalc, bundle.A, bundle.Sigma)
+        elseif family === :mvOUMV
+            _mvoumv_branch_cache(precalc, bundle.A, bundle.Sigma_regimes)
+        elseif family === :mvOUMA
+            _mvouma_branch_cache(precalc, bundle.A_regimes, bundle.Sigma)
+        elseif family === :mvOUMVA
+            _mvoumva_branch_cache(precalc, bundle.A_regimes, bundle.Sigma_regimes)
+        else
+            throw(ArgumentError("Unsupported multivariate OU family $family"))
+        end
+
+    segments =
+        isempty(precalc.edge_segments) ?
+        [[SimmapSegment(state = Int32(1), length = Float64(tree.edge_length[e]))] for e in 1:tree.nedges] :
+        precalc.edge_segments
+
+    path_means =
+        if family === :mvOUMA || family === :mvOUMVA
+            _mvouma_node_path_means(tree, bundle, segments, precalc.root_regime)
+        else
+            _mvou_node_path_means(tree, bundle, segments, precalc.root_regime)
+        end
+
+    centered = copy(data)
+    @inbounds for (i, tip) in enumerate(tree.tip_ids)
+        centered[i, :] .-= path_means[Int(tip)]
+    end
+
+    return _mv_recursive_profile(
+        tree,
+        centered,
+        branch.Phi,
+        branch.Q;
+        root_mean = zeros(Float64, p),
+        root_cov = _mvou_root_covariance(precalc, bundle),
+        edge_Qinv = branch.Qinv,
+        edge_logdet_Q = branch.logdet_Q,
     )
 end
 

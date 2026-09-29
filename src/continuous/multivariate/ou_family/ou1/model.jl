@@ -21,7 +21,7 @@ function mvou1_loglikelihood(
     length(theta_vec) == p || throw(ArgumentError("theta length must match trait dimension"))
     precalc = _mvou_precalc(tree, spec)
     bundle = MVOUParameterBundle(theta = theta_vec, A = Matrix{Float64}(A), Sigma = Matrix{Float64}(Sigma))
-    prof = _mvou_profile_dispatch(tree, data, bundle, precalc)
+    prof = _mvou_fixed_loglikelihood(tree, data, precalc, bundle)
     Ablock = _mvou_A_block_nparams(spec, p)
     Sblock = _mvou_sigma_block_nparams(p)
     nparams = Ablock + Sblock + p
