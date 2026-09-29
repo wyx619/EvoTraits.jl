@@ -38,6 +38,8 @@ function _mvoubm_initial_candidates(
     SigmaX0 = Matrix{Float64}(Diagonal(max.(varX, 1e-6)))
     A_cands = if A_decomp === :schur
         _mvou_unique_matrix_candidates(_mvou_schur_A_candidates(tree, kY))
+    elseif A_decomp === :diagonal
+        _mvou_diagonal_A_candidates(tree, kY)
     elseif A_decomp === :upper_triangular
         [Matrix{Float64}(cholesky(Symmetric(Matrix{Float64}(M))).U) for M in _mvou_A_candidates(tree, kY)]
     elseif A_decomp === :lower_triangular
@@ -78,7 +80,7 @@ function fit_mvoubm(
     p = size(data, 2)
     kY = Int(kY)
     1 <= kY < p || throw(ArgumentError("kY must satisfy 1 <= kY < number of traits"))
-    A_decomp in (:cholesky, :schur, :decomposable_real, :upper_triangular, :lower_triangular) ||
+    A_decomp in (:cholesky, :diagonal, :schur, :decomposable_real, :upper_triangular, :lower_triangular) ||
         throw(ArgumentError("Unsupported fit_mvoubm A_decomp=$A_decomp"))
     kX = p - kY
     spec = MVOUSpec(

@@ -126,7 +126,7 @@ fit = fit_mvoumva(
 )
 ~~~
 
-The current Schur path targets the p = 2 asymmetric-A implementation. Cholesky remains the default for the symmetric positive-definite attraction parameterization.
+The Schur path targets the p = 2 asymmetric-A implementation. Cholesky remains the default for the symmetric positive-definite attraction parameterization, while A_decomp = :diagonal constrains A to independent positive trait-specific rates with p parameters.
 
 ### Fit a discrete model and sample histories
 
@@ -173,7 +173,7 @@ OU fit results record root metadata. Depending on the model, relevant keywords i
 
 - Root mean handling distinguishes regime-root optimum from stationary-design treatment.
 - Root covariance handling distinguishes fixed-root covariance from stationary root covariance.
-- Multivariate OU defaults to A_decomp = :cholesky; the current asymmetric Schur implementation supports two traits.
+- Multivariate OU defaults to A_decomp = :cholesky. Use :diagonal for independent trait-specific rates; the asymmetric Schur implementation supports two traits.
 
 These are statistical model choices, not merely implementation details. Keep them fixed when comparing models or validating against an R implementation.
 

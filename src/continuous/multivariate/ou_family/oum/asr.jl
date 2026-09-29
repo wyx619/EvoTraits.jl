@@ -12,6 +12,7 @@ function _mvoum_family_tree_pruning_asr(
     bundle = _mvou_asr_bundle(fit)
     spec = _mvou_spec_with_root(
         fit.model;
+        A_decomp = fit.A_decomp,
         root_mean_mode = fit.root_mean_mode,
         root_cov_mode = fit.root_cov_mode,
     )

@@ -89,11 +89,25 @@ end
 @inline function _mvou_A_block_nparams(spec::MVOUSpec, p::Integer)
     if spec.A_decomp === :cholesky
         return div(p * (p + 1), 2)
+    elseif spec.A_decomp === :diagonal
+        return Int(p)
     elseif spec.A_decomp === :schur
         p == 2 || throw(ArgumentError("A_decomp=:schur is currently supported only for p=2"))
         return p * p
     end
     throw(ArgumentError("Unsupported multivariate OU A_decomp=$(spec.A_decomp)"))
+end
+
+@inline function _mvou_pack_diagonal_A(A::AbstractMatrix{<:Real})
+    p = size(A, 1)
+    size(A, 2) == p || throw(ArgumentError(:diagonal_A_requires_square_matrix))
+    return [log(max(Float64(A[i, i]), 1e-10)) for i in 1:p]
+end
+
+@inline function _mvou_unpack_diagonal_A(pars::AbstractVector{<:Real}, p::Integer)
+    expected = Int(p)
+    length(pars) == expected || throw(ArgumentError(:diagonal_A_parameter_count_mismatch))
+    return Matrix{Float64}(Diagonal(exp.(Float64.(pars))))
 end
 
 @inline function _mvou_sigma_block_nparams(p::Integer)
@@ -153,6 +167,8 @@ end
 @inline function _mvou_pack_A(spec::MVOUSpec, A::AbstractMatrix{<:Real})
     if spec.A_decomp === :cholesky
         return _mvou_pack_spd(A)
+    elseif spec.A_decomp === :diagonal
+        return _mvou_pack_diagonal_A(A)
     elseif spec.A_decomp === :schur
         return _mvou_pack_schur2(A)
     end
@@ -162,6 +178,8 @@ end
 @inline function _mvou_unpack_A(spec::MVOUSpec, pars::AbstractVector{<:Real}, p::Integer)
     if spec.A_decomp === :cholesky
         return _mvou_unpack_spd(pars, p)
+    elseif spec.A_decomp === :diagonal
+        return _mvou_unpack_diagonal_A(pars, p)
     elseif spec.A_decomp === :schur
         p == 2 || throw(ArgumentError("A_decomp=:schur is currently supported only for p=2"))
         return _mvou_unpack_schur2(pars)
@@ -258,6 +276,8 @@ function _mvou_pack_initial_params(
 
     if spec.A_decomp === :cholesky
         A0_matrix = (A0_matrix + A0_matrix') / 2 + 1e-8 * Matrix{Float64}(I, p, p)
+    elseif spec.A_decomp === :diagonal
+        A0_matrix = Matrix{Float64}(Diagonal(max.(diag(A0_matrix), 1e-8)))
     elseif spec.A_decomp === :schur
         p == 2 || throw(ArgumentError("A_decomp=:schur is currently supported only for p=2"))
         vals = eigvals(Matrix{Float64}(A0_matrix))

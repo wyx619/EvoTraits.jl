@@ -19,6 +19,7 @@
         :mvOUMV,
         :mvOUMA,
         :mvOUMVA,
+        :mvOUBM,
     ])
 
     c_registry = EvoTraits._continuous_model_registry()
@@ -30,6 +31,7 @@
     @test c_registry[:OUMA].context_kind == :edge_segments
     @test mv_registry[:mvBMM].context_kind == :regime_map
     @test mv_registry[:mvOUM].context_kind == :edge_segments
+    @test mv_registry[:mvOUBM].context_kind == :edge_segments
 end
 
 @testset "AIC model comparison helpers" begin

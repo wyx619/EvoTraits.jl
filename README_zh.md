@@ -126,7 +126,7 @@ fit = fit_mvoumva(
 )
 ~~~
 
-当前 Schur 路径面向 p = 2 的非对称 A 实现；默认的 Cholesky 适用于对称正定的 attraction 参数化。模型比较时应保持分解方式一致。
+Schur 路径面向 p = 2 的非对称 A 实现；默认的 Cholesky 适用于对称正定的 attraction 参数化，而 A_decomp = :diagonal 将 A 约束为独立的正性状特异速率，仅估计 p 个参数。模型比较时应保持分解方式一致。
 
 ### 拟合离散模型并抽样历史
 
@@ -173,7 +173,7 @@ OU fit 结果会记录根处理元数据。根据模型，相关参数包括 roo
 
 - 根均值处理区分 regime 根 optimum 与 stationary-design 处理。
 - 根协方差处理区分 fixed-root covariance 与 stationary root covariance。
-- 多变量 OU 默认使用 A_decomp = :cholesky；当前非对称 Schur 实现支持两个性状。
+- 多变量 OU 默认使用 A_decomp = :cholesky。独立性状特异速率应使用 :diagonal；非对称 Schur 当前支持两个性状。
 
 这些选项属于统计模型设定，而不只是实现细节。与 R 实现验证或比较模型时，应固定这些选项。
 

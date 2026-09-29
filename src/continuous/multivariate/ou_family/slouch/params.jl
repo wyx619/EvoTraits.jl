@@ -14,7 +14,7 @@ function _mvoubm_A_block_nparams(A_decomp::Symbol, kY::Int)
     elseif A_decomp === :upper_triangular || A_decomp === :lower_triangular
         return div(kY * (kY + 1), 2)
     end
-    return _mvou_A_block_nparams(_mvoubm_A_spec(:cholesky), kY)
+    return _mvou_A_block_nparams(_mvoubm_A_spec(A_decomp), kY)
 end
 
 function _mvoubm_unpack_A_block(A_decomp::Symbol, pars::AbstractVector{<:Real}, kY::Int)

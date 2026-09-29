@@ -38,6 +38,20 @@ function _mvou_spd_block_valid(M::AbstractMatrix{<:Real}; mineig::Float64, maxei
     return minimum(vals) > mineig && maximum(vals) < maxeig
 end
 
+function _mvou_diagonal_block_valid(M::AbstractMatrix{<:Real}; mineig::Float64, maxeig::Float64 = 1e8)
+    all(isfinite, M) || return false
+    p = size(M, 1)
+    size(M, 2) == p || return false
+    for i in 1:p
+        mineig < Float64(M[i, i]) < maxeig || return false
+        for j in 1:p
+            i == j && continue
+            abs(Float64(M[i, j])) <= 1e-10 || return false
+        end
+    end
+    return true
+end
+
 function _mvou_bundle_valid_for_objective(bundle::MVOUParameterBundle, spec::MVOUSpec)
     _stable_pos_realpart(M::AbstractMatrix{<:Real}; mineig::Float64, maxeig::Float64 = 1e8) = begin
         all(isfinite, M) || return false
@@ -51,6 +65,8 @@ function _mvou_bundle_valid_for_objective(bundle::MVOUParameterBundle, spec::MVO
         @inbounds for r in axes(bundle.A_regimes, 3)
             if spec.A_decomp === :cholesky
                 _mvou_spd_block_valid(@view(bundle.A_regimes[:, :, r]); mineig = 1e-8, maxeig = 10.0) || return false
+            elseif spec.A_decomp === :diagonal
+                _mvou_diagonal_block_valid(@view(bundle.A_regimes[:, :, r]); mineig = 1e-8, maxeig = 10.0) || return false
             elseif spec.A_decomp === :schur
                 _stable_pos_realpart(@view(bundle.A_regimes[:, :, r]); mineig = 1e-8, maxeig = 10.0) || return false
             else
@@ -60,6 +76,8 @@ function _mvou_bundle_valid_for_objective(bundle::MVOUParameterBundle, spec::MVO
     else
         if spec.A_decomp === :cholesky
             _mvou_spd_block_valid(bundle.A; mineig = 1e-8, maxeig = 10.0) || return false
+        elseif spec.A_decomp === :diagonal
+            _mvou_diagonal_block_valid(bundle.A; mineig = 1e-8, maxeig = 10.0) || return false
         elseif spec.A_decomp === :schur
             _stable_pos_realpart(bundle.A; mineig = 1e-8, maxeig = 10.0) || return false
         else
@@ -192,6 +210,8 @@ end
 function _mvou_A_diag_parameter_offsets(spec::MVOUSpec, offset::Integer, p::Integer)
     if spec.A_decomp === :cholesky
         return _mvou_spd_diag_parameter_offsets(offset, p)
+    elseif spec.A_decomp === :diagonal
+        return Int[]
     elseif spec.A_decomp === :schur
         p == 2 || throw(ArgumentError("A_decomp=:schur is currently supported only for p=2"))
         return [Int(offset), Int(offset) + 1]
@@ -266,6 +286,21 @@ function _mvou_schur_A_candidates(tree::CompactTree, p::Integer)
         push!(out, Q * T * Q')
     end
     return out
+end
+
+function _mvou_diagonal_A_candidates(tree::CompactTree, p::Integer)
+    height = maximum(tree.dist_from_root[tree.tip_ids])
+    scales = unique(filter(isfinite, vcat([log(2.0) / max(height / d, 1e-8) for d in (1.0, 2.0, 4.0, 8.0, 16.0, 64.0)], [0.05, 0.1, 0.2, 0.4, 0.8, 1.6, 3.2])))
+    out = Matrix{Float64}[]
+    for scale in scales
+        push!(out, Matrix(Float64(scale) .* Matrix{Float64}(I, p, p)))
+        if p > 1
+            pattern = exp.(range(-0.7, 0.7; length = p))
+            push!(out, Matrix(Diagonal(Float64(scale) .* pattern)))
+            push!(out, Matrix(Diagonal(Float64(scale) .* reverse(pattern))))
+        end
+    end
+    return _mvou_unique_matrix_candidates(out)
 end
 
 function _mvou_unique_matrix_candidates(
@@ -426,6 +461,8 @@ function _mvou_initial_candidates(
     A_candidates =
         if spec.A_decomp === :schur
             _mvou_unique_matrix_candidates(_mvou_schur_A_candidates(tree, p))
+        elseif spec.A_decomp === :diagonal
+            _mvou_diagonal_A_candidates(tree, p)
         else
             _mvou_A_candidates(tree, p)
         end
@@ -483,6 +520,8 @@ function _mvou_initial_cov_candidates(
     A_candidates =
         if spec.A_decomp === :schur
             _mvou_unique_matrix_candidates(_mvou_schur_A_candidates(tree, p))
+        elseif spec.A_decomp === :diagonal
+            _mvou_diagonal_A_candidates(tree, p)
         else
             _mvou_A_candidates(tree, p)
         end

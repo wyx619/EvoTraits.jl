@@ -9,6 +9,8 @@ end
 @inline function _mvou_transition_factor(A::AbstractMatrix{<:Real}, A_decomp::Symbol)
     if A_decomp === :cholesky
         return _mvou_transition_eigen(A)
+    elseif A_decomp === :diagonal
+        return Diagonal(Float64.(diag(A)))
     elseif A_decomp === :schur
         return schur(Matrix{Float64}(A))
     end
@@ -240,6 +242,13 @@ function _mvou_stationary_covariance(
     size(Sigma, 1) == size(Sigma, 2) == p || throw(ArgumentError("Sigma dimensions must match A"))
     if A_decomp === :cholesky
         return _mvou_stationary_covariance(_mvou_transition_eigen(A), Sigma)
+    elseif A_decomp === :diagonal
+        alpha = Float64.(diag(A))
+        S = zeros(Float64, p, p)
+        for j in 1:p, i in 1:p
+            S[i, j] = Float64(Sigma[i, j]) / (alpha[i] + alpha[j])
+        end
+        return (S + S') / 2
     elseif A_decomp === :schur
         K = kron(I(p), Matrix{Float64}(A)) + kron(Matrix{Float64}(A), I(p))
         vecS = K \ vec(Matrix{Float64}(Sigma))
@@ -268,6 +277,8 @@ end
 @inline function _mvou_transition_from_factor(factor, A_decomp::Symbol, t::Real)
     if A_decomp === :cholesky
         return _mvou_transition_from_eigen(factor, t)
+    elseif A_decomp === :diagonal
+        return Diagonal(exp.(-Float64.(diag(factor)) .* Float64(t)))
     elseif A_decomp === :schur
         return _mvou_transition_from_schur(factor, t)
     end
@@ -277,6 +288,12 @@ end
 @inline function _mvou_transition_from_factor!(out::AbstractMatrix{Float64}, factor, A_decomp::Symbol, t::Real)
     if A_decomp === :cholesky
         return _mvou_transition_from_eigen!(out, factor, t)
+    elseif A_decomp === :diagonal
+        fill!(out, 0.0)
+        for i in axes(out, 1)
+            out[i, i] = exp(-Float64(factor[i, i]) * Float64(t))
+        end
+        return out
     elseif A_decomp === :schur
         return _mvou_transition_from_schur!(out, factor, t)
     end

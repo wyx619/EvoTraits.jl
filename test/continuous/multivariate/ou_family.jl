@@ -850,6 +850,61 @@ end
     @test isfinite(oumva.loglik)
 end
 
+@testset begin
+    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(6501)))
+    edge_segments = _test_edge_segments(tree, 2)
+    A_data = Matrix(Diagonal([0.7, 1.2, 2.1]))
+    Sigma = [
+        0.8 0.15 0.05;
+        0.15 0.7 0.1;
+        0.05 0.1 0.6;
+    ]
+    theta = [
+        -0.2 0.5 1.0;
+        0.3 0.1 -0.4;
+    ]
+    traits = simulate_mvoum(tree, edge_segments, A_data, Sigma, eachrow(theta) |> collect; rng = MersenneTwister(6502))
+
+    diagonal = mvoum_loglikelihood(tree, traits, edge_segments, A_data, Sigma, theta; A_decomp = :diagonal)
+    symmetric = mvoum_loglikelihood(tree, traits, edge_segments, A_data, Sigma, theta)
+    @test diagonal.success
+    @test diagonal.A_decomp == :diagonal
+    @test diagonal.nparams == 3 + 6 + 6
+    @test isapprox(diagonal.loglik, symmetric.loglik; atol = 1e-8)
+    A_bad = copy(A_data)
+    A_bad[1, 2] = 0.1
+    @test !mvoum_loglikelihood(tree, traits, edge_segments, A_bad, Sigma, theta; A_decomp = :diagonal).success
+
+    ou1 = mvou1_loglikelihood(tree, traits, A_data, Sigma, theta[1, :]; A_decomp = :diagonal)
+    @test ou1.success
+    @test ou1.A_decomp == :diagonal
+    @test ou1.nparams == 3 + 6 + 3
+    @test isapprox(ou1.loglik, mvou1_loglikelihood(tree, traits, A_data, Sigma, theta[1, :]).loglik; atol = 1e-8)
+
+    @test EvoTraits._mvoubm_A_block_nparams(:diagonal, 3) == 3
+    bm_params = EvoTraits._mvoubm_pack_A_block(:diagonal, A_data)
+    @test length(bm_params) == 3
+    @test isapprox(EvoTraits._mvoubm_unpack_A_block(:diagonal, bm_params, 3), A_data; atol = 1e-12)
+
+    A_regimes = repeat(reshape(A_data, 3, 3, 1), 1, 1, 2)
+    Sigma_regimes = repeat(reshape(Sigma, 3, 3, 1), 1, 1, 2)
+    oumv = mvoumv_loglikelihood(tree, traits, edge_segments, A_data, Sigma_regimes, theta; A_decomp = :diagonal)
+    ouma = mvouma_loglikelihood(tree, traits, edge_segments, A_regimes, Sigma, theta; A_decomp = :diagonal)
+    oumva = mvoumva_loglikelihood(tree, traits, edge_segments, A_regimes, Sigma_regimes, theta; A_decomp = :diagonal)
+    @test oumv.success && oumv.A_decomp == :diagonal
+    @test ouma.success && ouma.A_decomp == :diagonal
+    @test oumva.success && oumva.A_decomp == :diagonal
+
+    fit = fit_mvoum(tree, traits, edge_segments; A_decomp = :diagonal, max_iterations = 40, rel_tol = 1e-5)
+    @test fit.success
+    @test fit.A_decomp == :diagonal
+    @test fit.nparams == 3 + 6 + 6
+    @test maximum(abs, fit.A[:, :, 1] - Matrix(Diagonal(diag(fit.A[:, :, 1])))) <= 1e-10
+
+    asr = estim_node(tree, traits, fit; edge_segments = edge_segments)
+    @test asr.success
+end
+
 
 
 

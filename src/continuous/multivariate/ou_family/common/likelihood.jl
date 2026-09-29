@@ -246,6 +246,15 @@ function _mvou_fixed_loglikelihood(
     data = Matrix{Float64}(trait)
     p = size(data, 2)
     family = _mvou_profile_family(bundle)
+    if precalc.A_decomp === :diagonal
+        if family === :mvOUMA || family === :mvOUMVA
+            for r in axes(bundle.A_regimes, 3)
+                _mvou_diagonal_block_valid(@view(bundle.A_regimes[:, :, r]); mineig = 1e-8, maxeig = 10.0) || return (success = false, loglik = -Inf)
+            end
+        else
+            _mvou_diagonal_block_valid(bundle.A; mineig = 1e-8, maxeig = 10.0) || return (success = false, loglik = -Inf)
+        end
+    end
 
     branch =
         if family === :mvOU1 || family === :mvOUM
