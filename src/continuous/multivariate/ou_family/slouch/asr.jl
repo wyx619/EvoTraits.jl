@@ -20,6 +20,9 @@ function _mvoubm_asr(
     SigmaX = Sigma[(kY + 1):end, (kY + 1):end]
     mPsi = Matrix{Float64}(permutedims(fit.theta))
 
+    # A is fixed during ASR. Repack it through the free representation so
+    # the likelihood path reconstructs exactly the matrix stored in fit.A,
+    # without an unnecessary decomposition round trip.
     spec = MVOUSpec(
         model = :mvOUBM,
         theta_mode = :by_regime,

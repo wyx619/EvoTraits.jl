@@ -100,13 +100,26 @@ end
 
 @inline function _mvou_pack_diagonal_A(A::AbstractMatrix{<:Real})
     p = size(A, 1)
-    size(A, 2) == p || throw(ArgumentError(:diagonal_A_requires_square_matrix))
-    return [log(max(Float64(A[i, i]), 1e-10)) for i in 1:p]
+    size(A, 2) == p || throw(ArgumentError("A_decomp=:diagonal requires a square matrix"))
+    pars = Vector{Float64}(undef, p)
+    @inbounds for j in 1:p
+        a = Float64(A[j, j])
+        isfinite(a) && a > 0.0 ||
+            throw(ArgumentError("A_decomp=:diagonal requires a finite positive diagonal"))
+        pars[j] = log(a)
+        for i in 1:p
+            i == j && continue
+            abs(Float64(A[i, j])) <= 1e-10 ||
+                throw(ArgumentError("A_decomp=:diagonal requires zero off-diagonal entries"))
+        end
+    end
+    return pars
 end
 
 @inline function _mvou_unpack_diagonal_A(pars::AbstractVector{<:Real}, p::Integer)
     expected = Int(p)
-    length(pars) == expected || throw(ArgumentError(:diagonal_A_parameter_count_mismatch))
+    length(pars) == expected ||
+        throw(ArgumentError("A_decomp=:diagonal parameter vector must have $expected entries"))
     return Matrix{Float64}(Diagonal(exp.(Float64.(pars))))
 end
 

@@ -903,6 +903,78 @@ end
 
     asr = estim_node(tree, traits, fit; edge_segments = edge_segments)
     @test asr.success
+
+    branch = estim_branch_for_simmap(tree, traits, fit; edge_segments = edge_segments)
+    @test branch.success
+    @test length(branch.edge_ids) == sum(length, edge_segments)
+end
+
+@testset begin
+    A_ok = Matrix(Diagonal([0.7, 1.2, 2.1]))
+    spec = EvoTraits.mvou_spec(:mvOUM; A_decomp = :diagonal)
+    pars = EvoTraits._mvou_pack_A(spec, A_ok)
+    @test isapprox(pars, log.(diag(A_ok)); atol = 1e-12)
+    @test isapprox(EvoTraits._mvou_unpack_A(spec, pars, 3), A_ok; atol = 1e-12)
+    @test_throws ArgumentError EvoTraits._mvou_pack_A(spec, rand(2, 3))
+    @test_throws ArgumentError EvoTraits._mvou_pack_A(spec, [1.0 0.0; 0.0 Inf; 0.0 0.0])
+    @test_throws ArgumentError EvoTraits._mvou_pack_A(spec, [1.0 0.0; 0.0 -1.0])
+    @test_throws ArgumentError EvoTraits._mvou_pack_A(spec, [1.0 0.1; 0.0 2.0])
+    @test_throws ArgumentError EvoTraits._mvou_unpack_A(spec, [0.0, 0.0], 3)
+
+    tree = serialize_tree(simulate_yule_simtree(14; tree_height = 1.0, rng = MersenneTwister(7001)))
+    edge_segments = _test_edge_segments(tree, 2)
+    Sigma = [
+        0.8 0.15 0.05;
+        0.15 0.7 0.1;
+        0.05 0.1 0.6;
+    ]
+    theta = [
+        -0.2 0.5 1.0;
+        0.3 0.1 -0.4;
+    ]
+    traits = simulate_mvoum(tree, edge_segments, A_ok, Sigma, eachrow(theta) |> collect; rng = MersenneTwister(7002))
+
+    oumv_fit = fit_mvoumv(tree, traits, edge_segments; A_decomp = :diagonal, max_iterations = 20, rel_tol = 1e-5)
+    ouma_fit = fit_mvouma(tree, traits, edge_segments; A_decomp = :diagonal, max_iterations = 20, rel_tol = 1e-5)
+    oumva_fit = fit_mvoumva(tree, traits, edge_segments; A_decomp = :diagonal, max_iterations = 20, rel_tol = 1e-5)
+
+    for fit in (oumv_fit, ouma_fit, oumva_fit)
+        @test fit.success
+        @test fit.A_decomp == :diagonal
+        @test isfinite(fit.loglik)
+        @test isfinite(fit.aic)
+        @test all(
+            r -> maximum(abs, fit.A[:, :, r] - Matrix(Diagonal(diag(fit.A[:, :, r])))) <= 1e-10,
+            1:size(fit.A, 3),
+        )
+    end
+
+    asr = estim_node(tree, traits, oumva_fit; edge_segments = edge_segments)
+    @test asr.success
+    @test size(asr.estimates) == (tree.ntips - 1, 3)
+
+    branch = estim_branch_for_simmap(tree, traits, oumv_fit; edge_segments = edge_segments)
+    @test branch.success
+    @test length(branch.edge_ids) == sum(length, edge_segments)
+
+    oubm_data = traits[:, 1:2]
+    oubm_fit = fit_mvoubm(
+        tree,
+        oubm_data,
+        edge_segments;
+        A_decomp = :diagonal,
+        max_iterations = 10,
+        rel_tol = 1e-5,
+    )
+    @test oubm_fit.success
+    @test oubm_fit.model == :mvOUBM
+    @test oubm_fit.A_decomp == :diagonal
+    @test size(oubm_fit.A) == (1, 1, 1)
+    @test maximum(abs, oubm_fit.A[:, :, 1] - Matrix(Diagonal(diag(oubm_fit.A[:, :, 1])))) <= 1e-10
+
+    oubm_asr = estim_node(tree, oubm_data, oubm_fit; edge_segments = edge_segments)
+    @test oubm_asr.success
+    @test size(oubm_asr.estimates) == (tree.ntips - 1, 2)
 end
 
 

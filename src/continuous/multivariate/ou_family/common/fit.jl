@@ -211,6 +211,8 @@ function _mvou_A_diag_parameter_offsets(spec::MVOUSpec, offset::Integer, p::Inte
     if spec.A_decomp === :cholesky
         return _mvou_spd_diag_parameter_offsets(offset, p)
     elseif spec.A_decomp === :diagonal
+        # Diagonal entries are parameterized as log(A[i, i]), so exp()
+        # enforces positivity without a finite lower bound.
         return Int[]
     elseif spec.A_decomp === :schur
         p == 2 || throw(ArgumentError("A_decomp=:schur is currently supported only for p=2"))
