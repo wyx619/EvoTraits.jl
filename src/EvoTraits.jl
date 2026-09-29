@@ -8,7 +8,6 @@ using NewickTree
 using NLopt
 using Optim
 using DataFrames
-using StatsModels
 using Distributions
 
 # Base types and shared utilities
@@ -104,6 +103,8 @@ export mvouma_loglikelihood
 export fit_mvouma
 export mvoumva_loglikelihood
 export fit_mvoumva
+export mvoubm_loglikelihood
+export fit_mvoubm
 export mvbmm_loglikelihood
 export fit_mvbmm
 export mveb_loglikelihood

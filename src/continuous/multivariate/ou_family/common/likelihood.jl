@@ -179,6 +179,7 @@ function _mv_recursive_asr(
     root_cov::AbstractMatrix{<:Real},
     shift::AbstractVector{<:Real},
     model::Symbol,
+    regression::Union{Nothing, Matrix{Float64}} = nothing,
 )
     p = size(centered_trait, 2)
     post = _mv_recursive_posterior_cache(

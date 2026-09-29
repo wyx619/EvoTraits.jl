@@ -80,6 +80,7 @@ Base.@kwdef struct MVContinuousASRResult
     tip_estimates::Matrix{Float64} = zeros(0, 0)
     tip_covariances::Array{Float64, 3} = zeros(0, 0, 0)
     tip_observed_mask::Matrix{Bool} = zeros(Bool, 0, 0)
+    regression::Matrix{Float64} = zeros(0, 0)
 end
 
 """

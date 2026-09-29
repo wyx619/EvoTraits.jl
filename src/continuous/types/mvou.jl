@@ -54,6 +54,8 @@ Base.@kwdef struct MVContinuousOUResult <: AbstractMVContinuousFitResult
     converged::Bool = false
     iterations::Int = 0
     f_calls::Int = 0
+    B::Matrix{Float64} = zeros(0, 0)
+    vX0::Vector{Float64} = Float64[]
 end
 
 function Base.summary(res::MVContinuousOUResult)

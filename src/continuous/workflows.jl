@@ -47,6 +47,7 @@ function _workflow_build_registry(multivariate::Bool)
             :mvOUMV => _workflow_edge_segments_spec((tree, trait; edge_segments, kwargs...) -> fit_mvoumv(tree, trait, edge_segments; kwargs...)),
             :mvOUMA => _workflow_edge_segments_spec((tree, trait; edge_segments, kwargs...) -> fit_mvouma(tree, trait, edge_segments; kwargs...)),
             :mvOUMVA => _workflow_edge_segments_spec((tree, trait; edge_segments, kwargs...) -> fit_mvoumva(tree, trait, edge_segments; kwargs...)),
+            :mvOUBM => _workflow_edge_segments_spec((tree, trait; edge_segments, kwargs...) -> fit_mvoubm(tree, trait, edge_segments; kwargs...)),
         )
     end
 
