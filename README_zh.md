@@ -126,7 +126,7 @@ fit = fit_mvoumva(
 )
 ~~~
 
-Schur 路径面向 p = 2 的非对称 A 实现；默认的 Cholesky 适用于对称正定的 attraction 参数化，而 A_decomp = :diagonal 将 A 约束为独立的正性状特异速率，仅估计 p 个参数。模型比较时应保持分解方式一致。
+Schur 路径面向 p = 2 的非对称 A 实现。性状维度大于 2、且 A 需要具有正实特征值时，使用 A_decomp = :decomposable_positive，其参数数为 p^2。默认的 Cholesky 适用于对称正定的 attraction 参数化，而 A_decomp = :diagonal 将 A 约束为独立的正性状特异速率，仅估计 p 个参数。模型比较时应保持分解方式一致。
 
 ### 拟合离散模型并抽样历史
 
@@ -197,7 +197,7 @@ OU fit 结果会记录根处理元数据。根据模型，相关参数包括 roo
 
 - 根均值处理区分 regime 根 optimum 与 stationary-design 处理。
 - 根协方差处理区分 fixed-root covariance 与 stationary root covariance。
-- 多变量 OU 默认使用 A_decomp = :cholesky。独立性状特异速率应使用 :diagonal；非对称 Schur 当前支持两个性状。
+- 多变量 OU 默认使用 A_decomp = :cholesky。独立性状特异速率使用 :diagonal；两个性状的非对称 A 使用 :schur；一般性状维度下、具有正实特征值的完整 A 使用 :decomposable_positive。
 
 这些选项属于统计模型设定，而不只是实现细节。与 R 实现验证或比较模型时，应固定这些选项。
 
@@ -235,27 +235,3 @@ reference/       本地参考实现与研究资料
 docs/            notebook 与项目文档
 ~~~
 
-## 安装
-
-在本地仓库根目录执行：
-
-~~~julia
-import Pkg
-Pkg.activate(".")
-Pkg.instantiate()
-~~~
-
-## 测试
-
-~~~julia
-import Pkg
-Pkg.test()
-~~~
-
-开发某个子系统时，可以在项目环境中单独运行对应测试文件。validation 下的验证项目与常规包测试保持分离。
-
-## 项目状态与引用
-
-EvoTraits 是持续开发中的研究型软件。正式分析应结合模拟数据，以及 corHMM、OUwie 或 mvMORPH 等独立实现进行数值验证。
-
-如果在研究中使用 EvoTraits，请同时引用本仓库和实际使用的比较方法原始文献。

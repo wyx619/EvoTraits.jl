@@ -70,6 +70,11 @@ end
 Fit the multivariate multi-optimum, multi-alpha, multi-variance
 Ornstein-Uhlenbeck (`mvOUMVA`) model with regime-specific `theta`,
 regime-specific `A`, and regime-specific `Sigma`.
+
+Set `n_starts > 0` to add that many random starting points, each optimised
+independently (in parallel across threads) and combined with the structured
+candidates; `random_seed` makes the random starts reproducible. The default
+`n_starts = 0` keeps the structured multi-start behaviour unchanged.
 """
 function fit_mvoumva(
     tree::CompactTree,
@@ -83,6 +88,8 @@ function fit_mvoumva(
     root_cov_mode::Symbol = :fixed,
     trait_names = nothing,
     regime_names = nothing,
+    n_starts::Integer = 0,
+    random_seed = nothing,
 )
     return _fit_mvou_recursive(
         tree,
@@ -99,6 +106,8 @@ function fit_mvoumva(
         rel_tol = rel_tol,
         trait_names = trait_names,
         regime_names = regime_names,
+        n_starts = n_starts,
+        random_seed = random_seed,
     )
 end
 

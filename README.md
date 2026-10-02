@@ -126,7 +126,7 @@ fit = fit_mvoumva(
 )
 ~~~
 
-The Schur path targets the p = 2 asymmetric-A implementation. Cholesky remains the default for the symmetric positive-definite attraction parameterization, while A_decomp = :diagonal constrains A to independent positive trait-specific rates with p parameters.
+The Schur path targets the p = 2 asymmetric-A implementation. For a full A with positive real eigenvalues at a general trait dimension, use A_decomp = :decomposable_positive; it estimates p^2 parameters. Cholesky remains the default for the symmetric positive-definite attraction parameterization, while A_decomp = :diagonal constrains A to independent positive trait-specific rates with p parameters.
 
 ### Fit a discrete model and sample histories
 
@@ -197,7 +197,7 @@ OU fit results record root metadata. Depending on the model, relevant keywords i
 
 - Root mean handling distinguishes regime-root optimum from stationary-design treatment.
 - Root covariance handling distinguishes fixed-root covariance from stationary root covariance.
-- Multivariate OU defaults to A_decomp = :cholesky. Use :diagonal for independent trait-specific rates; the asymmetric Schur implementation supports two traits.
+- Multivariate OU defaults to A_decomp = :cholesky. Use :diagonal for independent trait-specific rates, :schur for a two-trait asymmetric A, and :decomposable_positive for a full positive-real-spectrum A at a general trait dimension.
 
 These are statistical model choices, not merely implementation details. Keep them fixed when comparing models or validating against an R implementation.
 
@@ -235,27 +235,4 @@ reference/       local reference implementations and study material
 docs/            notebooks and project documentation
 ~~~
 
-## Installation
 
-From a local checkout:
-
-~~~julia
-import Pkg
-Pkg.activate(".")
-Pkg.instantiate()
-~~~
-
-## Testing
-
-~~~julia
-import Pkg
-Pkg.test()
-~~~
-
-Focused test files can be run directly with the project environment while developing a subsystem. Validation projects remain separate from the ordinary package test suite.
-
-## Status and citation
-
-EvoTraits is research software under active development. Formal analyses should be checked with simulated data and, where relevant, an independent implementation such as corHMM, OUwie, or mvMORPH.
-
-If you use EvoTraits in research, cite this repository together with the original methodological papers for the models used in your analysis.

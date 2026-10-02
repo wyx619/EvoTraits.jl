@@ -69,6 +69,8 @@ function _mvou_bundle_valid_for_objective(bundle::MVOUParameterBundle, spec::MVO
                 _mvou_diagonal_block_valid(@view(bundle.A_regimes[:, :, r]); mineig = 1e-8, maxeig = 10.0) || return false
             elseif spec.A_decomp === :schur
                 _stable_pos_realpart(@view(bundle.A_regimes[:, :, r]); mineig = 1e-8, maxeig = 10.0) || return false
+            elseif spec.A_decomp === :decomposable_positive
+                _stable_pos_realpart(@view(bundle.A_regimes[:, :, r]); mineig = 1e-8, maxeig = 1e12) || return false
             else
                 return false
             end
@@ -80,6 +82,8 @@ function _mvou_bundle_valid_for_objective(bundle::MVOUParameterBundle, spec::MVO
             _mvou_diagonal_block_valid(bundle.A; mineig = 1e-8, maxeig = 10.0) || return false
         elseif spec.A_decomp === :schur
             _stable_pos_realpart(bundle.A; mineig = 1e-8, maxeig = 10.0) || return false
+        elseif spec.A_decomp === :decomposable_positive
+            _stable_pos_realpart(bundle.A; mineig = 1e-8, maxeig = 1e12) || return false
         else
             return false
         end
@@ -217,6 +221,8 @@ function _mvou_A_diag_parameter_offsets(spec::MVOUSpec, offset::Integer, p::Inte
     elseif spec.A_decomp === :schur
         p == 2 || throw(ArgumentError("A_decomp=:schur is currently supported only for p=2"))
         return [Int(offset), Int(offset) + 1]
+    elseif spec.A_decomp === :decomposable_positive
+        return Int[]
     end
     throw(ArgumentError("Unsupported multivariate OU A_decomp=$(spec.A_decomp)"))
 end
@@ -544,6 +550,133 @@ function _mvou_initial_cov_candidates(
     return _mvou_unique_parameter_candidates(candidates)
 end
 
+function _mv_column_mean_std(x::AbstractVector{<:Real})
+    n = 0
+    s = 0.0
+    s2 = 0.0
+    for v in x
+        isfinite(v) || continue
+        f = Float64(v)
+        n += 1
+        s += f
+        s2 += f * f
+    end
+    n == 0 && return (0.0, NaN)
+    m = s / n
+    n >= 2 || return (m, 0.0)
+    var = (s2 - s * s / n) / (n - 1)
+    return (m, sqrt(max(var, 0.0)))
+end
+
+function _mvou_random_A(
+    spec::MVOUSpec,
+    p::Integer,
+    rate_center::Float64,
+    rng::AbstractRNG,
+)
+    p = Int(p)
+    rate = max(Float64(rate_center), 1e-12)
+    # A single shared scale (log-normal over eight orders of magnitude around
+    # the characteristic rate log(2)/height) with modest per-trait variation
+    # keeps the sampled pull matrices coherent instead of mixing wildly
+    # different per-trait time scales.
+    base = exp(log(rate) + 4.0 * randn(rng))
+    eigs = base .* exp.(0.7 .* randn(rng, p))
+    if spec.A_decomp === :diagonal
+        return Matrix{Float64}(Diagonal(eigs))
+    elseif spec.A_decomp === :schur
+        p == 2 || throw(ArgumentError("A_decomp=:schur is currently supported only for p=2"))
+        # Unpack applies exp() to the Schur diagonal, so a raw matrix with
+        # diagonal log(eigs) maps back to A with eigenvalues close to eigs.
+        return [
+            log(eigs[1]) + 0.25 * randn(rng) 0.25 * rate * randn(rng);
+            0.25 * rate * randn(rng) log(eigs[2]) + 0.25 * randn(rng);
+        ]
+    end
+    Q = Matrix{Float64}(qr(randn(rng, p, p)).Q)
+    if spec.A_decomp === :cholesky
+        return Q * Diagonal(eigs) * Q'
+    end
+    lam = exp(sum(log.(eigs)) / p)
+    T = triu(randn(rng, p, p)) .* lam
+    for j in 1:p
+        T[j, j] = eigs[j]
+    end
+    return Q * T * Q'
+end
+
+function _mvou_random_sigma(p::Integer, sigma_center::Float64, rng::AbstractRNG)
+    p = Int(p)
+    M = randn(rng, p, p)
+    S = M * M'
+    mean_eig = tr(S) / p
+    scale = max(Float64(sigma_center), 1e-12) * exp(1.5 * randn(rng))
+    S .*= scale / max(mean_eig, 1e-12)
+    S = (S + S') / 2
+    return S + 1e-8 * Matrix{Float64}(I, p, p)
+end
+
+function _mvou_random_theta(
+    p::Integer,
+    nregimes::Integer,
+    center::Vector{Float64},
+    spread::Vector{Float64},
+    rng::AbstractRNG,
+)
+    p = Int(p)
+    theta = Vector{Float64}(undef, p * Int(nregimes))
+    for r in 1:Int(nregimes), j in 1:p
+        theta[(r - 1) * p + j] = center[j] + spread[j] * randn(rng)
+    end
+    return theta
+end
+
+function _mvou_random_candidates(
+    spec::MVOUSpec,
+    tree::CompactTree,
+    data::AbstractMatrix{<:Real},
+    precalc::MVOUPrecalc,
+    p::Integer,
+    n_starts::Integer;
+    rng::AbstractRNG = Random.default_rng(),
+)
+    n = Int(n_starts)
+    n <= 0 && return Vector{Vector{Float64}}()
+    height = maximum(tree.dist_from_root[tree.tip_ids])
+    rate_center = max(log(2.0) / max(height, 1e-8), 1e-12)
+    empirical = _mv_complete_rows_cov(data)
+    empirical = (empirical + empirical') / 2
+    var_scale = max(mean(diag(empirical)), 1e-12)
+    stats = [_mv_column_mean_std(@view data[:, j]) for j in 1:Int(p)]
+    center = Float64[s[1] for s in stats]
+    spread = Float64[
+        (isfinite(s[2]) && s[2] > 0.0) ? s[2] : sqrt(var_scale)
+        for s in stats
+    ]
+    out = Vector{Vector{Float64}}()
+    attempts = 0
+    max_attempts = 20 * n + 20
+    while length(out) < n && attempts < max_attempts
+        attempts += 1
+        try
+            A0 = _mvou_random_A(spec, p, rate_center, rng)
+            a_scale = max(exp(sum(log.(max.(real.(eigvals(A0)), 1e-12))) / p), 1e-12)
+            Sigma0 = _mvou_random_sigma(p, 2.0 * a_scale * var_scale, rng)
+            pars =
+                if _mvou_profiles_theta(spec)
+                    _mvou_pack_initial_cov_params(spec, p, precalc.nregimes, A0, Sigma0)
+                else
+                    theta0 = _mvou_random_theta(p, precalc.nregimes, center, spread, rng)
+                    _mvou_pack_initial_params(spec, p, precalc.nregimes, A0, Sigma0, theta0)
+                end
+            push!(out, pars)
+        catch err
+            (err isa ArgumentError || err isa PosDefException) || rethrow()
+        end
+    end
+    return out
+end
+
 function _mvou_optimize_objective(
     objective,
     p0::AbstractVector{<:Real};
@@ -814,7 +947,7 @@ function _mvou_candidate_objective_values(
     return values
 end
 
-function _mvou_optimize_multistart_candidates(
+function _mvou_optimize_candidates_all(
     tree::CompactTree,
     data::AbstractMatrix{<:Real},
     spec::MVOUSpec,
@@ -854,11 +987,13 @@ function _mvou_optimize_multistart_candidates(
             )
         end
     end
+    return results
+end
 
-    best_result = results[1]
-    best_min = best_result === nothing ? Inf : best_result.minimum
-    for pos in 2:nstarts
-        candidate_result = results[pos]
+function _mvou_best_of_results(results::AbstractVector)
+    best_result = nothing
+    best_min = Inf
+    for candidate_result in results
         candidate_result === nothing && continue
         if candidate_result.minimum < best_min
             best_min = candidate_result.minimum
@@ -866,6 +1001,39 @@ function _mvou_optimize_multistart_candidates(
         end
     end
     return best_result
+end
+
+function _mvou_better_result(a, b)
+    a === nothing && return b
+    b === nothing && return a
+    return b.minimum < a.minimum ? b : a
+end
+
+function _mvou_optimize_multistart_candidates(
+    tree::CompactTree,
+    data::AbstractMatrix{<:Real},
+    spec::MVOUSpec,
+    precalc::MVOUPrecalc,
+    candidates::Vector{Vector{Float64}},
+    candidate_indices::AbstractVector{<:Integer};
+    rough_iterations::Integer,
+    polish_iterations::Integer,
+    rel_tol::Float64,
+    lower_bounds::Union{Nothing, AbstractVector{<:Real}},
+)
+    results = _mvou_optimize_candidates_all(
+        tree,
+        data,
+        spec,
+        precalc,
+        candidates,
+        candidate_indices;
+        rough_iterations = rough_iterations,
+        polish_iterations = polish_iterations,
+        rel_tol = rel_tol,
+        lower_bounds = lower_bounds,
+    )
+    return _mvou_best_of_results(results)
 end
 
 function _mvou_finalize_fit_result(
@@ -945,9 +1113,12 @@ function _fit_mvou_recursive(
     edge_segments::Union{Nothing, Vector{Vector{SimmapSegment}}} = nothing,
     optimization::Symbol = :L_BFGS,
     max_iterations::Integer = 400,
+    polish_iterations::Integer = 100,
     rel_tol::Float64 = 1e-6,
     trait_names = nothing,
     regime_names = nothing,
+    n_starts::Integer = 0,
+    random_seed = nothing,
 )
     data = _validate_multivariate_trait(tree, trait)
     precalc = _mvou_precalc(tree, spec; edge_segments = edge_segments)
@@ -980,12 +1151,11 @@ function _fit_mvou_recursive(
     result =
         if optimization in (:SBPLX_L_BFGS, :LN_SBPLX_L_BFGS, :TWO_STAGE)
             rough_iterations = Int(max_iterations)
-            polish_iterations = 100
             candidate_indices = _mvou_best_candidate_indices(
                 values,
                 _mvou_multistart_candidate_count(spec.model),
             )
-            _mvou_optimize_multistart_candidates(
+            structured_result = _mvou_optimize_multistart_candidates(
                 tree,
                 data,
                 spec,
@@ -997,6 +1167,38 @@ function _fit_mvou_recursive(
                 rel_tol = rel_tol,
                 lower_bounds = lower_bounds,
             )
+            if n_starts > 0
+                rng =
+                    random_seed === nothing ?
+                    Random.default_rng() :
+                    Random.MersenneTwister(Int(random_seed))
+                random_candidates = _mvou_random_candidates(
+                    spec,
+                    tree,
+                    data,
+                    precalc,
+                    built.p,
+                    Int(n_starts);
+                    rng = rng,
+                )
+                random_result =
+                    isempty(random_candidates) ? nothing :
+                    _mvou_optimize_multistart_candidates(
+                        tree,
+                        data,
+                        spec,
+                        precalc,
+                        random_candidates,
+                        collect(1:length(random_candidates));
+                        rough_iterations = rough_iterations,
+                        polish_iterations = polish_iterations,
+                        rel_tol = rel_tol,
+                        lower_bounds = lower_bounds,
+                    )
+                _mvou_better_result(structured_result, random_result)
+            else
+                structured_result
+            end
         else
             _mvou_optimize_objective(
                 built.objective,
@@ -1009,6 +1211,5 @@ function _fit_mvou_recursive(
         end
     return _mvou_finalize_fit_result(tree, data, spec, precalc, result; trait_names = trait_names, regime_names = regime_names)
 end
-
 
 

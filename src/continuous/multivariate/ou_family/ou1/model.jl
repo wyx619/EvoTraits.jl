@@ -50,6 +50,11 @@ end
 
 Fit the multivariate single-optimum Ornstein-Uhlenbeck (`mvOU1`) model by
 maximum likelihood.
+
+Set `n_starts > 0` to add that many random starting points, each optimised
+independently (in parallel across threads) and combined with the structured
+candidates; `random_seed` makes the random starts reproducible. The default
+`n_starts = 0` keeps the structured multi-start behaviour unchanged.
 """
 function fit_mvou1(
     tree::CompactTree,
@@ -60,6 +65,8 @@ function fit_mvou1(
     A_decomp::Symbol = :cholesky,
     root_cov_mode::Symbol = :fixed,
     trait_names = nothing,
+    n_starts::Integer = 0,
+    random_seed = nothing,
 )
     return _fit_mvou_recursive(
         tree,
@@ -70,6 +77,8 @@ function fit_mvou1(
         rel_tol = rel_tol,
         trait_names = trait_names,
         regime_names = ["OU1"],
+        n_starts = n_starts,
+        random_seed = random_seed,
     )
 end
 

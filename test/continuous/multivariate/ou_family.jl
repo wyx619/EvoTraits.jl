@@ -808,6 +808,45 @@ end
     @test_throws ArgumentError fit_mvou1(tree, X; A_decomp = :schur, max_iterations = 5)
 end
 
+@testset "decomposable_positive supports asymmetric real-spectrum A for p=4" begin
+    tree = serialize_tree(simulate_yule_simtree(12; tree_height = 1.0, rng = MersenneTwister(6351)))
+    edge_segments = _test_edge_segments(tree, 2)
+    A = [
+        0.55 0.20 -0.10 0.05;
+        0.00 0.70  0.15 -0.08;
+        0.00 0.00  0.60  0.12;
+        0.00 0.00  0.00  0.90;
+    ]
+    Sigma = [
+        0.70 0.10 0.04 0.02;
+        0.10 0.60 0.08 0.03;
+        0.04 0.08 0.55 0.05;
+        0.02 0.03 0.05 0.50;
+    ]
+    theta = [
+        -0.2 0.4 -0.1 0.3;
+         0.1 -0.3 0.2 -0.2;
+    ]
+    spec = EvoTraits.mvou_spec(:mvOUM; A_decomp = :decomposable_positive)
+    @test EvoTraits._mvou_A_block_nparams(spec, 4) == 16
+    pars = EvoTraits._mvou_pack_A(spec, A)
+    @test length(pars) == 16
+    A_roundtrip = EvoTraits._mvou_unpack_A(spec, pars, 4)
+    @test isapprox(A_roundtrip, A; atol = 1e-8)
+    @test !isapprox(A_roundtrip[1, 2], A_roundtrip[2, 1]; atol = 1e-10)
+
+    traits = simulate_mvoum(tree, edge_segments, A, Sigma, eachrow(theta) |> collect; rng = MersenneTwister(6352))
+    fixed = mvoum_loglikelihood(tree, traits, edge_segments, A, Sigma, theta; A_decomp = :decomposable_positive)
+    @test fixed.success
+    @test fixed.A_decomp == :decomposable_positive
+    @test fixed.nparams == 16 + 10 + 8
+    @test isfinite(fixed.loglik)
+
+    A_bad = copy(A)
+    A_bad[1, 1] = -0.1
+    @test_throws ArgumentError EvoTraits._mvou_pack_A(spec, A_bad)
+end
+
 @testset "mvOUMV/OUMA/OUMVA schur fixed likelihood supports asymmetric A" begin
     tree = serialize_tree(simulate_yule_simtree(20; tree_height = 1.0, rng = MersenneTwister(6401)))
     edge_segments = _test_edge_segments(tree, 2)

@@ -94,6 +94,8 @@ end
     elseif spec.A_decomp === :schur
         p == 2 || throw(ArgumentError("A_decomp=:schur is currently supported only for p=2"))
         return p * p
+    elseif spec.A_decomp === :decomposable_positive
+        return p * p
     end
     throw(ArgumentError("Unsupported multivariate OU A_decomp=$(spec.A_decomp)"))
 end
@@ -123,6 +125,78 @@ end
     return Matrix{Float64}(Diagonal(exp.(Float64.(pars))))
 end
 
+@inline function _mvou_pack_decomposable_positive(
+    A::AbstractMatrix{<:Real};
+    min_eigenvalue::Float64 = 1.5e-8,
+)
+    p = size(A, 1)
+    size(A, 2) == p || throw(ArgumentError("decomposable_positive requires a square matrix"))
+    F = schur(Matrix{Float64}(A))
+    T = Matrix{Float64}(F.T)
+    Q = Matrix{Float64}(F.Z)
+    @inbounds for j in 1:p
+        T[j, j] > min_eigenvalue || throw(ArgumentError("decomposable_positive requires positive real eigenvalues"))
+        for i in (j + 1):p
+            abs(T[i, j]) <= 1e-8 || throw(ArgumentError("decomposable_positive requires real eigenvalues"))
+        end
+    end
+    if det(Q) < 0.0
+        D = Matrix{Float64}(I, p, p)
+        D[1, 1] = -1.0
+        Q = Q * D
+        T = D * T * D
+    end
+    S = (Matrix{Float64}(I, p, p) + Q) \ (Matrix{Float64}(I, p, p) - Q)
+    maximum(abs.(S + S')) <= 1e-8 || throw(ArgumentError("orthogonal parameterization failed"))
+    diag_pars = log.(diag(T) .- min_eigenvalue)
+    skew_pars = Float64[]
+    for j in 1:(p - 1)
+        for i in (j + 1):p
+            push!(skew_pars, S[i, j])
+        end
+    end
+    upper_pars = Float64[]
+    for j in 2:p
+        for i in 1:(j - 1)
+            push!(upper_pars, T[i, j])
+        end
+    end
+    return vcat(diag_pars, skew_pars, upper_pars)
+end
+
+@inline function _mvou_unpack_decomposable_positive(
+    pars::AbstractVector{<:Real},
+    p::Integer;
+    min_eigenvalue::Float64 = 1.5e-8,
+)
+    p = Int(p)
+    nskew = div(p * (p - 1), 2)
+    expected = p + 2 * nskew
+    length(pars) == expected ||
+        throw(ArgumentError("decomposable_positive A block must have $expected entries"))
+    S = zeros(Float64, p, p)
+    idx = p + 1
+    for j in 1:(p - 1)
+        for i in (j + 1):p
+            S[i, j] = Float64(pars[idx])
+            S[j, i] = -S[i, j]
+            idx += 1
+        end
+    end
+    I_p = Matrix{Float64}(I, p, p)
+    Q = (I_p - S) / (I_p + S)
+    T = zeros(Float64, p, p)
+    @inbounds for j in 1:p
+        T[j, j] = exp(Float64(pars[j])) + min_eigenvalue
+    end
+    for j in 2:p
+        for i in 1:(j - 1)
+            T[i, j] = Float64(pars[idx])
+            idx += 1
+        end
+    end
+    return Q * T * transpose(Q)
+end
 @inline function _mvou_sigma_block_nparams(p::Integer)
     return div(p * (p + 1), 2)
 end
@@ -184,6 +258,8 @@ end
         return _mvou_pack_diagonal_A(A)
     elseif spec.A_decomp === :schur
         return _mvou_pack_schur2(A)
+    elseif spec.A_decomp === :decomposable_positive
+        return _mvou_pack_decomposable_positive(A)
     end
     throw(ArgumentError("Unsupported multivariate OU A_decomp=$(spec.A_decomp)"))
 end
@@ -196,6 +272,8 @@ end
     elseif spec.A_decomp === :schur
         p == 2 || throw(ArgumentError("A_decomp=:schur is currently supported only for p=2"))
         return _mvou_unpack_schur2(pars)
+    elseif spec.A_decomp === :decomposable_positive
+        return _mvou_unpack_decomposable_positive(pars, p)
     end
     throw(ArgumentError("Unsupported multivariate OU A_decomp=$(spec.A_decomp)"))
 end

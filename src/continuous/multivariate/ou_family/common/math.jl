@@ -11,7 +11,7 @@ end
         return _mvou_transition_eigen(A)
     elseif A_decomp === :diagonal
         return Diagonal(Float64.(diag(A)))
-    elseif A_decomp === :schur
+    elseif A_decomp === :schur || A_decomp === :decomposable_positive
         return schur(Matrix{Float64}(A))
     end
     throw(ArgumentError("Unsupported multivariate OU A_decomp=$A_decomp"))
@@ -249,7 +249,7 @@ function _mvou_stationary_covariance(
             S[i, j] = Float64(Sigma[i, j]) / (alpha[i] + alpha[j])
         end
         return (S + S') / 2
-    elseif A_decomp === :schur
+    elseif A_decomp === :schur || A_decomp === :decomposable_positive
         K = kron(I(p), Matrix{Float64}(A)) + kron(Matrix{Float64}(A), I(p))
         vecS = K \ vec(Matrix{Float64}(Sigma))
         S = reshape(vecS, p, p)
@@ -279,7 +279,7 @@ end
         return _mvou_transition_from_eigen(factor, t)
     elseif A_decomp === :diagonal
         return Diagonal(exp.(-Float64.(diag(factor)) .* Float64(t)))
-    elseif A_decomp === :schur
+    elseif A_decomp === :schur || A_decomp === :decomposable_positive
         return _mvou_transition_from_schur(factor, t)
     end
     throw(ArgumentError("Unsupported multivariate OU A_decomp=$A_decomp"))
@@ -294,7 +294,7 @@ end
             out[i, i] = exp(-Float64(factor[i, i]) * Float64(t))
         end
         return out
-    elseif A_decomp === :schur
+    elseif A_decomp === :schur || A_decomp === :decomposable_positive
         return _mvou_transition_from_schur!(out, factor, t)
     end
     throw(ArgumentError("Unsupported multivariate OU A_decomp=$A_decomp"))
