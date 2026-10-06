@@ -105,7 +105,7 @@ end
     if profile_root || isinf(root_prior_var)
         precision > 0.0 || return (success = false, loglik = -Inf, root_state = NaN)
         root_state = linear / precision
-        loglik = logconst + 0.5 * linear * root_state + 0.5 * log(2 * pi / precision)
+        loglik = logconst + 0.5 * linear * root_state
         return (success = isfinite(loglik), loglik = loglik, root_state = root_state)
     elseif root_prior_var <= 1e-12
         root_state = root_prior_mean
