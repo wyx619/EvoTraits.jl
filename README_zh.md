@@ -1,237 +1,155 @@
 # EvoTraits
 
-> **在 Julia 中高效拟合与分析性状演化模型**
+**在 Julia 中高效拟合与分析性状演化模型。**
 
-EvoTraits 是一个面向系统发育比较分析的 Julia 框架。它把树读取、离散与连续性状建模、SIMMAP 历史、祖先状态重建和模型比较组织在同一套类型化工作流中。
+[English](README.md)
 
-这个项目把系统发育树视为计算骨架，而不只是一个输入文件：数据以树上的 tip 顺序为基准进行对齐，似然通过树剪枝算法计算，重建结果保留节点、分支和时间坐标，便于继续做父子节点变化、时间分箱和事件顺序分析。
+EvoTraits 是面向离散与连续性状的 Julia 系统发育比较分析软件包，以似然方法为基础，在统一计算框架中提供演化模型拟合、随机性状映射、祖先状态重建与模型比较。
 
-## 为什么使用 EvoTraits
+项目支持谱系间演化异质性、多性状演化动态、对演化预测变量的适应响应，以及演化过程的时间变化等研究方向。其主要特点是将计算效率、明确的统计假设与结构化的分析结果相结合。
 
-R 拥有成熟而丰富的比较方法生态。EvoTraits 面向的是另一类明确需求：希望在 Julia 内部完成大规模、可组合、可追溯的分析，而不必在多个包和脚本之间反复搬运对象。
+## 核心特点
 
-- **Julia 原生：**普通使用不依赖 R 或 R 调用桥接。
-- **统一树基建：**CompactTree 以数组形式保存拓扑、枝长、遍历顺序、标签和节点距离。
-- **以树剪枝为核心：**连续和离散模型直接沿树结构计算；多变量模型只在性状维度上使用小型矩阵算子，不构造随物种数增长的观测级 dense VCV 矩阵。
-- **结果结构清晰：**fit 结果保存 logLik、AIC、参数数量、收敛诊断、参数估计、trait 名称、regime 名称和模型元数据。
-- **分析链条连贯：**数据对齐、模型拟合、AIC 比较、历史抽样、节点或分支重建和表格导出可以留在同一引擎中完成。
-- **便于交叉验证：**稳定的树节点和分支映射，以及明确的时间字段，支持与 ape、corHMM、OUwie、mvMORPH、geiger、castor 等参考实现进行验证。
+**离散与连续推断的整合。** 离散状态模型和 SIMMAP 历史为依赖演化状态的连续性状模型提供基础。共享的树结构与一致的结果接口支持各分析阶段之间的衔接，并保持节点及分支的对应关系。
 
-EvoTraits 不是把 R 包简单包一层。它借鉴成熟方法的统计语义，同时重新组织计算路径和结果接口，让 Julia 的类型系统、原生执行和可组合工作流真正参与分析。
+**高效的系统发育似然计算。** 单变量和多变量模型共用树计算基建，通过剪枝递推计算似然，无需构造观测维度的全树稠密协方差矩阵。支持的多起点拟合路径利用 Julia 线程并行优化候选解。
 
-## 功能范围
+**灵活的演化假设表达。** 模型允许演化状态之间具有不同的最适值、吸引强度和扩散速率，支持适应最适值对演化预测变量的依赖，以及早期与晚期演化过程的差异。候选模型可指定独立设定，在同一工作流中比较不同参数化方案。
 
-### 连续性状模型
+**支持可重复分析的结构化结果。** 拟合对象保存参数估计、似然、信息准则和收敛状态；祖先重建表保留节点身份与时间坐标，为祖先性状变化和时间趋势等后续分析提供一致的数据基础。
 
-单变量：
+EvoTraits 通过 Julia 原生实现与可复用的计算基建，为成熟的 R 系统发育比较方法生态提供补充。项目开发借鉴 corHMM、OUwie、mvMORPH 和 mvSLOUCH 的统计方法与参考实现，正常运行不调用这些软件包，也不声明与其全部功能完全等价。
 
-- Brownian motion：fit_bm1、fit_bmm
-- Early burst：fit_eb、fit_ebm
-- OU 系列：fit_ou1、fit_oum、fit_oumv、fit_ouma、fit_oumva
+## 研究应用
 
-多变量：
+| 生物学问题 | 对应能力 |
+|---|---|
+| 性状演化更符合随机漂变、早期爆发，还是向最适值回归？ | BM、EB 与 OU 模型 |
+| 不同演化状态是否具有不同的最适值、吸引强度或扩散速率？ | OUM、OUMV、OUMA、OUMVA 及其多变量版本 |
+| 另一个不断演化的性状，是否参与塑造响应性状的适应最适值？ | `fit_mvoubm` 多变量 OU-BM 适应模型 |
+| 早期与晚期的演化过程是否不同？ | 单变量与多变量时间转换模型 |
+| 离散性状如何转换，是否存在隐藏的速率差异？ | Mk 与 corHMM 风格模型 |
+| 哪些演化历史与现生物种状态相容？ | SIMMAP 随机性状映射 |
+| 祖先性状是什么，随时间呈现怎样的变化？ | 支持模型的节点/分支重建与滑动窗口汇总 |
 
-- Brownian motion：fit_mvbm1、fit_mvbmm
-- Early burst：fit_mveb
-- OU 系列：fit_mvou1、fit_mvoum、fit_mvoumv、fit_mvouma、fit_mvoumva
+## 近期进展
 
-带 regime 的模型可以接收 SIMMAP 分支片段。不同模型的 optimum、attraction matrix 和 diffusion matrix 会保存在专门的结果类型中，而不是散落在无名数组里。
+### 多变量适应响应模型
 
-### 离散性状模型
+`fit_mvoubm` 将性状划分为 OU 响应变量与 BM 预测变量，联合估计预测变量对响应最适值的贡献，以及吸引和扩散参数。模型允许截距随演化状态（regime）改变，从而在映射的演化历史背景下评估适应响应关系。
 
-- Mk 似然与重建：fit_mk、asr_mk
-- corHMM 风格的观测状态和 hidden-rate 模型：fit_corhmm、asr_corhmm
-- 速率索引与 Q 矩阵转换：rateindex、rates_to_q、qfromindex 等
-- 通过 tip-prior 矩阵处理缺失和模糊状态
-- 在模型支持的路径中使用 likelihood、flat、Yang、Maddison-FitzJohn、stationary 或显式概率等根先验模式
+该形式支持对适应响应假设进行模型化评估，但估计的性状关系本身不构成因果证据。
 
-### SIMMAP
+### 多变量 OU 的灵活参数化
 
-- simmap_sample、simmap_samples：通用 Mk/SIMMAP 抽样
-- simmap_corhmm：从 corHMM fit 结果抽样
-- read_simmap、write_simmap：SIMMAP 文件读写
-- describe_simmap、summary_simmap、transition_times 和转换表：历史检查与汇总
-- drop_tip_simmap、keep_tip_simmap：树和映射的筛选
+对角吸引矩阵允许不同性状具有各自的吸引速率；支持的非对称结构则允许表达性状间的方向性耦合。具有正实特征值的一般参数化将非对称吸引扩展至两个以上的性状。
 
-每个 SimmapSample 同时保存有序的逐分支片段和 regime 持续时间。进入连续 regime 模型之前，会检查所有片段长度是否与对应枝长一致。
+对角吸引矩阵并不意味着性状独立演化，因为扩散矩阵仍可包含性状间相关性。
 
-### 祖先状态重建
+支持的多变量 OU 拟合在结构化起点之外提供可选的随机多起点优化与可复现种子。命名候选可指定不同拟合设定，以明确比较同一模型族中的不同结构。
 
-- 连续节点重建：estim_node、estim_node_table
-- SIMMAP 感知的连续分支重建：estim_branch_for_simmap、estim_branch_table
-- 离散 marginal 或 joint 重建：asr_mk、asr_corhmm
-- 按时间窗口汇总节点估计：summarize_node_estimates_by_time
+### 演化过程的时间异质性
 
-节点和分支结果同时提供 time_from_root 与 time_before_present。因此可以直接分析父子边上的变化、按时间汇总估计，或把连续重建结果与离散 regime 信息连接起来。
+`fit_shift` 与 `fit_mvshift` 新增 13 种时间转换模型，组合 BM、OU 和 EB，并包括速率转换 SR。它们提供统一结果、固定参数似然求值、可复用时间映射、可选树高归一化及显式曲率诊断。
 
-### 模型比较与模拟
+这些模型沿用参考实现的两时期协方差构造，将各时期的随机贡献相加，其统计定义不同于一般的连续切换随机微分方程。时间边界由用户指定，拟合估计过程参数，不自动识别未知的转换时间。
 
-- 信息准则：aic、aicc、aic_table、delta_aic、best_model
-- 完整比较工作流：fit_compare_estim、fit_compare_multivariate
-- Yule 和 birth-death 树模拟
-- 单变量和多变量 BM、EB、OU 系列性状模拟
-- 通过 PhyloRef 完成跨实现的节点和分支引用
+### 数值稳定性与验证
 
-## 快速开始
+近期更新修正了固定 theta 求值，以及 profile-root OU 似然中的参数相关归一化项。BMM/SR 对完整和部分缺失观测采用稳定的协方差或平方根递推，避免近奇异扩散矩阵导致的灾难性消减。
 
-### 读取树并拟合 OU1
+针对上述条件，项目采用专门回归测试与独立小树协方差计算评估数值一致性。这类验证不意味着拟合解已达到全局最优。
 
-通用 Newick 解析使用 read_tree，之后显式序列化。对于大树工作流，load_tree 是直接返回 CompactTree 的高吞吐路径。
+## 安装与示例
 
-~~~julia
+在 Julia 中从仓库安装：
+
+```julia
+using Pkg
+Pkg.add(url="https://github.com/wyx619/EvoTraits.jl")
+```
+
+需要并行拟合时，以多线程启动 Julia，例如 `julia -t 8`。与 Julia 层并行配合时，限制 BLAS 线程数：
+
+```julia
 using EvoTraits
-using CSV, DataFrames
+set_engine_blas_threads!(1)
+```
 
-tree = load_tree("tree.nwk")
-traits = CSV.read("trait.csv", DataFrame)
-lnH = align_traits_to_tree(tree, traits; taxon_col = :taxon, trait_cols = [:lnH])
+### 拟合、比较与重建
 
-fit = fit_ou1(tree, lnH; trait_name = "lnH")
-asr = estim_node(tree, lnH, fit)
-node_table = estim_node_table(tree, asr)
-~~~
+假设 `traits.csv` 包含与树 tip 匹配的 `taxon` 和 `lnH` 列：
 
-也可以显式分两步：
+```julia
+using EvoTraits, CSV, DataFrames
 
-~~~julia
-parsed = read_tree("tree.nwk")
-tree = serialize_tree(parsed)
-~~~
-
-### 在 SIMMAP 上拟合多变量 OU
-
-~~~julia
-using EvoTraits
-using CSV, DataFrames
-
-tree = load_tree("tree.nwk")
-sim = read_simmap("mapped_tree.simmap")
+tree = load_tree("tree.tre")
 traits = CSV.read("traits.csv", DataFrame)
-X = align_traits_to_tree(tree, traits; taxon_col = :taxon, trait_cols = [:lnH, :lnVD])
+y = align_traits_to_tree(tree, traits;
+    taxon_col=:taxon, trait_cols=[:lnH])
 
-fit = fit_mvoum(tree, X, sim; trait_names = ["lnH", "lnVD"])
-asr = estim_node(tree, X, fit, sim)
-node_table = estim_node_table(tree, asr, fit; simmap = sim)
-~~~
+analysis = fit_compare_estim(tree, y, [:BM1, :OU1, :EB])
+analysis.aic_table
+analysis.best_name
+nodes = estim_node_table(tree, analysis.asr)
+```
 
-对于两个性状、需要允许非对称 attraction matrix 的模型，可以显式指定：
+`load_tree` 直接返回可以进入计算的树结构；也保留 `read_tree` → `serialize_tree` 的显式两步路径。
 
-~~~julia
-fit = fit_mvoumva(
-    tree,
-    X,
-    sim;
-    trait_names = ["lnH", "lnVD"],
-    A_decomp = :schur,
-)
-~~~
+### 结合 regime 拟合多变量演化
 
-Schur 路径面向 p = 2 的非对称 A 实现。性状维度大于 2、且 A 需要具有正实特征值时，使用 A_decomp = :decomposable_positive，其参数数为 p^2。默认的 Cholesky 适用于对称正定的 attraction 参数化，而 A_decomp = :diagonal 将 A 约束为独立的正性状特异速率，仅估计 p 个参数。模型比较时应保持分解方式一致。
+这里的 `mapped.simmap` 应描述同一棵树上的历史，`traits.csv` 还需包含 `lnVD` 列：
 
-### 拟合离散模型并抽样历史
+```julia
+sim = read_simmap("mapped.simmap")
+X = align_traits_to_tree(tree, traits;
+    taxon_col=:taxon, trait_cols=[:lnH, :lnVD])
 
-~~~julia
-states = ["A", "B", "?", "A"]  # 顺序与树 tip 一致
-fit = fit_corhmm(tree; tip_states = states, model = :ARD)
-asr = asr_corhmm(fit; mode = :marginal)
-maps = simmap_corhmm(fit; nsim = 100)
-~~~
+fit = fit_mvoumva(tree, X, sim;
+    trait_names=["lnH", "lnVD"], A_decomp=:diagonal)
+```
 
-需要严格复现其他实现时，应显式提供 state_order。这样可以固定 Q 矩阵行列、ASR 状态列和 SIMMAP 标签的含义。
+若把第一列性状作为 OU 响应，第二列作为 BM 预测变量：
 
-### 比较模型
+```julia
+adaptation = fit_mvoubm(tree, X, sim; kY=1)
+```
 
-~~~julia
-workflow = fit_compare_estim(
-    tree,
-    lnH,
-    [:BM1, :OU1, :EB];
-    max_iterations = 400,
-)
+### 检验时间转换假设
 
-workflow.aic_table
-workflow.best_name
-workflow.asr
-~~~
+假设过程在距今 20 个时间单位处转换：
 
-多变量对应接口是 fit_compare_multivariate。结果中包含全部 fit、排序后的 AIC 表、最佳模型名称、最佳 fit 和对应的重建结果。
+```julia
+shift = fit_mvshift(tree, X; model=:OUBMi, age=20.0)
+shift.loglik
+shift.aic
+shift.converged
+```
 
-当多个候选属于同一模型族、但拟合设定不同，例如需要比较不同的 attraction matrix 分解方式时，使用 ContinuousModelCandidate：
+边界必须位于树的时间范围内。单个性状使用 `fit_shift`。时间转换模型目前不接入祖先重建。
 
-~~~julia
-candidates = [
-    ContinuousModelCandidate(
-        name = :mvOUM_full,
-        model = :mvOUM,
-        kwargs = (A_decomp = :cholesky,),
-    ),
-    ContinuousModelCandidate(
-        name = :mvOUM_diag,
-        model = :mvOUM,
-        kwargs = (A_decomp = :diagonal,),
-    ),
-]
+## 模型范围
 
-workflow = fit_compare_multivariate(
-    tree,
-    X,
-    candidates;
-    edge_segments = sim.edge_segments,
-)
-~~~
+| 模型族 | 单变量 | 多变量 |
+|---|---|---|
+| 布朗运动 | BM1、BMM | mvBM1、mvBMM |
+| 早期爆发 | EB、EBM | mvEB |
+| Ornstein-Uhlenbeck | OU1、OUM、OUMV、OUMA、OUMVA | mvOU1、mvOUM、mvOUMV、mvOUMA、mvOUMVA |
+| 适应性 OU-BM | — | mvOUBM |
+| 时间转换 | SR、OUBM/OUBMi、BMOU/BMOUi、EBOU/EBOUi、OUEB/OUEBi、EBBM/EBBMi、BMEB/BMEBi | 对应的 13 种模型 |
 
-## 树与数据约定
+离散分析涵盖 Mk、corHMM 风格的观测/隐藏速率模型、模糊 tip 状态、自定义速率结构及祖先重建。SIMMAP 连接离散历史与依赖演化状态的连续模型；软件包同时提供信息准则、模拟和跨实现树节点映射。
 
-- CompactTree 是似然、SIMMAP 和重建内核使用的内部树表示。
-- load_tree(path) 将单棵 Newick 树直接解析为 CompactTree，并拒绝一个文件中的多棵树。
-- read_tree(path) 返回 NewickTree.Node；serialize_tree 将其转换为 CompactTree。
-- write_tree(path, tree) 写出支持的树对象；to_newick 与 from_compact_tree 提供转换辅助。
-- DataFrame 对齐以树 tip 标签为基准。模型支持时，trait 列可以包含缺失值。
-- 当前连续树剪枝模型要求二歧树；OU 系列在相应路径中还会检查超度量性。
-- SIMMAP 分支片段必须有序，并且片段长度之和必须等于对应枝长。
-- 为保证状态编号可复现，应传入 state_order，不要依赖自动排序。
+## 适用范围与统计注意事项
 
-## 根处理与数值选择
+- 模型支持取决于树的拓扑、观测和参数化。连续内核要求二歧树，许多路径要求超距树。当前多变量验证限制为 4,000 tips；树读取容量与模型拟合容量属于不同的约束。
+- 缺失数据支持因模型而异。务必核对 taxon 对齐和 SIMMAP 分支对应关系。
+- 根处理与矩阵约束属于统计假设。比较 AIC 时应保持数据和约定一致；不同观测响应之间不能直接比较 AIC。
+- 有限 logLik 不代表收敛。检查 `converged` 和可用的终止诊断，必要时使用多个起点。
+- 时间转换模型本轮面向超距树，不支持观测误差或 ASR；支持的 A 结构有意收敛于既定范围，而不是复制参考实现的全部参数空间。
 
-OU fit 结果会记录根处理元数据。根据模型，相关参数包括 root_mean_mode、root_cov_mode 和 A_decomp。
+## 文档与验证
 
-- 根均值处理区分 regime 根 optimum 与 stationary-design 处理。
-- 根协方差处理区分 fixed-root covariance 与 stationary root covariance。
-- 多变量 OU 默认使用 A_decomp = :cholesky。独立性状特异速率使用 :diagonal；两个性状的非对称 A 使用 :schur；一般性状维度下、具有正实特征值的完整 A 使用 :decomposable_positive。
+通过 Julia 帮助模式查询单个接口，例如 `?fit_mvoubm` 或 `?fit_mvshift`。源码围绕离散模型、连续模型、重建和模拟组织；`test/` 保存单元和回归测试。
 
-这些选项属于统计模型设定，而不只是实现细节。与 R 实现验证或比较模型时，应固定这些选项。
-
-## 线程控制
-
-使用所需线程数启动 Julia，例如 `julia -t 8 --project=.`。连续 OU 系列的多起点路径在有多个 Julia 线程时会使用线程并行。Mk 和 corHMM 提供 fit 层面的 `Ntrials` 与 `Nthreads` 参数控制 trial 并行。当 Julia 线程与多线程 BLAS 同时使用时，应通过 `set_engine_blas_threads!(1)` 显式限制 BLAS 线程数，避免过度订阅。
-
-## 结果与互操作
-
-Fit 结果通常包含：
-
-~~~text
-model, success, loglik, aic, nparams,
-converged, iterations, f_calls
-~~~
-
-根据模型不同，还会包含 theta、alpha、sigma2、A、Sigma、trait_names、regime_names、root_mean_mode、root_cov_mode 和 A_decomp 等字段。
-
-PhyloRef 与 estim_node_table 提供 EvoTraits 节点 ID 和 R/ape 风格节点 ID 之间的稳定映射，也提供 tip anchor 和 descendant-tip signature。
-
-## 仓库结构
-
-~~~text
-src/
-  io.jl          CompactTree 与 Newick I/O
-  criteria.jl    公共信息准则
-  phyloref/      树身份与跨实现映射
-  discrete/      Mk、corHMM、SIMMAP
-  continuous/   单变量、多变量、重建与工作流
-  simulate/      树和性状模拟
-
-test/            单元测试与回归测试
-validation/      真实数据验证项目
-reference/       本地参考实现与研究资料
-docs/            notebook 与项目文档
-~~~
-
+本地 `validation/` 与 `reference/` 是不随 Git 分发的开发资料，不是正常使用的依赖。RCall 用于本地跨实现验证，包本身不通过 R 执行计算。
