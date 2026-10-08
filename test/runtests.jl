@@ -23,6 +23,7 @@ include("tools/node_time_summary.jl")
 include("continuous/univariate/bm_family.jl")
 include("continuous/univariate/ou_family.jl")
 include("continuous/univariate/eb_family.jl")
+include("continuous/shifts.jl")
 
 include("continuous/reconstruction/reconstruction.jl")
 include("workflows.jl")

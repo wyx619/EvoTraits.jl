@@ -16,6 +16,7 @@ const SUBSET_TESTS = Dict(
     "tools/phyloref" => "tools/phyloref.jl",
     "tools/node_time_summary" => "tools/node_time_summary.jl",
     "continuous/univariate/bm_family" => "continuous/univariate/bm_family.jl",
+    "continuous/shifts" => "continuous/shifts.jl",
     "continuous/univariate/eb_family" => "continuous/univariate/eb_family.jl",
     "continuous/univariate/ou_family" => "continuous/univariate/ou_family.jl",
     "continuous/multivariate/bm_family" => "continuous/multivariate/bm_family.jl",

@@ -30,6 +30,7 @@ include("continuous/checks.jl")
 include("continuous/types.jl")
 include("continuous/univariate.jl")
 include("continuous/multivariate.jl")
+include("continuous/shifts.jl")
 include("continuous/reconstruction.jl")
 include("continuous/workflows.jl")
 
@@ -109,6 +110,14 @@ export mvbmm_loglikelihood
 export fit_mvbmm
 export mveb_loglikelihood
 export fit_mveb
+export ShiftFitResult
+export ShiftPrecalc
+export shift_precalc
+export shift_loglikelihood
+export mvshift_loglikelihood
+export fit_shift
+export fit_mvshift
+export diagnose_shift
 
 # Univariate continuous fitting and likelihood entry points
 export bm1_loglikelihood
