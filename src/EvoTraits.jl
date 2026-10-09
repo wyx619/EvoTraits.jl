@@ -116,6 +116,8 @@ export shift_precalc
 export shift_loglikelihood
 export mvshift_loglikelihood
 export fit_shift
+export EnvCurve, EnvFitResult, t_env_loglikelihood, fit_t_env
+export SmoothEnvCurve, smooth_env
 export fit_mvshift
 export diagnose_shift
 
@@ -150,6 +152,7 @@ export aic_table
 export best_model
 export ContinuousModelCandidate
 export fit_compare_estim
+export fit_compare
 export fit_compare_multivariate
 
 # Continuous reconstruction

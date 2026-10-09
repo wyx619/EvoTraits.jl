@@ -92,6 +92,10 @@ function _workflow_build_registry(multivariate::Bool)
         :BM1 => _workflow_basic_spec((tree, trait; kwargs...) -> fit_bm1(tree, trait; kwargs...)),
         :OU1 => _workflow_basic_spec((tree, trait; kwargs...) -> fit_ou1(tree, trait; kwargs...)),
         :EB => _workflow_basic_spec((tree, trait; kwargs...) -> fit_eb(tree, trait; kwargs...)),
+        :EnvExp => _workflow_basic_spec((tree, trait; environment, kwargs...) ->
+            fit_t_env(tree, trait, environment; model=:EnvExp, kwargs...)),
+        :EnvLin => _workflow_basic_spec((tree, trait; environment, kwargs...) ->
+            fit_t_env(tree, trait, environment; model=:EnvLin, kwargs...)),
         :BMM => _workflow_regime_map_spec((tree, trait; mapped_edge = nothing, edge_segments = nothing, kwargs...) ->
             fit_bmm(tree, trait, _resolve_mapped_edge_context(tree, mapped_edge, edge_segments); kwargs...)),
         :EBM => _workflow_edge_segments_spec((tree, trait; edge_segments, kwargs...) -> fit_ebm(tree, trait, edge_segments; kwargs...)),
@@ -200,6 +204,8 @@ function _fit_compare_workflow(
     rel_tol::Float64 = 1e-6,
 )
     candidates = _normalize_workflow_candidates(models)
+    any(candidate -> candidate.model in (:EnvExp, :EnvLin), candidates) &&
+        throw(ArgumentError("Environmental models have no ASR interface; use fit_compare instead of fit_compare_estim"))
     fits = _fit_workflow_models(
         tree,
         trait,
@@ -234,6 +240,33 @@ function _fit_compare_workflow(
         best_fit = best_fit,
         asr = asr,
     )
+end
+
+"""
+    fit_compare(tree, trait, models; kwargs...)
+
+Fit and compare univariate continuous models without ancestral reconstruction.
+Returns ContinuousWorkflowResult with asr=nothing. Use named
+ContinuousModelCandidate objects for EnvExp/EnvLin, supplying environment and
+quadrature controls in candidate kwargs. All candidates use the same trait
+vector; compare environmental histories using explicit candidate names.
+
+Selection follows best_model: successful finite-AIC fits are eligible even
+when not converged. Inspect convergence before interpreting the ranking.
+Invalid inputs raise errors; they are not silently converted to failed fits.
+Existing fit_compare_estim continues to perform reconstruction by default.
+"""
+function fit_compare(tree::CompactTree, trait::AbstractVector{<:Real}, models::AbstractVector;
+    mapped_edge::Union{Nothing, AbstractMatrix{<:Real}}=nothing,
+    edge_segments::Union{Nothing, Vector{Vector{SimmapSegment}}}=nothing,
+    max_iterations::Integer=400, rel_tol::Float64=1e-6)
+    candidates = _normalize_workflow_candidates(models)
+    fits = _fit_workflow_models(tree, trait, candidates, false;
+        mapped_edge, edge_segments, max_iterations, rel_tol)
+    rows = aic_table((candidate.name => fits[candidate.name] for candidate in candidates)...)
+    best = best_model(rows)
+    return ContinuousWorkflowResult(; fits, aic_table=rows, best_name=best.name,
+        best_fit=fits[best.name])
 end
 
 """

@@ -3,6 +3,8 @@
         :BM1,
         :OU1,
         :EB,
+        :EnvExp,
+        :EnvLin,
         :BMM,
         :OUM,
         :OUMV,
@@ -160,4 +162,44 @@ end
     @test length(candidate_workflow.aic_table) == 2
     @test candidate_workflow.best_name in (:mvOUM_full, :mvOUM_diag)
     @test candidate_workflow.asr !== nothing
+end
+
+@testset "Environment comparison without ASR" begin
+    tree = EvoTraits._parse_load_tree_text("((a:1,b:1):2,(c:2,d:2):1);")
+    y = [0.4,-0.7,1.2,0.1]
+    env = EnvCurve([0.,3.],[0.,1.])
+    candidates = [
+        ContinuousModelCandidate(name=:BM1,model=:BM1),
+        ContinuousModelCandidate(name=:EB,model=:EB),
+        ContinuousModelCandidate(name=:exp,model=:EnvExp,
+            kwargs=(environment=env,quadrature_order=32,quadrature_breakpoints=[0.5,1.5],max_iterations=80)),
+        ContinuousModelCandidate(name=:linear,model=:EnvLin,
+            kwargs=(environment=env,quadrature_order=16,max_iterations=80)),
+    ]
+    workflow = fit_compare(tree,y,candidates;max_iterations=30)
+    @test workflow.asr === nothing
+    @test length(workflow.fits) == 4
+    @test issorted(getfield.(workflow.aic_table,:aic))
+    @test workflow.best_name == best_model(workflow.aic_table).name
+    @test workflow.best_fit === workflow.fits[workflow.best_name]
+    @test workflow.fits[:exp].quadrature_order == 32
+    @test workflow.fits[:exp].quadrature_breakpoints == [0.5,1.5]
+    @test workflow.fits[:linear].model == :EnvLin
+    for (name,model,order,breaks) in ((:exp,:EnvExp,32,[0.5,1.5]),(:linear,:EnvLin,16,Float64[]))
+        direct = fit_t_env(tree,y,env;model,quadrature_order=order,
+            quadrature_breakpoints=breaks,max_iterations=80)
+        @test workflow.fits[name].loglik == direct.loglik
+        @test workflow.fits[name].sigma2 == direct.sigma2
+    end
+    limited = fit_compare(tree,y,[ContinuousModelCandidate(name=:limited,model=:EnvExp,
+        kwargs=(environment=env,max_iterations=1))])
+    @test limited.fits[:limited].success
+    @test !limited.fits[:limited].converged
+    @test limited.asr === nothing
+    @test_throws ArgumentError fit_compare_estim(tree,y,candidates)
+    @test_throws ArgumentError fit_compare(tree,y,[:BM1,:BM1])
+    @test_throws ArgumentError fit_compare(tree,y,[ContinuousModelCandidate(name=:bad,model=:EnvExp,
+        kwargs=(environment=env,guess_sigma2=-1.,))])
+    plain = fit_compare(tree,y,[:BM1,:EB];max_iterations=30)
+    @test plain.asr === nothing
 end

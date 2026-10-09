@@ -6,7 +6,7 @@
 
 EvoTraits 是面向离散与连续性状的 Julia 系统发育比较分析软件包，以似然方法为基础，在统一计算框架中提供演化模型拟合、随机性状映射、祖先状态重建与模型比较。
 
-项目支持谱系间演化异质性、多性状演化动态、对演化预测变量的适应响应，以及演化过程的时间变化等研究方向。其主要特点是将计算效率、明确的统计假设与结构化的分析结果相结合。
+项目支持谱系间演化异质性、多性状演化动态、对演化预测变量的适应响应、演化过程的时间变化，以及演化速率对环境历史的依赖等研究方向。其主要特点是将计算效率、明确的统计假设与结构化的分析结果相结合。
 
 ## 核心特点
 
@@ -14,11 +14,11 @@ EvoTraits 是面向离散与连续性状的 Julia 系统发育比较分析软件
 
 **高效的系统发育似然计算。** 单变量和多变量模型共用树计算基建，通过剪枝递推计算似然，无需构造观测维度的全树稠密协方差矩阵。支持的多起点拟合路径利用 Julia 线程并行优化候选解。
 
-**灵活的演化假设表达。** 模型允许演化状态之间具有不同的最适值、吸引强度和扩散速率，支持适应最适值对演化预测变量的依赖，以及早期与晚期演化过程的差异。候选模型可指定独立设定，在同一工作流中比较不同参数化方案。
+**灵活的演化假设表达。** 模型允许演化状态之间具有不同的最适值、吸引强度和扩散速率，支持适应最适值对演化预测变量的依赖，以及早期与晚期演化过程的差异。环境历史进一步支持检验演化速率的变化。候选模型可指定独立设定，在同一工作流中比较不同参数化方案。
 
 **支持可重复分析的结构化结果。** 拟合对象保存参数估计、似然、信息准则和收敛状态；祖先重建表保留节点身份与时间坐标，为祖先性状变化和时间趋势等后续分析提供一致的数据基础。
 
-EvoTraits 通过 Julia 原生实现与可复用的计算基建，为成熟的 R 系统发育比较方法生态提供补充。项目开发借鉴 corHMM、OUwie、mvMORPH 和 mvSLOUCH 的统计方法与参考实现，正常运行不调用这些软件包，也不声明与其全部功能完全等价。
+EvoTraits 通过 Julia 原生实现与可复用的计算基建，为成熟的 R 系统发育比较方法生态提供补充。项目开发借鉴 corHMM、OUwie、mvMORPH、mvSLOUCH 和 RPANDA 的统计方法与参考实现，正常运行不调用这些软件包，也不声明与其全部功能完全等价。
 
 ## 研究应用
 
@@ -28,11 +28,20 @@ EvoTraits 通过 Julia 原生实现与可复用的计算基建，为成熟的 R 
 | 不同演化状态是否具有不同的最适值、吸引强度或扩散速率？ | OUM、OUMV、OUMA、OUMVA 及其多变量版本 |
 | 另一个不断演化的性状，是否参与塑造响应性状的适应最适值？ | `fit_mvoubm` 多变量 OU-BM 适应模型 |
 | 早期与晚期的演化过程是否不同？ | 单变量与多变量时间转换模型 |
+| 性状演化速率是否随环境历史变化？ | EnvExp、EnvLin 及其与 BM1、EB 的比较 |
 | 离散性状如何转换，是否存在隐藏的速率差异？ | Mk 与 corHMM 风格模型 |
 | 哪些演化历史与现生物种状态相容？ | SIMMAP 随机性状映射 |
 | 祖先性状是什么，随时间呈现怎样的变化？ | 支持模型的节点/分支重建与滑动窗口汇总 |
 
 ## 近期进展
+
+### 演化速率的环境依赖
+
+`fit_t_env` 通过指数（EnvExp）或线性（EnvLin）速率函数，将连续性状的扩散速率与环境历史联系起来。与 BM1、EB 比较，可区分环境依赖的速率假设、恒定速率演化与单向时间趋势。模型沿用 RPANDA 环境依赖 BM 的统计定义，估计的是演化速率变化，而不是环境对性状均值或适应最适值的影响。
+
+环境历史可用分段线性曲线表示，也可显式进行固定有效自由度的三次样条平滑。`fit_compare` 工作流支持比较上述四种模型，无需同时进行祖先重建。共享积分区间避免重复存储与计算；EnvLin 对这两类已知曲线采用解析积分。
+
+在完整 InfTemp 环境历史、87-tip 树和模拟性状的本地验证中，缓存优化使四模型拟合约加速 12.5 倍，16 点 EnvExp 缓存的保留大小减少 93.7%。这些是排除编译和平滑耗时的单案例测量，不是通用性能保证；独立积分与似然对照确认数值一致性及模型排序保持稳定。
 
 ### 多变量适应响应模型
 
@@ -96,6 +105,29 @@ nodes = estim_node_table(tree, analysis.asr)
 
 `load_tree` 直接返回可以进入计算的树结构；也保留 `read_tree` → `serialize_tree` 的显式两步路径。
 
+### 比较环境与时间依赖的速率假设
+
+假设 `environment.csv` 包含 `age`（距今年龄，单位与树枝长一致）和 `temperature` 列。环境历史必须覆盖现在至树根年龄，以下示例还要求超过十个不同年龄：
+
+```julia
+history = CSV.read("environment.csv", DataFrame)
+environment = smooth_env(history.age, history.temperature; df=10, scale=true)
+
+candidates = [
+    ContinuousModelCandidate(name=:BM1, model=:BM1),
+    ContinuousModelCandidate(name=:EB, model=:EB),
+    ContinuousModelCandidate(name=:EnvExp, model=:EnvExp,
+        kwargs=(environment=environment,)),
+    ContinuousModelCandidate(name=:EnvLin, model=:EnvLin,
+        kwargs=(environment=environment,)),
+]
+comparison = fit_compare(tree, y, candidates; max_iterations=2000)
+comparison.aic_table
+comparison.best_fit.converged
+```
+
+不需要平滑时，可用 `EnvCurve(history.age, history.temperature; scale=true)` 作分段线性插值，但须先处理重复年龄。`smooth_env` 支持重复年龄，要求显式指定 df；应在模型比较前独立确定该值。`fit_compare` 仅返回拟合结果与信息准则，不执行 ASR；环境模型目前不支持进入 `fit_compare_estim`。
+
 ### 结合 regime 拟合多变量演化
 
 这里的 `mapped.simmap` 应描述同一棵树上的历史，`traits.csv` 还需包含 `lnVD` 列：
@@ -134,6 +166,7 @@ shift.converged
 |---|---|---|
 | 布朗运动 | BM1、BMM | mvBM1、mvBMM |
 | 早期爆发 | EB、EBM | mvEB |
+| 环境依赖 BM | EnvExp、EnvLin | 暂未实现 |
 | Ornstein-Uhlenbeck | OU1、OUM、OUMV、OUMA、OUMVA | mvOU1、mvOUM、mvOUMV、mvOUMA、mvOUMVA |
 | 适应性 OU-BM | — | mvOUBM |
 | 时间转换 | SR、OUBM/OUBMi、BMOU/BMOUi、EBOU/EBOUi、OUEB/OUEBi、EBBM/EBBMi、BMEB/BMEBi | 对应的 13 种模型 |
@@ -147,9 +180,10 @@ shift.converged
 - 根处理与矩阵约束属于统计假设。比较 AIC 时应保持数据和约定一致；不同观测响应之间不能直接比较 AIC。
 - 有限 logLik 不代表收敛。检查 `converged` 和可用的终止诊断，必要时使用多个起点。
 - 时间转换模型本轮面向超距树，不支持观测误差或 ASR；支持的 A 结构有意收敛于既定范围，而不是复制参考实现的全部参数空间。
+- 环境依赖 BM 当前支持二歧超距树上的单性状分析，包括性状缺失观测，不支持观测误差或 ASR。平滑采用固定 df，尚无自动 df 选择或 GCV。已收敛的拟合仍可能趋向速率边界；对陡峭或短时集中的环境变化，应检查积分精度。
 
 ## 文档与验证
 
-通过 Julia 帮助模式查询单个接口，例如 `?fit_mvoubm` 或 `?fit_mvshift`。源码围绕离散模型、连续模型、重建和模拟组织；`test/` 保存单元和回归测试。
+通过 Julia 帮助模式查询单个接口，例如 `?fit_t_env`、`?smooth_env`、`?fit_mvoubm` 或 `?fit_mvshift`。源码围绕离散模型、连续模型、重建和模拟组织；`test/` 保存单元和回归测试。
 
 本地 `validation/` 与 `reference/` 是不随 Git 分发的开发资料，不是正常使用的依赖。RCall 用于本地跨实现验证，包本身不通过 R 执行计算。

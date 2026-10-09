@@ -18,6 +18,7 @@ const SUBSET_TESTS = Dict(
     "continuous/univariate/bm_family" => "continuous/univariate/bm_family.jl",
     "continuous/shifts" => "continuous/shifts.jl",
     "continuous/univariate/eb_family" => "continuous/univariate/eb_family.jl",
+    "continuous/univariate/env_family" => "continuous/univariate/env_family.jl",
     "continuous/univariate/ou_family" => "continuous/univariate/ou_family.jl",
     "continuous/multivariate/bm_family" => "continuous/multivariate/bm_family.jl",
     "continuous/multivariate/ou_family" => "continuous/multivariate/ou_family.jl",

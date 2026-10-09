@@ -6,7 +6,7 @@
 
 EvoTraits is a Julia package for likelihood-based phylogenetic comparative analysis of discrete and continuous traits. It integrates evolutionary model fitting, stochastic character mapping, ancestral-state reconstruction and model comparison within a shared computational framework.
 
-The package supports analyses of evolutionary heterogeneity among lineages, multivariate trait dynamics, adaptive responses to evolving predictors and temporal changes in evolutionary processes. Its principal emphasis is computational efficiency combined with explicit statistical assumptions and structured, interpretable results.
+The package supports analyses of evolutionary heterogeneity among lineages, multivariate trait dynamics, adaptive responses to evolving predictors, temporal changes in evolutionary processes and environmental dependence of evolutionary rates. Its principal emphasis is computational efficiency combined with explicit statistical assumptions and structured, interpretable results.
 
 ## Principal Features
 
@@ -14,11 +14,11 @@ The package supports analyses of evolutionary heterogeneity among lineages, mult
 
 **Efficient phylogenetic likelihood computation.** Univariate and multivariate models share tree-based computational infrastructure. Pruning recursions evaluate likelihoods without constructing an observation-sized dense covariance matrix. Supported multi-start fitting paths use Julia threads for parallel candidate optimization.
 
-**Flexible specification of evolutionary hypotheses.** Models accommodate differences in optima, attraction and diffusion among regimes, dependence of adaptive optima on evolving predictors, and contrasts between early and late evolutionary processes. Candidate-specific settings support comparison of alternative parameterizations within a common workflow.
+**Flexible specification of evolutionary hypotheses.** Models accommodate differences in optima, attraction and diffusion among regimes, dependence of adaptive optima on evolving predictors, and contrasts between early and late evolutionary processes. Environmental histories provide a further basis for testing variation in evolutionary rates. Candidate-specific settings support comparison of alternative parameterizations within a common workflow.
 
 **Structured results for reproducible analysis.** Fit objects retain parameter estimates, likelihoods, information criteria and convergence status. Reconstruction tables preserve node identities and temporal coordinates, supporting subsequent analyses of ancestral change and temporal patterns.
 
-EvoTraits complements the established R ecosystem for phylogenetic comparative methods by providing native Julia implementations and reusable computational infrastructure. Its development draws on statistical approaches and reference implementations in corHMM, OUwie, mvMORPH and mvSLOUCH. It does not invoke these packages during normal operation, nor does it claim complete functional equivalence with them.
+EvoTraits complements the established R ecosystem for phylogenetic comparative methods by providing native Julia implementations and reusable computational infrastructure. Its development draws on statistical approaches and reference implementations in corHMM, OUwie, mvMORPH, mvSLOUCH and RPANDA. It does not invoke these packages during normal operation, nor does it claim complete functional equivalence with them.
 
 ## Research Applications
 
@@ -28,11 +28,20 @@ EvoTraits complements the established R ecosystem for phylogenetic comparative m
 | Do evolutionary regimes have different optima, attraction strengths or diffusion rates? | OUM, OUMV, OUMA and OUMVA, including multivariate counterparts |
 | Does an evolving predictor influence the adaptive optimum of a response? | Multivariate OU-BM adaptation with `fit_mvoubm` |
 | Did the evolutionary process change between early and late periods? | Univariate and multivariate time-shift models |
+| Does the rate of trait evolution vary with environmental history? | EnvExp and EnvLin, compared with BM1 and EB |
 | How do discrete traits change, including hidden rate variation? | Mk and corHMM-style models |
 | What histories are consistent with observed tip states? | SIMMAP stochastic mapping |
 | What were ancestral traits, and how did they vary through time? | Supported node/branch reconstruction and sliding-window summaries |
 
 ## Recent Developments
+
+### Environmental dependence of evolutionary rates
+
+`fit_t_env` relates the diffusion rate of a continuous trait to an environmental history through exponential (EnvExp) or linear (EnvLin) rate functions. Comparing these models with BM1 and EB distinguishes an environmental rate hypothesis from constant-rate evolution or a directional temporal trend. The formulation follows RPANDA's environmental BM models and estimates variation in evolutionary rates, rather than environmental effects on trait means or adaptive optima.
+
+Environmental histories may be represented by piecewise-linear curves or explicitly smoothed with fixed-effective-df cubic splines. The `fit_compare` workflow compares all four models without requiring ancestral reconstruction. Shared integration intervals avoid redundant storage and computation; EnvLin uses analytical integration for these known curve types.
+
+In a local validation using a complete InfTemp history, an 87-tip tree and simulated traits, four-model fitting was approximately 12.5 times faster after cache optimization, while the retained 16-point EnvExp cache decreased by 93.7%. These are single-case measurements excluding compilation and smoothing, not general performance guarantees. Independent integration and likelihood checks preserved numerical agreement and model ranking.
 
 ### Multivariate adaptive-response models
 
@@ -90,6 +99,29 @@ nodes = estim_node_table(tree, analysis.asr)
 
 `load_tree` reads directly into the computation-ready tree representation. The explicit `read_tree` → `serialize_tree` route remains available.
 
+### Compare environmental and temporal rate hypotheses
+
+Assume `environment.csv` contains `age` (time before present, in the same units as tree branches) and `temperature` columns. The history must cover the present through the tree's root age and contain more than ten distinct ages for this example:
+
+```julia
+history = CSV.read("environment.csv", DataFrame)
+environment = smooth_env(history.age, history.temperature; df=10, scale=true)
+
+candidates = [
+    ContinuousModelCandidate(name=:BM1, model=:BM1),
+    ContinuousModelCandidate(name=:EB, model=:EB),
+    ContinuousModelCandidate(name=:EnvExp, model=:EnvExp,
+        kwargs=(environment=environment,)),
+    ContinuousModelCandidate(name=:EnvLin, model=:EnvLin,
+        kwargs=(environment=environment,)),
+]
+comparison = fit_compare(tree, y, candidates; max_iterations=2000)
+comparison.aic_table
+comparison.best_fit.converged
+```
+
+Use `EnvCurve(history.age, history.temperature; scale=true)` for piecewise-linear interpolation without smoothing; duplicate ages must first be resolved. `smooth_env` accepts repeated ages and requires an explicit df. Choose that value independently of the model comparison. `fit_compare` returns fits and information criteria without ASR; environmental models are not currently supported by `fit_compare_estim`.
+
 ### Fit regime-dependent multivariate evolution
 
 Here `mapped.simmap` describes histories on the same tree, and `traits.csv` also contains `lnVD`:
@@ -128,6 +160,7 @@ The boundary must lie within the tree's time range. Use `fit_shift` for a single
 |---|---|---|
 | Brownian motion | BM1, BMM | mvBM1, mvBMM |
 | Early burst | EB, EBM | mvEB |
+| Environmental BM | EnvExp, EnvLin | Not currently implemented |
 | Ornstein-Uhlenbeck | OU1, OUM, OUMV, OUMA, OUMVA | mvOU1, mvOUM, mvOUMV, mvOUMA, mvOUMVA |
 | Adaptive OU-BM | — | mvOUBM |
 | Time-shift | SR, OUBM/OUBMi, BMOU/BMOUi, EBOU/EBOUi, OUEB/OUEBi, EBBM/EBBMi, BMEB/BMEBi | Same 13 models |
@@ -141,9 +174,10 @@ Discrete analysis includes Mk, observed/hidden-rate corHMM-style models, ambiguo
 - Root assumptions and matrix constraints are part of the statistical hypothesis. Hold data and conventions consistent when comparing AIC; different observed responses are not directly comparable.
 - A finite likelihood is not proof of convergence. Check `converged` and available termination diagnostics; use multiple starts where appropriate.
 - Time-shift models currently target ultrametric trees without observation error or ASR. Their supported A structures are deliberately narrower than the full reference parameterization space.
+- Environmental BM currently supports a single trait on bifurcating ultrametric trees, including missing trait observations, without observation error or ASR. Smoothing requires fixed df; automatic df selection and GCV are not implemented. A converged fit may still approach a rate boundary. Integration accuracy should be checked for steep or sharply localized environmental histories.
 
 ## Documentation and Validation
 
-Use Julia's help mode for individual APIs, for example `?fit_mvoubm` or `?fit_mvshift`. The source is organized around discrete models, continuous models, reconstruction and simulation; `test/` contains unit and regression coverage.
+Use Julia's help mode for individual APIs, for example `?fit_t_env`, `?smooth_env`, `?fit_mvoubm` or `?fit_mvshift`. The source is organized around discrete models, continuous models, reconstruction and simulation; `test/` contains unit and regression coverage.
 
 Local `validation/` and `reference/` directories are development resources excluded from Git, not required for normal package use. RCall is used for local cross-implementation validation, not by the package itself.
