@@ -1,3 +1,15 @@
+function _mvoubm_observed_stats(data::AbstractMatrix{Float64})
+    means = zeros(Float64, size(data, 2))
+    variances = similar(means)
+    for j in axes(data, 2)
+        observed = filter(!isnan, @view data[:, j])
+        isempty(observed) && throw(ArgumentError("mvOUBM trait column $j contains no observed values"))
+        means[j] = mean(observed)
+        variances[j] = length(observed) > 1 ? max(var(observed), 1e-6) : 1.0
+    end
+    return means, variances
+end
+
 function _mvoubm_initial_candidates(
     tree::CompactTree,
     data::AbstractMatrix{Float64},
@@ -6,36 +18,37 @@ function _mvoubm_initial_candidates(
     kX::Int,
     A_decomp::Symbol,
 )
-    spec = _mvoubm_A_spec(A_decomp)
     Y = data[:, 1:kY]
     X = data[:, kY+1:end]
-    global_theta = vec(mean(Y; dims = 1))
+    global_theta, varY = _mvoubm_observed_stats(Y)
     mPsi0 = repeat(global_theta, 1, precalc.nregimes)
-    counts = zeros(Int, precalc.nregimes)
+    counts = zeros(Int, precalc.nregimes, kY)
     sums = zeros(Float64, precalc.nregimes, kY)
     for i in 1:tree.ntips
         r = Int(precalc.tip_terminal_regime[i])
         1 <= r <= precalc.nregimes || continue
-        counts[r] += 1
         for j in 1:kY
             v = Y[i, j]
-            isnan(v) || (sums[r, j] += v)
+            isnan(v) && continue
+            counts[r, j] += 1
+            sums[r, j] += v
         end
     end
-    for r in 1:precalc.nregimes
-        if counts[r] > 0
-            mPsi0[:, r] .= sums[r, :] ./ counts[r]
+    for r in 1:precalc.nregimes, j in 1:kY
+        if counts[r, j] > 0
+            mPsi0[j, r] = sums[r, j] / counts[r, j]
         end
     end
-    complete = vec(.!isnan.(vec(sum(Y; dims = 2))))
-    covY = try
-        Matrix{Float64}(cov(Y[complete, :]))
-    catch
-        Matrix{Float64}(Diagonal(vec(var(Y[complete, :]; dims = 1))))
+    complete = vec(all(!isnan, Y; dims = 2))
+    covY = Matrix{Float64}(Diagonal(varY))
+    if count(complete) >= 2
+        empirical = Matrix{Float64}(cov(Y[complete, :]))
+        if all(isfinite, empirical) && isposdef(Symmetric(empirical))
+            covY = empirical
+        end
     end
-    vX00 = vec(mean(X; dims = 1))
-    varX = vec(var(X; dims = 1))
-    SigmaX0 = Matrix{Float64}(Diagonal(max.(varX, 1e-6)))
+    vX00, varX = _mvoubm_observed_stats(X)
+    SigmaX0 = Matrix{Float64}(Diagonal(varX))
     A_cands = if A_decomp === :schur
         _mvou_unique_matrix_candidates(_mvou_schur_A_candidates(tree, kY))
     elseif A_decomp === :diagonal
@@ -103,9 +116,12 @@ function fit_mvoubm(
         return isfinite(ll) ? -ll : 1e300
     end
     candidates = _mvoubm_initial_candidates(tree, data, precalc, kY, kX, A_decomp)
+    isempty(candidates) && throw(ArgumentError("mvOUBM could not construct finite, positive-definite initial parameters"))
     vals = Float64[objective(c) for c in candidates]
+    valid = findall(v -> isfinite(v) && v < 1e300, vals)
+    isempty(valid) && throw(ArgumentError("mvOUBM initial parameters all produced invalid likelihoods"))
     best = nothing
-    top = _mvou_best_candidate_indices(vals, 3)
+    top = valid[_mvou_best_candidate_indices(vals[valid], 3)]
     results = if Threads.nthreads() > 1 && length(top) > 1
         tasks = map(top) do i
             Threads.@spawn begin

@@ -81,45 +81,14 @@ function _mvou_asr_node_means(
     edge_segments::Vector{Vector{SimmapSegment}},
     root_regime::Integer,
 )
-    if fit.model === :mvOU1
-        theta = vec(fit.theta)
-        return [copy(theta) for _ in 1:tree.nnodes]
-    elseif fit.model in (:mvOUM, :mvOUMV)
-        if fit.root_mean_mode === :root_regime_theta
-            return _mvou_node_path_means(tree, bundle, edge_segments, root_regime)
-        elseif fit.root_mean_mode === :stationary_design
-            return _mvou_node_path_means_zero(
-                tree,
-                bundle.A,
-                reshape(bundle.theta, size(bundle.A, 1), :),
-                edge_segments,
-            )
-        end
-        return _mvou_node_path_means_zero(
-            tree,
-            bundle.A,
-            reshape(bundle.theta, size(bundle.A, 1), :),
-            edge_segments,
-        )
-    elseif fit.model in (:mvOUMA, :mvOUMVA)
-        if fit.root_mean_mode === :root_regime_theta
-            return _mvouma_node_path_means(tree, bundle, edge_segments, root_regime)
-        elseif fit.root_mean_mode === :stationary_design
-            return _mvouma_node_path_means_zero(
-                tree,
-                bundle.A_regimes,
-                reshape(bundle.theta, size(bundle.A_regimes, 1), :),
-                edge_segments,
-            )
-        end
-        return _mvouma_node_path_means_zero(
-            tree,
-            bundle.A_regimes,
-            reshape(bundle.theta, size(bundle.A_regimes, 1), :),
-            edge_segments,
-        )
-    end
-    throw(ArgumentError("Unsupported multivariate OU ASR model $(fit.model)"))
+    precalc = MVOUPrecalc(
+        edge_segments = fit.model === :mvOU1 ? Vector{Vector{SimmapSegment}}() : edge_segments,
+        nregimes = fit.nregimes,
+        root_regime = Int(root_regime),
+        A_decomp = fit.A_decomp,
+        root_mean_mode = fit.root_mean_mode,
+    )
+    return _mvou_node_means(tree, bundle, precalc)
 end
 
 function _mvou_asr_branch_cache(

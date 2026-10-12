@@ -245,7 +245,7 @@ function _mvou_fixed_loglikelihood(
 )
     data = Matrix{Float64}(trait)
     p = size(data, 2)
-    family = _mvou_profile_family(bundle)
+    family = _mvou_profile_family(bundle, precalc)
     if precalc.A_decomp === :diagonal
         if family === :mvOUMA || family === :mvOUMVA
             for r in axes(bundle.A_regimes, 3)
@@ -269,17 +269,7 @@ function _mvou_fixed_loglikelihood(
             throw(ArgumentError("Unsupported multivariate OU family $family"))
         end
 
-    segments =
-        isempty(precalc.edge_segments) ?
-        [[SimmapSegment(state = Int32(1), length = Float64(tree.edge_length[e]))] for e in 1:tree.nedges] :
-        precalc.edge_segments
-
-    path_means =
-        if family === :mvOUMA || family === :mvOUMVA
-            _mvouma_node_path_means(tree, bundle, segments, precalc.root_regime)
-        else
-            _mvou_node_path_means(tree, bundle, segments, precalc.root_regime)
-        end
+    path_means = _mvou_node_means(tree, bundle, precalc)
 
     centered = copy(data)
     @inbounds for (i, tip) in enumerate(tree.tip_ids)
@@ -467,6 +457,7 @@ function _mvou_profile_theta_recursive(
     edge_logdet_Q::Union{Nothing, AbstractVector{<:Real}} = nothing,
     copy_theta::Bool = true,
     root_cov::Union{Nothing, AbstractMatrix{<:Real}} = nothing,
+    theta_transform::Union{Nothing, Vector{Matrix{Float64}}} = nothing,
 )
     data = trait isa Matrix{Float64} ? trait : Matrix{Float64}(trait)
     _validate_binary_tree(tree)
@@ -553,8 +544,16 @@ function _mvou_profile_theta_recursive(
         theta_hat = ws isa MVOUThetaProfileWorkspace ? ws.theta : zeros(Float64, q)
         theta_hat .= h胃
         ldiv!(theta_hat, chol, theta_hat)
-        loglik = logconst[root] + 0.5 * dot(h胃, theta_hat)
+        loglik = logconst[root] + dot(h胃, theta_hat) - 0.5 * dot(theta_hat, P胃 * theta_hat)
         isfinite(loglik) || return (success = false, loglik = -Inf, theta = ws isa MVOUThetaProfileWorkspace ? ws.theta : zeros(Float64, q))
+        if theta_transform !== nothing
+            tmp = zeros(Float64, p)
+            for r in eachindex(theta_transform)
+                block = @view theta_hat[((r - 1) * p + 1):(r * p)]
+                mul!(tmp, theta_transform[r], block)
+                copyto!(block, tmp)
+            end
+        end
         return (success = true, loglik = loglik, theta = copy_theta ? copy(theta_hat) : theta_hat)
     catch
         return (success = false, loglik = -Inf, theta = ws isa MVOUThetaProfileWorkspace ? ws.theta : zeros(Float64, q))
@@ -577,7 +576,27 @@ function _mvou_profile_theta_tree_pruning_profile(
         ws !== nothing &&
         ws.has_cached_A &&
         size(ws.cached_A) == size(bundle.A) &&
-        maximum(abs.(ws.cached_A .- bundle.A)) <= 1e-12
+        isequal(ws.cached_A, bundle.A)
+
+    # Profile A_r * theta_r instead of theta_r to keep BM-boundary designs scaled.
+    theta_transform = if spec.model === :mvOU1
+        nothing
+    elseif isempty(bundle.A_regimes)
+        inverse_A = bundle.A \ Matrix{Float64}(I, p, p)
+        fill(inverse_A, precalc.nregimes)
+    else
+        [bundle.A_regimes[:, :, r] \ Matrix{Float64}(I, p, p) for r in 1:precalc.nregimes]
+    end
+    function _transform_designs!(designs; reuse = false)
+        theta_transform === nothing && return
+        reuse && return
+        tmp = ws === nothing ? zeros(Float64, p, p) : @view(ws.design_work[:, 1:p])
+        for W in designs, r in 1:precalc.nregimes
+            block = @view W[:, ((r - 1) * p + 1):(r * p)]
+            mul!(tmp, block, theta_transform[r])
+            copyto!(block, tmp)
+        end
+    end
 
     function _cache_shared_A!()
         ws === nothing && return
@@ -660,6 +679,7 @@ function _mvou_profile_theta_tree_pruning_profile(
                  precalc.nregimes,
                  precalc.A_decomp,
              ))
+        _transform_designs!(designs; reuse = ws !== nothing && same_shared_A && ws.shared_design_valid)
         if ws !== nothing
             _cache_shared_A!()
             ws.shared_phi_valid = true
@@ -676,6 +696,7 @@ function _mvou_profile_theta_tree_pruning_profile(
             edge_Qinv = branch.Qinv,
             edge_logdet_Q = branch.logdet_Q,
             copy_theta = ws === nothing,
+            theta_transform = theta_transform,
         )
     elseif spec.model === :mvOUMV
         branch =
@@ -706,6 +727,7 @@ function _mvou_profile_theta_tree_pruning_profile(
                  precalc.nregimes,
                  precalc.A_decomp,
              ))
+        _transform_designs!(designs; reuse = ws !== nothing && same_shared_A && ws.shared_design_valid)
         if ws !== nothing
             _cache_shared_A!()
             ws.shared_design_valid = true
@@ -721,6 +743,7 @@ function _mvou_profile_theta_tree_pruning_profile(
             edge_Qinv = branch.Qinv,
             edge_logdet_Q = branch.logdet_Q,
             copy_theta = ws === nothing,
+            theta_transform = theta_transform,
         )
     elseif spec.model === :mvOUMA
         branch =
@@ -749,6 +772,7 @@ function _mvou_profile_theta_tree_pruning_profile(
                 precalc.nregimes,
                 precalc.A_decomp,
             )
+        _transform_designs!(designs)
         return _mvou_profile_theta_recursive(
             tree,
             data,
@@ -760,6 +784,7 @@ function _mvou_profile_theta_tree_pruning_profile(
             edge_Qinv = branch.Qinv,
             edge_logdet_Q = branch.logdet_Q,
             copy_theta = ws === nothing,
+            theta_transform = theta_transform,
         )
     elseif spec.model === :mvOUMVA
         branch =
@@ -788,6 +813,7 @@ function _mvou_profile_theta_tree_pruning_profile(
                 precalc.nregimes,
                 precalc.A_decomp,
             )
+        _transform_designs!(designs)
         return _mvou_profile_theta_recursive(
             tree,
             data,
@@ -799,6 +825,7 @@ function _mvou_profile_theta_tree_pruning_profile(
             edge_Qinv = branch.Qinv,
             edge_logdet_Q = branch.logdet_Q,
             copy_theta = ws === nothing,
+            theta_transform = theta_transform,
         )
     end
     throw(ArgumentError("Unsupported profiled theta model $(spec.model)"))

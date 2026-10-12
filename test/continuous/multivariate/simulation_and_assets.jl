@@ -136,15 +136,44 @@
 
 end
 
-@testset "Multivariate hard limits" begin
-    tmp = tempname() * ".tre"
-    write(tmp, simulate_ultrametric_newick(4001; rng = MersenneTwister(202)))
-    tree = serialize_tree(read_tree(tmp))
-    oversized_trait = zeros(Float64, 4001, 2)
-    A = [1.0 0.0; 0.0 1.0]
-    Sigma = [1.0 0.0; 0.0 1.0]
-    theta = [0.0, 0.0]
-    @test_throws ArgumentError mvou1_loglikelihood(tree, oversized_trait, A, Sigma, theta)
+@testset "Multivariate large trees and input validation" begin
+    tree = simulate_yule_tree(4001; tree_height = 1.0, rng = MersenneTwister(202))
+    trait = randn(MersenneTwister(203), tree.ntips, 2)
+    A = [1.0 0.1; 0.1 0.9]
+    Sigma = [1.0 0.2; 0.2 0.8]
+    theta = [0.0, 0.3]
+    theta_regimes = [0.0 0.3; 0.5 -0.2]
+    segments = [[SimmapSegment(state = Int32(tree.parent_of_edge[e] == tree.root ? 1 : 1 + e % 2),
+        length = tree.edge_length[e])] for e in 1:tree.nedges]
+    mapped = zeros(tree.nedges, 2)
+    for e in 1:tree.nedges
+        mapped[e, Int(only(segments[e]).state)] = tree.edge_length[e]
+    end
+    for result in (
+        mvbm1_loglikelihood(tree, trait, Sigma),
+        mvbmm_loglikelihood(tree, trait, mapped, [Sigma, 1.3Sigma]),
+        mvou1_loglikelihood(tree, trait, A, Sigma, theta),
+        mvoum_loglikelihood(tree, trait, segments, A, Sigma, theta_regimes),
+        mvoumva_loglikelihood(tree, trait, segments, cat(A, 1.2A; dims = 3),
+            cat(Sigma, 1.3Sigma; dims = 3), theta_regimes),
+        mvoubm_loglikelihood(tree, trait, segments, reshape([1.0], 1, 1),
+            reshape([0.1], 1, 1), reshape([1.0], 1, 1), reshape([0.8], 1, 1),
+            reshape([0.0, 0.5], 1, 2)),
+    )
+        @test result.success
+        @test isfinite(result.loglik)
+        @test result.nobs == length(trait)
+    end
+    @test EvoTraits._validate_multivariate_trait(tree, trait) === trait
+    @test_throws ArgumentError EvoTraits._validate_multivariate_trait(tree, trait[1:end-1, :])
+    @test_throws ArgumentError EvoTraits._validate_multivariate_trait(tree, zeros(tree.ntips, 0))
+    @test_throws ArgumentError EvoTraits._validate_multivariate_trait(tree, fill(Inf, tree.ntips, 2))
+    @test_throws ArgumentError EvoTraits._validate_multivariate_trait(tree, fill(NaN, tree.ntips, 2))
+    @test_throws ArgumentError EvoTraits._validate_multivariate_trait(tree,
+        hcat(ones(tree.ntips), fill(NaN, tree.ntips)))
+    missing_trait = copy(trait)
+    missing_trait[1, 1] = NaN
+    @test EvoTraits._validate_multivariate_trait(tree, missing_trait) === missing_trait
 end
 
 

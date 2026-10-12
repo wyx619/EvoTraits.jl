@@ -644,6 +644,34 @@ end
 
 
 
+function _mvou_node_means(
+    tree::CompactTree,
+    bundle::MVOUParameterBundle,
+    precalc::MVOUPrecalc,
+)
+    p = size(bundle.A, 1)
+    theta = reshape(bundle.theta, p, :)
+    if isempty(precalc.edge_segments)
+        return [copy(vec(theta)) for _ in 1:tree.nnodes]
+    end
+    root_regime = precalc.root_mean_mode === :root_regime_theta ? precalc.root_regime : 0
+    designs =
+        isempty(bundle.A_regimes) ?
+        _mvou_node_design_matrices(tree, bundle.A, precalc.edge_segments,
+            precalc.nregimes, precalc.A_decomp; root_regime) :
+        _mvouma_node_design_matrices(tree, bundle.A_regimes, precalc.edge_segments,
+            precalc.nregimes, precalc.A_decomp; root_regime)
+    means = [W * bundle.theta for W in designs]
+    # Preserve the legacy row-standardized design for explicit :theta input.
+    if precalc.root_mean_mode === :theta
+        for node in 1:tree.nnodes, j in 1:p
+            denom = sum(@view designs[node][j, :])
+            means[node][j] = abs(denom) <= 1e-12 ? 0.0 : means[node][j] / denom
+        end
+    end
+    return means
+end
+
 function _mvou_tip_path_means(
     tree::CompactTree,
     bundle::MVOUParameterBundle,

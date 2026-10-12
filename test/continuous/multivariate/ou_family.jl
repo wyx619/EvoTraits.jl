@@ -14,6 +14,8 @@ function _test_edge_segments(tree::CompactTree, nregimes::Int)
     return segs
 end
 
+include("root_and_oubm_regressions.jl")
+
 @testset "mvOU1 fitting and ancestral reconstruction" begin
     tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(420)))
 

@@ -167,7 +167,7 @@ Discrete analysis includes Mk, observed/hidden-rate corHMM-style models, ambiguo
 
 ## Scope and Statistical Considerations
 
-Continuous models require bifurcating trees, and many require ultrametric trees; current multivariate analyses are limited to 4,000 tips. Missing-data support varies by model. Check taxon and SIMMAP alignment, compare AIC using the same observations and consistent assumptions, and inspect convergence and boundary estimates. Time-shift and environmental models currently require ultrametric trees and do not support observation error or ASR; environmental models are univariate, with explicit fixed-df smoothing. Check integration accuracy for steep environmental histories.
+Continuous models require bifurcating trees, and many require ultrametric trees. Missing-data support varies by model. Check taxon and SIMMAP alignment, compare AIC using the same observations and consistent assumptions, and inspect convergence and boundary estimates. Time-shift and environmental models currently require ultrametric trees and do not support observation error or ASR; environmental models are univariate, with explicit fixed-df smoothing. Check integration accuracy for steep environmental histories.
 
 ## Documentation and Validation
 

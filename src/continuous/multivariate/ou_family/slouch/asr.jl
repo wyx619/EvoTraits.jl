@@ -45,11 +45,20 @@ function _mvoubm_asr(
     _mvoubm_prepare!(tree, data, precalc, ws, pars) === nothing &&
         return MVContinuousASRResult(model = :mvOUBM)
 
-    data_shifted = Matrix{Float64}(data)
-    for e in 1:tree.nedges
-        child = Int(tree.child_of_edge[e])
-        tree.is_tip[child] || continue
-        data_shifted[ws.tip_index[child], :] .-= ws.edge_mu[e]
+    # Center the entire affine process, including offsets on ancestral edges.
+    node_means = [zeros(Float64, p) for _ in 1:tree.nnodes]
+    node_means[Int(tree.root)] .= ws.root_mean
+    for parent in tree.preorder
+        tree.is_tip[parent] && continue
+        for e in tree.first_child_edge[parent]:tree.last_child_edge[parent]
+            child = Int(tree.child_of_edge[e])
+            mul!(node_means[child], @view(ws.Phi[:, :, ws.edge_time_idx[e]]), node_means[parent])
+            node_means[child] .+= ws.edge_mu[e]
+        end
+    end
+    data_shifted = copy(data)
+    for (i, tip) in enumerate(tree.tip_ids)
+        data_shifted[i, :] .-= node_means[Int(tip)]
     end
     edge_Phi = ws.Phi[:, :, ws.edge_time_idx]
     edge_Q = ws.Q[:, :, ws.edge_time_idx]
@@ -58,11 +67,21 @@ function _mvoubm_asr(
         data_shifted,
         edge_Phi,
         edge_Q;
-        root_mean = ws.root_mean,
+        root_mean = zeros(Float64, p),
         root_cov = ws.root_cov,
         shift = zeros(Float64, p),
         model = :mvOUBM,
         regression = -(A \ fit.B),
     )
+    result.success || return result
+    for (i, node) in enumerate(result.node_ids)
+        result.estimates[i, :] .+= node_means[Int(node)]
+    end
+    for node in 1:tree.nnodes
+        result.all_node_estimates[node, :] .+= node_means[node]
+    end
+    for (i, tip) in enumerate(tree.tip_ids)
+        result.tip_estimates[i, :] .+= node_means[Int(tip)]
+    end
     return result
 end

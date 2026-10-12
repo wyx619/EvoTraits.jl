@@ -708,8 +708,8 @@ function _mvou_precalc(tree::CompactTree, spec::MVOUSpec; edge_segments = nothin
     return _mvou_build_precalc(tree, spec; edge_segments = edge_segments)
 end
 
-@inline function _mvou_profile_family(bundle::MVOUParameterBundle)
-    is_ou1 = length(bundle.theta) == size(bundle.A, 1)
+@inline function _mvou_profile_family(bundle::MVOUParameterBundle, precalc::MVOUPrecalc)
+    is_ou1 = isempty(precalc.edge_segments)
     is_shared_sigma = size(bundle.Sigma_regimes, 3) == 0
     is_shared_A = size(bundle.A_regimes, 3) == 0
     if is_ou1
@@ -755,7 +755,7 @@ function _mvou_profile_dispatch(
     precalc::MVOUPrecalc,
     workspace::Union{Nothing, MVProfileWorkspace} = nothing,
 )
-    family = _mvou_profile_family(bundle)
+    family = _mvou_profile_family(bundle, precalc)
     handler = _mvou_profile_handler(family)
     return handler(tree, trait, bundle, precalc, workspace)
 end

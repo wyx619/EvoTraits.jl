@@ -3,15 +3,13 @@
 
 Shared input validation for EvoTraits multivariate workflows.
 
-Current hard boundary:
+Input requirements:
 - matrix input with at least 1 trait
-- at most 4000 tips
 - finite numeric data, with NaN accepted as missing
 """
 @inline function _validate_multivariate_trait(tree::CompactTree, trait::AbstractMatrix{<:Real})
     size(trait, 1) == tree.ntips || throw(ArgumentError("trait matrix must have $(tree.ntips) rows"))
     size(trait, 2) >= 1 || throw(ArgumentError("trait matrix must have at least 1 column"))
-    tree.ntips <= 4000 || throw(ArgumentError("multivariate EvoTraits currently supports at most 4000 tips"))
     data = trait isa Matrix{Float64} ? trait : Matrix{Float64}(trait)
     any(isinf, data) && throw(ArgumentError("trait matrix contains infinite values"))
     all(isnan, data) && throw(ArgumentError("trait matrix contains no observed values"))
