@@ -18,8 +18,6 @@ The package supports analyses of evolutionary heterogeneity among lineages, mult
 
 **Structured results for reproducible analysis.** Fit objects retain parameter estimates, likelihoods, information criteria and convergence status. Reconstruction tables preserve node identities and temporal coordinates, supporting subsequent analyses of ancestral change and temporal patterns.
 
-EvoTraits complements the established R ecosystem for phylogenetic comparative methods by providing native Julia implementations and reusable computational infrastructure. Its development draws on statistical approaches and reference implementations in corHMM, OUwie, mvMORPH, mvSLOUCH and RPANDA. It does not invoke these packages during normal operation, nor does it claim complete functional equivalence with them.
-
 ## Research Applications
 
 | Biological question | EvoTraits capability |
@@ -169,15 +167,9 @@ Discrete analysis includes Mk, observed/hidden-rate corHMM-style models, ambiguo
 
 ## Scope and Statistical Considerations
 
-- Model support depends on tree topology, observations and parameterization. Continuous kernels require bifurcating trees; many paths require ultrametric trees. Current multivariate validation limits analyses to 4,000 tips. Tree-reading capacity and model-fitting capacity are separate constraints.
-- Missing-data support is model-specific. Keep taxon alignment and SIMMAP branch correspondence explicit.
-- Root assumptions and matrix constraints are part of the statistical hypothesis. Hold data and conventions consistent when comparing AIC; different observed responses are not directly comparable.
-- A finite likelihood is not proof of convergence. Check `converged` and available termination diagnostics; use multiple starts where appropriate.
-- Time-shift models currently target ultrametric trees without observation error or ASR. Their supported A structures are deliberately narrower than the full reference parameterization space.
-- Environmental BM currently supports a single trait on bifurcating ultrametric trees, including missing trait observations, without observation error or ASR. Smoothing requires fixed df; automatic df selection and GCV are not implemented. A converged fit may still approach a rate boundary. Integration accuracy should be checked for steep or sharply localized environmental histories.
+Continuous models require bifurcating trees, and many require ultrametric trees; current multivariate analyses are limited to 4,000 tips. Missing-data support varies by model. Check taxon and SIMMAP alignment, compare AIC using the same observations and consistent assumptions, and inspect convergence and boundary estimates. Time-shift and environmental models currently require ultrametric trees and do not support observation error or ASR; environmental models are univariate, with explicit fixed-df smoothing. Check integration accuracy for steep environmental histories.
 
 ## Documentation and Validation
 
 Use Julia's help mode for individual APIs, for example `?fit_t_env`, `?smooth_env`, `?fit_mvoubm` or `?fit_mvshift`. The source is organized around discrete models, continuous models, reconstruction and simulation; `test/` contains unit and regression coverage.
 
-Local `validation/` and `reference/` directories are development resources excluded from Git, not required for normal package use. RCall is used for local cross-implementation validation, not by the package itself.
