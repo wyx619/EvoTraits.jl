@@ -185,6 +185,23 @@ end
     @test workflow.fits[:exp].quadrature_order == 32
     @test workflow.fits[:exp].quadrature_breakpoints == [0.5,1.5]
     @test workflow.fits[:linear].model == :EnvLin
+    error_candidates = [
+        ContinuousModelCandidate(name=:exp_error,model=:EnvExp,
+            kwargs=(environment=env,error=missing,max_iterations=80)),
+        ContinuousModelCandidate(name=:lin_error,model=:EnvLin,
+            kwargs=(environment=env,error=[0.1,0.2,0.3,0.4],max_iterations=80)),
+    ]
+    with_errors = fit_compare(tree,y,error_candidates)
+    @test with_errors.asr === nothing
+    for candidate in error_candidates
+        fitted = with_errors.fits[candidate.name]
+        direct = fit_t_env(tree,y,env;model=candidate.model,
+            error=candidate.kwargs.error,max_iterations=80)
+        @test fitted.nparams == 4
+        @test fitted.loglik == direct.loglik
+        @test fitted.nuisance == direct.nuisance
+        @test fitted.aic == 8-2fitted.loglik
+    end
     for (name,model,order,breaks) in ((:exp,:EnvExp,32,[0.5,1.5]),(:linear,:EnvLin,16,Float64[]))
         direct = fit_t_env(tree,y,env;model,quadrature_order=order,
             quadrature_breakpoints=breaks,max_iterations=80)

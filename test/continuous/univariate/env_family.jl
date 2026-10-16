@@ -1,5 +1,6 @@
 include("env_smoothing.jl")
 include("env_cache.jl")
+include("env_errors.jl")
 
 @testset "Environmental BM" begin
     tree = EvoTraits._parse_load_tree_text("((a:1,b:1):2,(c:2,d:2):1);")

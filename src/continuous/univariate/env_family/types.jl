@@ -40,7 +40,11 @@ end
 Environmental BM result. `sigma2` is the rate at environment=0. For EnvExp,
 `beta` is the exponential coefficient; for EnvLin, it is the rate at
 environment=1 (not an additive slope). The GLS root mean is profiled and
-counted in `nparams=3`. No measurement error or ASR interface is provided.
+counted in `nparams=3`, or four when estimating common terminal nuisance.
+`nuisance` is its standard deviation (as in RPANDA); `nuisance_variance` is
+its square. `standard_errors` contains known tip standard errors in tree-tip
+order, or is empty when errors are disabled. `edge_variances` includes known
+error and nuisance variance on terminal branches. No ASR interface is provided.
 `success` denotes a valid likelihood, not optimizer convergence.
 """
 Base.@kwdef struct EnvFitResult <: AbstractContinuousFitResult
@@ -54,6 +58,9 @@ Base.@kwdef struct EnvFitResult <: AbstractContinuousFitResult
     trait_name::String = "trait"
     sigma2::Float64
     beta::Float64
+    nuisance::Float64 = 0.0
+    nuisance_variance::Float64 = 0.0
+    standard_errors::Vector{Float64} = Float64[]
     theta::Float64 = NaN
     root_state::Float64 = NaN
     root_var::Float64 = NaN
@@ -71,6 +78,7 @@ end
 function Base.show(io::IO, result::EnvFitResult)
     print(io,result.model," environmental BM (logLik=",result.loglik,
         ", AIC=",result.aic,", converged=",result.converged,
-        ", sigma2=",result.sigma2,", beta=",result.beta,
-        ", root=",result.root_state,")")
+        ", sigma2=",result.sigma2,", beta=",result.beta)
+    result.nparams == 4 && print(io,", nuisance=",result.nuisance)
+    print(io,", root=",result.root_state,")")
 end

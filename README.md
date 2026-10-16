@@ -39,6 +39,8 @@ The package supports analyses of evolutionary heterogeneity among lineages, mult
 
 Environmental histories may be represented by piecewise-linear curves or explicitly smoothed with fixed-effective-df cubic splines. The `fit_compare` workflow compares all four models without requiring ancestral reconstruction. Shared integration intervals avoid redundant storage and computation; EnvLin uses analytical integration for these known curve types.
 
+Environmental models optionally account for known tip standard errors and estimate an additional common terminal variance. Use `error=missing` to estimate this component when standard errors are unavailable, or supply a vector in tree-tip order or a taxon-keyed dictionary. The default `error=nothing` retains the model without this component.
+
 In a local validation using a complete InfTemp history, an 87-tip tree and simulated traits, four-model fitting was approximately 12.5 times faster after cache optimization, while the retained 16-point EnvExp cache decreased by 93.7%. These are single-case measurements excluding compilation and smoothing, not general performance guarantees. Independent integration and likelihood checks preserved numerical agreement and model ranking.
 
 ### Multivariate adaptive-response models
