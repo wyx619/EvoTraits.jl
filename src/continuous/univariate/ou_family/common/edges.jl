@@ -82,6 +82,13 @@ function _ou_stationary_design_node_means(
             means[child] = affine.a * means[node] + affine.b
         end
     end
+    if spec.root_mean_mode === :stationary
+        for node in eachindex(means)
+            duration = tree.dist_from_root[node]
+            means[node] = duration == 0.0 ? bundle.theta[cache.root_regime] :
+                means[node] / -expm1(-bundle.alpha[1] * duration)
+        end
+    end
     return means
 end
 
@@ -99,8 +106,8 @@ end
         theta = _ou_regime_value(spec.theta_mode, bundle.theta, state)
         phi = exp(-alpha * seg_length)
         a = phi * a
-        b = phi * b + (1.0 - phi) * theta
-        v = phi^2 * v + sigma2 * (1.0 - phi^2) / (2.0 * alpha)
+        b = phi * b - expm1(-alpha * seg_length) * theta
+        v = phi^2 * v - sigma2 * expm1(-2.0 * alpha * seg_length) / (2.0 * alpha)
     end
     return (a = a, b = b, v = v)
 end
@@ -119,7 +126,7 @@ function _build_ou_edges_oum!(
         total_length = tree.edge_length[edge]
         a = exp(-alpha * total_length)
         edge_a[edge] = a
-        edge_v[edge] = sigma2 * (1.0 - a * a) / (2.0 * alpha)
+        edge_v[edge] = -sigma2 * expm1(-2.0 * alpha * total_length) / (2.0 * alpha)
 
         b = 0.0
         first_seg = Int(cache.edge_first_segment[edge])
@@ -127,7 +134,7 @@ function _build_ou_edges_oum!(
         for seg_idx in first_seg:last_seg
             phi = exp(-alpha * cache.segment_lengths[seg_idx])
             theta = bundle.theta[Int(cache.segment_states[seg_idx])]
-            b = phi * b + (1.0 - phi) * theta
+            b = phi * b - expm1(-alpha * cache.segment_lengths[seg_idx]) * theta
         end
         edge_b[edge] = b
     end
@@ -161,8 +168,8 @@ function _build_ou_edges(
         sigma2 = bundle.sigma2[1]
         theta = bundle.theta[1]
         edge_a .= exp.(-alpha .* tree.edge_length)
-        edge_b .= (1.0 .- edge_a) .* theta
-        edge_v .= sigma2 .* (1.0 .- edge_a .^ 2) ./ (2.0 * alpha)
+        edge_b .= -expm1.(-alpha .* tree.edge_length) .* theta
+        edge_v .= -sigma2 .* expm1.(-2.0 * alpha .* tree.edge_length) ./ (2.0 * alpha)
     else
         for edge in 1:tree.nedges
             aff = _ou_edge_affine(cache, edge, spec, bundle)

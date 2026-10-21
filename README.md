@@ -99,6 +99,8 @@ nodes = estim_node_table(tree, analysis.asr)
 
 `load_tree` reads directly into the computation-ready tree representation. The explicit `read_tree` → `serialize_tree` route remains available.
 
+Univariate OU1, OUM, OUMV, OUMA and OUMVA use the root regime optimum as the root mean (`root_mean_mode=:regime`), with zero root process variance (`root_cov_mode=:fixed`) by default. OU1/OUM also support a normalized mean design (`root_mean_mode=:stationary`) and a random root with stationary covariance (`root_cov_mode=:random`). A separate root mean is not estimated. Inspect `fit.mean_diagnostics` before interpreting regime optima; optimizer convergence does not establish identifiability.
+
 ### Compare environmental and temporal rate hypotheses
 
 Assume `environment.csv` contains `age` (time before present, in the same units as tree branches) and `temperature` columns. The history must cover the present through the tree's root age and contain more than ten distinct ages for this example:

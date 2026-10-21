@@ -7,6 +7,24 @@ Base.@kwdef struct OUSpec
     root_cov_mode::Symbol = :nonstationary
 end
 
+"""
+    ou_spec(model; root_mean_mode=nothing, root_cov_mode=nothing)
+
+Construct the univariate OU specification. For OUMV/OUMA/OUMVA, the OUwie
+3.02 root convention is `:regime` with `:fixed` (the default,
+`get.root.theta=false`). Public fitting and fixed-parameter APIs for these
+models accept only this combination. Other specifications remain
+available internally to reconstruct results saved under earlier conventions.
+
+OU1/OUM public APIs accept `:regime` and
+`:stationary`, with `:fixed` or `:random` covariance. The first
+mean convention with fixed covariance is the common default across OU models.
+
+`:stationary_design` starts the deterministic path mean at zero; it is not
+mvMORPH's row-standardized `root="stationary"`. `:free` and `:nonstationary`
+covariance both profile the root state without a finite Gaussian prior and
+do not estimate an independent root variance.
+"""
 function ou_spec(
     model::Symbol;
     root_mean_mode::Union{Nothing, Symbol} = nothing,
@@ -15,9 +33,8 @@ function ou_spec(
     defaults = _ou_default_spec(model)
     mean_mode = something(root_mean_mode, defaults.root_mean_mode)
     cov_mode = something(root_cov_mode, defaults.root_cov_mode)
-    mean_mode in (:theta, :root_regime_theta, :stationary_design, :free_theta0) ||
-        throw(ArgumentError("Unsupported OU root_mean_mode=$mean_mode"))
-    cov_mode in (:fixed, :stationary, :nonstationary, :free) ||
+    _validate_ou_root_mean_mode(mean_mode)
+    cov_mode in (:fixed, :random, :nonstationary, :free) ||
         throw(ArgumentError("Unsupported OU root_cov_mode=$cov_mode"))
     return OUSpec(
         model = defaults.model,
@@ -29,17 +46,55 @@ function ou_spec(
     )
 end
 
+function _validate_ou_root_mean_mode(mean_mode::Symbol)
+    mean_mode === :free_theta0 &&
+        throw(ArgumentError("root_mean_mode=:free_theta0 has been removed. Refit with root_mean_mode=:regime; saved free-root results cannot be used for likelihood or reconstruction."))
+    mean_mode in (:theta, :regime, :stationary_design, :stationary) ||
+        throw(ArgumentError("Unsupported OU root_mean_mode=$mean_mode"))
+    return nothing
+end
+
+function _validate_regime_ou_root(model::Symbol, mean_mode::Symbol, cov_mode::Symbol)
+    _validate_ou_root_mean_mode(mean_mode)
+    mean_mode === :regime && cov_mode === :fixed ||
+        throw(ArgumentError("$model supports root_mean_mode=:regime with root_cov_mode=:fixed. Other root conventions are retained only for restoring legacy results."))
+    return nothing
+end
+
+function _validate_ou_theta0(mean_mode::Symbol, theta0)
+    _validate_ou_root_mean_mode(mean_mode)
+    theta0 === nothing || throw(ArgumentError("Independent theta0 is no longer supported; use the root regime optimum as the root mean."))
+    return nothing
+end
+
+function _ou_public_spec(model::Symbol; root_mean_mode::Symbol, root_cov_mode::Symbol)
+    if model in (:OU1, :OUM)
+        _validate_shared_ou_root(model, root_mean_mode, root_cov_mode)
+    else
+        _validate_regime_ou_root(model, root_mean_mode, root_cov_mode)
+    end
+    return ou_spec(model; root_mean_mode, root_cov_mode)
+end
+
+function _validate_shared_ou_root(model::Symbol, mean_mode::Symbol, cov_mode::Symbol)
+    _validate_ou_root_mean_mode(mean_mode)
+    mean_mode in (:regime, :stationary) &&
+        cov_mode in (:fixed, :random) ||
+        throw(ArgumentError("$model supports root_mean_mode=:regime or :stationary and root_cov_mode=:fixed or :random. Legacy root modes are only retained for restoring saved results."))
+    return nothing
+end
+
 function _ou_default_spec(model::Symbol)
     if model === :OU1
-        return OUSpec(model = :OU1, theta_mode = :shared, alpha_mode = :shared, sigma_mode = :shared, root_mean_mode = :theta, root_cov_mode = :fixed)
+        return OUSpec(model = :OU1, theta_mode = :shared, alpha_mode = :shared, sigma_mode = :shared, root_mean_mode = :regime, root_cov_mode = :fixed)
     elseif model === :OUM
-        return OUSpec(model = :OUM, theta_mode = :by_regime, alpha_mode = :shared, sigma_mode = :shared, root_mean_mode = :root_regime_theta, root_cov_mode = :fixed)
+        return OUSpec(model = :OUM, theta_mode = :by_regime, alpha_mode = :shared, sigma_mode = :shared, root_mean_mode = :regime, root_cov_mode = :fixed)
     elseif model === :OUMV
-        return OUSpec(model = :OUMV, theta_mode = :by_regime, alpha_mode = :shared, sigma_mode = :by_regime, root_mean_mode = :root_regime_theta, root_cov_mode = :fixed)
+        return OUSpec(model = :OUMV, theta_mode = :by_regime, alpha_mode = :shared, sigma_mode = :by_regime, root_mean_mode = :regime, root_cov_mode = :fixed)
     elseif model === :OUMA
-        return OUSpec(model = :OUMA, theta_mode = :by_regime, alpha_mode = :by_regime, sigma_mode = :shared, root_mean_mode = :root_regime_theta, root_cov_mode = :fixed)
+        return OUSpec(model = :OUMA, theta_mode = :by_regime, alpha_mode = :by_regime, sigma_mode = :shared, root_mean_mode = :regime, root_cov_mode = :fixed)
     elseif model === :OUMVA
-        return OUSpec(model = :OUMVA, theta_mode = :by_regime, alpha_mode = :by_regime, sigma_mode = :by_regime, root_mean_mode = :root_regime_theta, root_cov_mode = :fixed)
+        return OUSpec(model = :OUMVA, theta_mode = :by_regime, alpha_mode = :by_regime, sigma_mode = :by_regime, root_mean_mode = :regime, root_cov_mode = :fixed)
     end
     throw(ArgumentError("Unsupported OU model $model"))
 end
@@ -97,8 +152,7 @@ function _ou_nparams(spec::OUSpec, nregimes::Integer)
     ntheta = spec.theta_mode === :shared ? 1 : nregimes
     nalpha = spec.alpha_mode === :shared ? 1 : nregimes
     nsigma = spec.sigma_mode === :shared ? 1 : nregimes
-    nroot = spec.root_mean_mode === :free_theta0 ? 1 : 0
-    return ntheta + nalpha + nsigma + nroot
+    return ntheta + nalpha + nsigma
 end
 
 function _ou_unpack_params(spec::OUSpec, pars::AbstractVector{<:Real}, nregimes::Integer)
@@ -107,7 +161,7 @@ function _ou_unpack_params(spec::OUSpec, pars::AbstractVector{<:Real}, nregimes:
     nsigmas = spec.sigma_mode === :shared ? 1 : nregimes
     nthetas = spec.theta_mode === :shared ? 1 : nregimes
 
-    length(pars) == nalphas + nsigmas + nthetas + (spec.root_mean_mode === :free_theta0 ? 1 : 0) ||
+    length(pars) == nalphas + nsigmas + nthetas ||
         throw(ArgumentError("Parameter vector length does not match OUSpec $(spec.model)"))
 
     alpha = max.(Float64.(pars[idx:(idx + nalphas - 1)]), 1e-8)
@@ -115,9 +169,7 @@ function _ou_unpack_params(spec::OUSpec, pars::AbstractVector{<:Real}, nregimes:
     sigma2 = max.(Float64.(pars[idx:(idx + nsigmas - 1)]), 1e-8)
     idx += nsigmas
     theta = Float64.(pars[idx:(idx + nthetas - 1)])
-    idx += nthetas
-    theta0 = spec.root_mean_mode === :free_theta0 ? Float64(pars[idx]) : nothing
-    return OUParameterBundle(theta = theta, alpha = alpha, sigma2 = sigma2, theta0 = theta0)
+    return OUParameterBundle(theta = theta, alpha = alpha, sigma2 = sigma2)
 end
 
 function _ou_initial_params(
@@ -155,9 +207,6 @@ function _ou_initial_params(
     append!(parts, alpha_init)
     append!(parts, sigma_init)
     append!(parts, theta_init)
-    if spec.root_mean_mode === :free_theta0
-        push!(parts, mean(observed_trait))
-    end
     return parts
 end
 
@@ -257,9 +306,21 @@ function _ou_multiregime_result(
         theta = _ou_result_theta(spec, bundle, profile.root_state),
         theta_regimes = copy(bundle.theta),
         root_state = profile.root_state,
+        theta0 = bundle.theta0,
+        mean_diagnostics = hasproperty(profile, :mean_diagnostics) ? profile.mean_diagnostics : nothing,
         nregimes = nregimes,
         converged = converged,
         iterations = iterations,
         f_calls = f_calls,
+    )
+end
+
+function _ou_bundle_from_result(fit::ContinuousMultiRegimeResult)
+    _validate_ou_theta0(fit.root_mean_mode, fit.theta0)
+    return OUParameterBundle(
+        theta = fit.theta_regimes,
+        alpha = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes,
+        sigma2 = fit.sigma2,
+        theta0 = fit.theta0,
     )
 end

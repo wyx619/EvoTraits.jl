@@ -18,7 +18,8 @@ function estim_node(
             root_cov_mode = fit.root_cov_mode,
         )
         _validate_ultrametric_tree(tree)
-        bundle = OUParameterBundle(theta = [fit.theta], alpha = [fit.alpha], sigma2 = [fit.sigma2])
+        _validate_ou_theta0(fit.root_mean_mode, fit.theta0)
+        bundle = OUParameterBundle(theta = [fit.theta], alpha = [fit.alpha], sigma2 = [fit.sigma2], theta0 = fit.theta0)
         edges = _build_ou_edges(tree, spec, bundle)
         root = _ou_root_prior(spec, bundle)
         return _linear_gaussian_asr(
@@ -77,15 +78,14 @@ function estim_node(
         edge_segments === nothing && throw(ArgumentError("$(fit.model) ancestral reconstruction requires edge_segments"))
         _validate_ultrametric_tree(tree)
         cache = _prepare_oum_edge_cache(tree, edge_segments)
-        alpha_values = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes
-        bundle = OUParameterBundle(theta = fit.theta_regimes, alpha = alpha_values, sigma2 = fit.sigma2)
+        bundle = _ou_bundle_from_result(fit)
         edges = _build_ou_edges(tree, spec, bundle; cache = cache)
         root = _ou_root_prior(spec, bundle; cache = cache)
         node_means =
-            fit.root_mean_mode === :stationary_design ?
+            fit.root_mean_mode in (:stationary_design, :stationary) ?
             _ou_stationary_design_node_means(tree, spec, bundle, cache) :
             zeros(Float64, tree.nnodes)
-        if fit.root_mean_mode === :stationary_design
+        if fit.root_mean_mode in (:stationary_design, :stationary)
             centered = copy(_validate_univariate_trait_allow_missing(tree, trait))
             for (i, tip) in enumerate(tree.tip_ids)
                 centered[i] -= node_means[Int(tip)]
@@ -123,8 +123,7 @@ function estim_node(
             root_prior_var = root.var,
             model = fit.model,
         )
-        primary.success && return primary
-        return _linear_gaussian_asr(tree, trait, edges.edge_a, edges.edge_b, edges.edge_v; model = fit.model)
+        return primary
     end
 
     throw(ArgumentError("estim_node currently supports ContinuousMultiRegimeResult models BMM, EBM, OUM, OUMV, OUMA, and OUMVA; got $(fit.model)"))

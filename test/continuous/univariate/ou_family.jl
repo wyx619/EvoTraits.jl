@@ -17,7 +17,7 @@
     @test fit.sigma2 > 0.0
     @test isfinite(fit.loglik)
     @test isfinite(fit.aic)
-    @test fit.root_mean_mode == :theta
+    @test fit.root_mean_mode == :regime
     @test fit.root_cov_mode == :fixed
 end
 
@@ -83,7 +83,7 @@ end
     @test isfinite(fit.theta)
     @test isfinite(fit.loglik)
     @test isfinite(fit.aic)
-    @test fit.root_mean_mode == :root_regime_theta
+    @test fit.root_mean_mode == :regime
     @test fit.root_cov_mode == :fixed
 
     node_asr = estim_node(toy_tree, trait, fit; edge_segments = edge_segments)
@@ -171,7 +171,7 @@ end
     @test length(fit.sigma2) == 2
     @test all(>(0.0), fit.sigma2)
     @test length(fit.theta_regimes) == 2
-    @test fit.root_mean_mode == :root_regime_theta
+    @test fit.root_mean_mode == :regime
     @test fit.root_cov_mode == :fixed
 end
 
@@ -287,15 +287,15 @@ end
     trait = [1.0, 1.1, 2.0, 2.1]
 
     fixed = ou1_loglikelihood(tree, trait, 0.5, 0.3, 1.5)
-    random = ou1_loglikelihood(tree, trait, 0.5, 0.3, 1.5; root_cov_mode = :stationary)
+    random = ou1_loglikelihood(tree, trait, 0.5, 0.3, 1.5; root_cov_mode = :random)
     @test fixed.success
     @test random.success
-    @test random.root_cov_mode == :stationary
+    @test random.root_cov_mode == :random
     @test isfinite(random.loglik)
 
-    fit = fit_ou1(tree, trait; max_iterations = 20, root_cov_mode = :stationary)
+    fit = fit_ou1(tree, trait; max_iterations = 20, root_cov_mode = :random)
     @test fit.success
-    @test fit.root_cov_mode == :stationary
+    @test fit.root_cov_mode == :random
     @test isfinite(fit.theta)
     @test isfinite(fit.root_state)
     @test estim_node(tree, trait, fit).success
@@ -314,13 +314,10 @@ end
         [SimmapSegment(state = 1, length = 1.0)],
         [SimmapSegment(state = 2, length = 1.0)],
     ]
-    fit = fit_oum(
-        tree,
-        trait,
-        edge_segments;
-        max_iterations = 20,
-        root_mean_mode = :stationary_design,
-    )
+    legacy_spec = EvoTraits.ou_spec(:OUM; root_mean_mode = :stationary_design)
+    legacy_cache = EvoTraits._prepare_oum_edge_cache(tree, edge_segments)
+    fitted = EvoTraits._ou_fit(tree, trait, legacy_spec; cache = legacy_cache, max_iterations = 20)
+    fit = EvoTraits._ou_multiregime_result(legacy_spec, fitted.bundle, fitted.profile, fitted.nregimes; result = fitted.result)
     @test fit.success
     @test fit.root_mean_mode == :stationary_design
     node = estim_node(tree, trait, fit; edge_segments = edge_segments)

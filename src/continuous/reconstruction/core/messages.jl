@@ -33,18 +33,19 @@ end
     b::Float64,
     v::Float64,
 )
-    (a > 0.0 && isfinite(v) && v >= 0.0 && child_precision >= 0.0) ||
+    (isfinite(a) && a >= 0.0 && isfinite(v) && v >= 0.0 && child_precision >= 0.0) ||
         return (success = false, precision = 0.0, linear = 0.0)
     denominator = muladd(v, child_precision, 1.0)
     isfinite(denominator) && denominator > 0.0 ||
         return (success = false, precision = 0.0, linear = 0.0)
-    precision = (a * a) * child_precision / denominator
+    precision = (a * (child_precision / denominator)) * a
     linear = a * (child_linear - b * child_precision) / denominator
     return (success = true, precision = precision, linear = linear)
 end
 
 @inline function _edge_message_to_parent(child_mean::Float64, child_var::Float64, a::Float64, b::Float64, v::Float64)
-    (a > 0.0 && isfinite(v) && v >= 0.0) || return (mean = NaN, var = NaN)
+    (isfinite(a) && a >= 0.0 && isfinite(v) && v >= 0.0) || return (mean = NaN, var = NaN)
+    a == 0.0 && return (mean = 0.0, var = Inf)
     total_var = child_var + v
     parent_var = total_var / (a * a)
     isfinite(parent_var) || return (mean = 0.0, var = Inf)
@@ -52,7 +53,8 @@ end
 end
 
 @inline function _edge_predict_to_child(parent_mean::Float64, parent_var::Float64, a::Float64, b::Float64, v::Float64)
-    (a > 0.0 && isfinite(v) && v >= 0.0) || return (mean = NaN, var = NaN)
+    (isfinite(a) && a >= 0.0 && isfinite(v) && v >= 0.0) || return (mean = NaN, var = NaN)
+    a == 0.0 && return (mean = b, var = v)
     if isinf(parent_var)
         return (mean = 0.0, var = Inf)
     end
@@ -60,14 +62,14 @@ end
 end
 
 @inline function _scalar_observation_info_to_parent(y::Float64, a::Float64, b::Float64, v::Float64)
-    (a > 0.0 && isfinite(v) && v >= 0.0) || return (success = false, precision = 0.0, linear = 0.0, logconst = -Inf)
+    (isfinite(a) && a >= 0.0 && isfinite(v) && v >= 0.0) || return (success = false, precision = 0.0, linear = 0.0, logconst = -Inf)
     isnan(y) && return (success = true, precision = 0.0, linear = 0.0, logconst = 0.0)
     vv = max(v, 1e-12)
     resid = y - b
     invv = 1.0 / vv
     return (
         success = true,
-        precision = a * a * invv,
+        precision = (a * invv) * a,
         linear = a * resid * invv,
         logconst = -0.5 * (resid * resid * invv + log(vv) + log(2 * pi)),
     )
@@ -81,17 +83,21 @@ end
     b::Float64,
     v::Float64,
 )
-    (a > 0.0 && isfinite(v) && v >= 0.0 && child_precision >= 0.0) ||
+    (isfinite(a) && a >= 0.0 && isfinite(v) && v >= 0.0 && child_precision >= 0.0) ||
         return (success = false, precision = 0.0, linear = 0.0, logconst = -Inf)
     vv = max(v, 1e-12)
-    q = 1.0 / vv
-    T = child_precision + q
-    (isfinite(T) && T > 0.0) || return (success = false, precision = 0.0, linear = 0.0, logconst = -Inf)
-    r = child_linear + q * b
-    precision = a * a * (q - q * q / T)
-    linear = a * q * (r / T - b)
-    logconst = child_logconst - 0.5 * log(vv) - 0.5 * log(T) + 0.5 * r * r / T - 0.5 * q * b * b
-    return (success = true, precision = max(precision, 0.0), linear = linear, logconst = logconst)
+    denominator = muladd(vv, child_precision, 1.0)
+    (isfinite(denominator) && denominator > 0.0) ||
+        return (success = false, precision = 0.0, linear = 0.0, logconst = -Inf)
+    # Avoid subtracting nearly equal precisions or Gaussian normalizers.
+    scaled_precision = child_precision / denominator
+    scaled_linear = child_linear / denominator
+    precision = (a * scaled_precision) * a
+    linear = a * muladd(-b, scaled_precision, scaled_linear)
+    correction = 0.5 * (vv * scaled_linear) * child_linear +
+                 b * scaled_linear - 0.5 * (b * scaled_precision) * b
+    logconst = child_logconst - 0.5 * log1p(vv * child_precision) + correction
+    return (success = isfinite(logconst) && isfinite(linear), precision = precision, linear = linear, logconst = logconst)
 end
 
 @inline function _scalar_root_info_loglik(
@@ -112,14 +118,16 @@ end
         loglik = logconst - 0.5 * precision * root_state * root_state + linear * root_state
         return (success = isfinite(loglik), loglik = loglik, root_state = root_state)
     else
-        q = 1.0 / root_prior_var
-        T = precision + q
-        T > 0.0 || return (success = false, loglik = -Inf, root_state = NaN)
-        b = linear + q * root_prior_mean
-        root_state = b / T
-        loglik =
-            logconst - 0.5 * root_prior_mean * root_prior_mean * q -
-            0.5 * log(root_prior_var) - 0.5 * log(T) + 0.5 * b * root_state
+        denominator = muladd(root_prior_var, precision, 1.0)
+        isfinite(denominator) && denominator > 0.0 ||
+            return (success = false, loglik = -Inf, root_state = NaN)
+        scaled_precision = precision / denominator
+        scaled_linear = linear / denominator
+        root_state = root_prior_mean / denominator + root_prior_var * scaled_linear
+        correction = 0.5 * (root_prior_var * scaled_linear) * linear +
+                     root_prior_mean * scaled_linear -
+                     0.5 * (root_prior_mean * scaled_precision) * root_prior_mean
+        loglik = logconst - 0.5 * log1p(root_prior_var * precision) + correction
         return (success = isfinite(loglik), loglik = loglik, root_state = root_state)
     end
 end

@@ -1,4 +1,17 @@
 """
+Numerical rank of the whitened OU mean design. Coefficients follow regime order.
+Rank-deficient estimates use the minimum-norm
+GLS convention; `identifiable` flags individually estimable coefficients.
+"""
+Base.@kwdef struct OUMeanDiagnostics
+    rank::Int = 0
+    ncoefficients::Int = 0
+    singular_values::Vector{Float64} = Float64[]
+    identifiable::Vector{Bool} = Bool[]
+    condition_number::Float64 = Inf
+end
+
+"""
     ContinuousFitResult
 
 Result type returned by single-trait continuous model fits such as `BM1`,
@@ -22,6 +35,8 @@ Base.@kwdef struct ContinuousFitResult <: AbstractContinuousFitResult
     converged::Bool = false
     iterations::Int = 0
     f_calls::Int = 0
+    theta0::Union{Nothing,Float64} = nothing
+    mean_diagnostics::Union{Nothing,OUMeanDiagnostics} = nothing
 end
 
 """
@@ -29,6 +44,11 @@ end
 
 Result type returned by multi-regime continuous model fits such as `BMM`,
 `OUM`, `OUMV`, `OUMA`, `OUMVA`.
+
+For OU fits, `root_state` stores the conditional root estimate. The `theta0`
+field is retained only for reading historical results and is `nothing` in new
+fits. `mean_diagnostics` describes
+mean identifiability separately from numerical success and optimizer convergence.
 """
 Base.@kwdef struct ContinuousMultiRegimeResult <: AbstractContinuousFitResult
     model::Symbol = :unknown
@@ -53,6 +73,8 @@ Base.@kwdef struct ContinuousMultiRegimeResult <: AbstractContinuousFitResult
     converged::Bool = false
     iterations::Int = 0
     f_calls::Int = 0
+    theta0::Union{Nothing,Float64} = nothing
+    mean_diagnostics::Union{Nothing,OUMeanDiagnostics} = nothing
 end
 
 """

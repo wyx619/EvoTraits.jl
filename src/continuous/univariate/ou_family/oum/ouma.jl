@@ -1,3 +1,10 @@
+"""
+    ouma_loglikelihood(tree, trait, edge_segments, alpha, sigma2, theta; kwargs...)
+
+Evaluate the OUMA likelihood with `root_cov_mode=:fixed`. The default
+`root_mean_mode=:regime` uses the root regime optimum as the root
+mean.
+"""
 function ouma_loglikelihood(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
@@ -6,12 +13,14 @@ function ouma_loglikelihood(
     sigma2::Real,
     theta_regimes::AbstractVector{<:Real},
     ;
-    root_mean_mode::Symbol = :root_regime_theta,
+    root_mean_mode::Symbol = :regime,
     root_cov_mode::Symbol = :fixed,
+    theta0::Union{Nothing,Real} = nothing,
     trait_name = nothing,
     regime_names = nothing,
 )
-    spec = ou_spec(:OUMA; root_mean_mode = root_mean_mode, root_cov_mode = root_cov_mode)
+    spec = _ou_public_spec(:OUMA; root_mean_mode, root_cov_mode)
+    _validate_ou_theta0(root_mean_mode, theta0)
     cache = _prepare_oum_edge_cache(tree, edge_segments)
     length(theta_regimes) == cache.nregimes || throw(ArgumentError("theta_regimes length must match regime count"))
     length(alpha_regimes) == cache.nregimes || throw(ArgumentError("alpha_regimes length must match regime count"))
@@ -19,23 +28,31 @@ function ouma_loglikelihood(
         theta = Float64.(theta_regimes),
         alpha = Float64.(alpha_regimes),
         sigma2 = [Float64(sigma2)],
+        theta0 = theta0,
     )
     prof = _ou_loglikelihood(tree, trait, spec, bundle; cache = cache)
     return _ou_multiregime_result(spec, bundle, prof, cache.nregimes; trait_name = trait_name, regime_names = regime_names)
 end
 
+"""
+    fit_ouma(tree, trait, edge_segments; kwargs...)
+
+Fit OUMA, profiling the regime optima by GLS. Use
+`root_mean_mode=:regime` with `root_cov_mode=:fixed`.
+Inspect `mean_diagnostics` for identifiability separately from `converged`.
+"""
 function fit_ouma(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     edge_segments::Vector{Vector{SimmapSegment}};
     max_iterations::Integer = 600,
     rel_tol::Float64 = 1e-5,
-    root_mean_mode::Symbol = :root_regime_theta,
+    root_mean_mode::Symbol = :regime,
     root_cov_mode::Symbol = :fixed,
     trait_name = nothing,
     regime_names = nothing,
 )
-    spec = ou_spec(:OUMA; root_mean_mode = root_mean_mode, root_cov_mode = root_cov_mode)
+    spec = _ou_public_spec(:OUMA; root_mean_mode, root_cov_mode)
     cache = _prepare_oum_edge_cache(tree, edge_segments)
     fit = _ou_fit(
         tree,

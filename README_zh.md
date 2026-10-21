@@ -105,6 +105,8 @@ nodes = estim_node_table(tree, analysis.asr)
 
 `load_tree` 直接返回可以进入计算的树结构；也保留 `read_tree` → `serialize_tree` 的显式两步路径。
 
+单变量 OU1、OUM、OUMV、OUMA、OUMVA 默认以根 regime 的最适值作为根均值（`root_mean_mode=:regime`），根过程方差为零（`root_cov_mode=:fixed`）。OU1／OUM 另支持归一化均值设计（`root_mean_mode=:stationary`）以及具有平稳协方差的随机根（`root_cov_mode=:random`），不单独估计根均值。解释各 regime 最适值前，应检查 `fit.mean_diagnostics`；优化收敛并不代表参数可识别。
+
 ### 比较环境与时间依赖的速率假设
 
 假设 `environment.csv` 包含 `age`（距今年龄，单位与树枝长一致）和 `temperature` 列。环境历史必须覆盖现在至树根年龄，以下示例还要求超过十个不同年龄：

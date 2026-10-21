@@ -22,6 +22,8 @@ include("tools/node_time_summary.jl")
 
 include("continuous/univariate/bm_family.jl")
 include("continuous/univariate/ou_family.jl")
+include("continuous/univariate/ou_root_regressions.jl")
+include("continuous/univariate/ouwie_reference.jl")
 include("continuous/univariate/eb_family.jl")
 include("continuous/univariate/env_family.jl")
 include("continuous/shifts.jl")

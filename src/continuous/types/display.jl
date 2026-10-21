@@ -140,6 +140,14 @@ function Base.show(io::IO, ::MIME"text/plain", res::ContinuousMultiRegimeResult)
         _continuous_print_blank_before(io, printed)
         _continuous_print_scalar_block(io, "root", "state", res.root_state)
     end
+    if res.theta0 !== nothing
+        println(io)
+        _continuous_print_scalar_block(io, "root mean", "theta0", res.theta0)
+    end
+    if res.mean_diagnostics !== nothing && res.mean_diagnostics.rank < res.mean_diagnostics.ncoefficients
+        println(io, "\n  Mean design is rank deficient: ", res.mean_diagnostics.rank,
+            "/", res.mean_diagnostics.ncoefficients, "; coefficients use a minimum-norm GLS solution.")
+    end
 end
 
 function _mv_print_matrix(io::IO, M::AbstractMatrix{<:Real}, row_names::Vector{String}, col_names::Vector{String}; digits::Int = 6, indent::AbstractString = "    ")

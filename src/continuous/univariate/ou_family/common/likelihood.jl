@@ -1,20 +1,19 @@
 function _ou_root_prior(spec::OUSpec, bundle::OUParameterBundle; cache = nothing)
+    _validate_ou_theta0(spec.root_mean_mode, bundle.theta0)
     mean =
         if spec.root_mean_mode === :theta
             bundle.theta[1]
-        elseif spec.root_mean_mode === :root_regime_theta
-            cache === nothing && throw(ArgumentError("cache is required for root_regime_theta"))
-            bundle.theta[cache.root_regime]
-        elseif spec.root_mean_mode === :free_theta0
-            bundle.theta0 === nothing && throw(ArgumentError("theta0 is required for free_theta0"))
-            bundle.theta0
+        elseif spec.root_mean_mode === :regime
+            bundle.theta[cache === nothing ? 1 : cache.root_regime]
         elseif spec.root_mean_mode === :stationary_design
             0.0
+        elseif spec.root_mean_mode === :stationary
+            cache === nothing ? bundle.theta[1] : 0.0
         else
             throw(ArgumentError("Unsupported OU root_mean_mode=$(spec.root_mean_mode)"))
         end
 
-    if spec.root_cov_mode === :stationary
+    if spec.root_cov_mode === :random
         root_state = cache === nothing ? 1 : cache.root_regime
         alpha = _ou_regime_value(spec.alpha_mode, bundle.alpha, root_state)
         sigma2 = _ou_regime_value(spec.sigma_mode, bundle.sigma2, root_state)
@@ -41,9 +40,11 @@ function _ou_loglikelihood(
     edges = _build_ou_edges(tree, spec, bundle; cache = cache)
     root = _ou_root_prior(spec, bundle; cache = cache)
     data = trait
-    if spec.root_mean_mode === :stationary_design
+    root_shift = 0.0
+    if spec.root_mean_mode in (:stationary_design, :stationary) && cache !== nothing
         cache === nothing && throw(ArgumentError("cache is required for stationary_design"))
         node_means = _ou_stationary_design_node_means(tree, spec, bundle, cache)
+        root_shift = node_means[tree.root]
         data = copy(Float64.(trait))
         for (i, tip) in enumerate(tree.tip_ids)
             data[i] -= node_means[Int(tip)]
@@ -63,7 +64,7 @@ function _ou_loglikelihood(
     return (
         success = prof.success,
         loglik = prof.loglik,
-        root_state = prof.root_state,
+        root_state = prof.root_state + root_shift,
         edges = edges,
         root = root,
     )
@@ -75,6 +76,7 @@ function _ou_prepare_context(
     spec::OUSpec,
     cache,
 )
+    _validate_ou_root_mean_mode(spec.root_mean_mode)
     tr = _validate_univariate_trait_allow_missing(tree, trait)
     _validate_binary_tree(tree)
     _validate_ultrametric_tree(tree)
@@ -100,9 +102,11 @@ function _ou_context_loglikelihood(
     )
     root = _ou_root_prior(context.spec, bundle; cache = context.cache)
     data = context.trait
-    if context.spec.root_mean_mode === :stationary_design
+    root_shift = 0.0
+    if context.spec.root_mean_mode in (:stationary_design, :stationary) && context.cache !== nothing
         context.cache === nothing && throw(ArgumentError("cache is required for stationary_design"))
         node_means = _ou_stationary_design_node_means(tree, context.spec, bundle, context.cache)
+        root_shift = node_means[tree.root]
         data = copy(context.trait)
         for (i, tip) in enumerate(tree.tip_ids)
             data[i] -= node_means[Int(tip)]
@@ -125,7 +129,7 @@ function _ou_context_loglikelihood(
     return (
         success = prof.success,
         loglik = prof.loglik,
-        root_state = prof.root_state,
+        root_state = prof.root_state + root_shift,
         edges = edges,
         root = root,
     )

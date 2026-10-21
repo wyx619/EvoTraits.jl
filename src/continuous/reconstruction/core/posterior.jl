@@ -21,7 +21,7 @@ function _linear_gaussian_loglik(
     b = edge_b isa Vector{Float64} ? edge_b : Float64.(edge_b)
     v = edge_v isa Vector{Float64} ? edge_v : Float64.(edge_v)
     if validate
-        any(x -> !isfinite(x) || x <= 0.0, a) && return (success = false, loglik = -Inf, root_state = NaN)
+        any(x -> !isfinite(x) || x < 0.0, a) && return (success = false, loglik = -Inf, root_state = NaN)
         any(x -> !isfinite(x) || x < 0.0, v) && return (success = false, loglik = -Inf, root_state = NaN)
     end
 
@@ -142,7 +142,7 @@ function _linear_gaussian_posterior_cache(
     a = Float64.(edge_a)
     b = Float64.(edge_b)
     v = Float64.(edge_v)
-    any(x -> !isfinite(x) || x <= 0.0, a) && throw(ArgumentError("edge_a must be positive and finite"))
+    any(x -> !isfinite(x) || x < 0.0, a) && throw(ArgumentError("edge_a must be non-negative and finite"))
     any(x -> !isfinite(x) || x < 0.0, v) && throw(ArgumentError("edge_v must be non-negative and finite"))
 
     desc_mean = zeros(Float64, tree.nnodes)

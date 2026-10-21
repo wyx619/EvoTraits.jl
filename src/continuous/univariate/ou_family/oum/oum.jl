@@ -1,3 +1,13 @@
+"""
+    oum_loglikelihood(tree, trait, edge_segments, alpha, sigma2, theta_regimes; kwargs...)
+
+Evaluate OUM at fixed parameters. `root_mean_mode=:regime` (default)
+and `:stationary` correspond to mvMORPH's `root=FALSE`
+and `"stationary"`. Covariance modes `:fixed` (default) and `:random`
+correspond to `vcv="fixedRoot"` and `"randomRoot"`. The normalized design is
+distinct from legacy zero-root `:stationary_design`, which is only retained
+for restoring saved results.
+"""
 function oum_loglikelihood(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
@@ -6,31 +16,40 @@ function oum_loglikelihood(
     sigma2::Real,
     theta_regimes::AbstractVector{<:Real},
     ;
-    root_mean_mode::Symbol = :root_regime_theta,
+    root_mean_mode::Symbol = :regime,
     root_cov_mode::Symbol = :fixed,
+    theta0::Union{Nothing,Real} = nothing,
     trait_name = nothing,
     regime_names = nothing,
 )
-    spec = ou_spec(:OUM; root_mean_mode = root_mean_mode, root_cov_mode = root_cov_mode)
+    spec = _ou_public_spec(:OUM; root_mean_mode, root_cov_mode)
+    _validate_ou_theta0(root_mean_mode, theta0)
     cache = _prepare_oum_edge_cache(tree, edge_segments)
     length(theta_regimes) == cache.nregimes || throw(ArgumentError("theta_regimes length must match regime count"))
-    bundle = OUParameterBundle(theta = Float64.(theta_regimes), alpha = [Float64(alpha)], sigma2 = [Float64(sigma2)])
+    bundle = OUParameterBundle(theta = Float64.(theta_regimes), alpha = [Float64(alpha)], sigma2 = [Float64(sigma2)], theta0 = theta0)
     prof = _ou_loglikelihood(tree, trait, spec, bundle; cache = cache)
     return _ou_multiregime_result(spec, bundle, prof, cache.nregimes; trait_name = trait_name, regime_names = regime_names)
 end
 
+"""
+    fit_oum(tree, trait, edge_segments; kwargs...)
+
+Fit OUM using the root options documented for [`oum_loglikelihood`](@ref).
+Regime optima are profiled by GLS. Inspect `mean_diagnostics`
+before interpreting individual means on an ultrametric tree.
+"""
 function fit_oum(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     edge_segments::Vector{Vector{SimmapSegment}};
     max_iterations::Integer = 500,
     rel_tol::Float64 = 1e-5,
-    root_mean_mode::Symbol = :root_regime_theta,
+    root_mean_mode::Symbol = :regime,
     root_cov_mode::Symbol = :fixed,
     trait_name = nothing,
     regime_names = nothing,
 )
-    spec = ou_spec(:OUM; root_mean_mode = root_mean_mode, root_cov_mode = root_cov_mode)
+    spec = _ou_public_spec(:OUM; root_mean_mode, root_cov_mode)
     cache = _prepare_oum_edge_cache(tree, edge_segments)
     fit = _ou_fit(
         tree,

@@ -13,8 +13,8 @@ function _ou_segments_affine(
         theta = _ou_regime_value(spec.theta_mode, bundle.theta, state)
         phi = exp(-alpha * seg.length)
         a = phi * a
-        b = phi * b + (1.0 - phi) * theta
-        v = phi^2 * v + sigma2 * (1.0 - phi^2) / (2.0 * alpha)
+        b = phi * b - expm1(-alpha * seg.length) * theta
+        v = phi^2 * v - sigma2 * expm1(-2.0 * alpha * seg.length) / (2.0 * alpha)
     end
     return (a = a, b = b, v = v)
 end
@@ -110,8 +110,15 @@ function estim_branch_for_simmap(
         tip_index[node] = i
     end
     cache = _prepare_oum_edge_cache(tree, edge_segments)
-    stationary_design = fit.root_mean_mode === :stationary_design
-    stationary_node_means = stationary_design ? _ou_stationary_design_node_means(tree, ou_spec(fit.model), OUParameterBundle(theta = fit.theta_regimes, alpha = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes, sigma2 = fit.sigma2), cache) : nothing
+    stationary_design = fit.root_mean_mode in (:stationary_design, :stationary)
+    mean_spec = stationary_design ? ou_spec(fit.model; root_mean_mode = fit.root_mean_mode, root_cov_mode = fit.root_cov_mode) : nothing
+    stationary_node_means = stationary_design ? _ou_stationary_design_node_means(tree, mean_spec, _ou_bundle_from_result(fit), cache) : nothing
+    post_trait = stationary_design ? copy(tr) : tr
+    if stationary_design
+        for (i, tip) in enumerate(tree.tip_ids)
+            post_trait[i] -= stationary_node_means[Int(tip)]
+        end
+    end
     post =
         if fit.model in (:OUM, :OUMV, :OUMA, :OUMVA)
             spec = ou_spec(
@@ -119,15 +126,10 @@ function estim_branch_for_simmap(
                 root_mean_mode = fit.root_mean_mode,
                 root_cov_mode = fit.root_cov_mode,
             )
-            alpha_values = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes
-            bundle = OUParameterBundle(theta = fit.theta_regimes, alpha = alpha_values, sigma2 = fit.sigma2)
+            bundle = _ou_bundle_from_result(fit)
             edges = _build_ou_edges(tree, spec, bundle; cache = cache)
             root = _ou_root_prior(spec, bundle; cache = cache)
-            post_trait = stationary_design ? copy(tr) : tr
             if stationary_design
-                for (i, tip) in enumerate(tree.tip_ids)
-                    post_trait[i] -= stationary_node_means[Int(tip)]
-                end
                 fill!(edges.edge_b, 0.0)
             end
             _linear_gaussian_posterior_cache(
@@ -188,8 +190,7 @@ function estim_branch_for_simmap(
                             root_mean_mode = fit.root_mean_mode,
                             root_cov_mode = fit.root_cov_mode,
                         )
-                        alpha_values = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes
-                        bundle = OUParameterBundle(theta = fit.theta_regimes, alpha = alpha_values, sigma2 = fit.sigma2)
+                        bundle = _ou_bundle_from_result(fit)
                         _ou_segments_affine(spec, bundle, prefix)
                     elseif fit.model === :EBM
                         _bm_regime_segments_affine(tree, edge, prefix, fit, :eb)
@@ -201,8 +202,7 @@ function estim_branch_for_simmap(
                             root_mean_mode = fit.root_mean_mode,
                             root_cov_mode = fit.root_cov_mode,
                         )
-                        alpha_values = isempty(fit.alpha_regimes) ? [fit.alpha] : fit.alpha_regimes
-                        bundle = OUParameterBundle(theta = fit.theta_regimes, alpha = alpha_values, sigma2 = fit.sigma2)
+                        bundle = _ou_bundle_from_result(fit)
                         _ou_segments_affine(spec, bundle, suffix)
                     elseif fit.model === :EBM
                         _bm_regime_segments_affine(tree, edge, suffix, fit, :eb)
@@ -211,6 +211,14 @@ function estim_branch_for_simmap(
             end
 
             local function _segment_point_posterior(frac::Float64)
+                # At branch endpoints reuse the exact node posterior instead
+                # of introducing artificial variance on a zero-length suffix.
+                endpoint = frac == 0.0 && seg_idx == 1 ? parent :
+                           frac == 1.0 && seg_idx == length(segments) ? child : 0
+                if endpoint > 0
+                    center = stationary_design ? stationary_node_means[endpoint] : 0.0
+                    return (mean = post.full_mean[endpoint] + center, var = post.full_var[endpoint])
+                end
                 prefix_aff, suffix_aff = _segment_affines(frac)
                 prefix_transition = stationary_design ? (a = prefix_aff.a, b = 0.0, v = prefix_aff.v) : prefix_aff
                 suffix_transition = stationary_design ? (a = suffix_aff.a, b = 0.0, v = suffix_aff.v) : suffix_aff
@@ -223,7 +231,7 @@ function estim_branch_for_simmap(
                 )
                 backward_info = _descendant_message(
                     post,
-                    tr,
+                    post_trait,
                     tip_index,
                     tree,
                     child,
@@ -235,7 +243,14 @@ function estim_branch_for_simmap(
                 backward = _information_to_gaussian(backward_info.precision, backward_info.linear)
                 point = _gaussian_product(forward.mean, forward.var, backward.mean, backward.var)
                 if stationary_design
-                    point_mean = prefix_aff.a * stationary_node_means[parent] + prefix_aff.b
+                    parent_mean = stationary_node_means[parent]
+                    if fit.root_mean_mode === :stationary
+                        parent_mean *= -expm1(-fit.alpha * root_dist)
+                    end
+                    point_mean = prefix_aff.a * parent_mean + prefix_aff.b
+                    if fit.root_mean_mode === :stationary
+                        point_mean /= -expm1(-fit.alpha * (root_dist + seg_start + frac * seg.length))
+                    end
                     point = (mean = point.mean + point_mean, var = point.var)
                 end
                 return point
