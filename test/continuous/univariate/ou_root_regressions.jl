@@ -1,4 +1,4 @@
-using Test, EvoTraits, LinearAlgebra, Serialization, Random
+using Test, EvoTraits, LinearAlgebra, Random
 
 set_engine_blas_threads!(1)
 
@@ -191,40 +191,15 @@ end
         fitter = getfield(EvoTraits, Symbol("fit_", lowercase(string(model))))
         @test_throws ArgumentError fitter(tree, y, segments; root_mean_mode = :free_theta0)
         for theta0 in (nothing, 2.3)
-            old = ContinuousMultiRegimeResult(model = model, success = true,
+            unsupported = ContinuousMultiRegimeResult(model = model, success = true,
                 alpha = alpha isa Real ? alpha : NaN,
                 alpha_regimes = alpha isa Real ? Float64[] : alpha,
                 sigma2 = sigma2 isa Real ? [sigma2] : sigma2, theta_regimes = [0.3, 1.4],
                 root_mean_mode = :free_theta0, root_cov_mode = :fixed, theta0 = theta0)
-            io = IOBuffer()
-            serialize(io, (old, :tail))
-            seekstart(io)
-            restored, tail = deserialize(io)
-            @test restored.theta0 == theta0
-            @test tail === :tail
-            @test_throws ArgumentError estim_node(tree, y, restored; edge_segments = segments)
-            @test_throws ArgumentError estim_branch_for_simmap(tree, y, restored; edge_segments = segments)
+            @test_throws ArgumentError estim_node(tree, y, unsupported; edge_segments = segments)
+            @test_throws ArgumentError estim_branch_for_simmap(tree, y, unsupported; edge_segments = segments)
         end
     end
-
-    old = ContinuousMultiRegimeResult(model = :OUM, success = true, theta = 2.0, root_state = 2.1,
-        alpha = 0.5, sigma2 = [0.4], theta_regimes = [0.3, 1.4],
-        root_mean_mode = :free_theta0, root_cov_mode = :random)
-    io = IOBuffer()
-    serializer = Serialization.Serializer(io)
-    Serialization.writeheader(serializer)
-    Serialization.serialize_type(serializer, ContinuousMultiRegimeResult)
-    for field in EvoTraits._CONTINUOUS_MULTIREGIME_LEGACY_FIELDS
-        Serialization.serialize(serializer, getfield(old, field))
-    end
-    Serialization.serialize(serializer, :legacy_tail)
-    seekstart(io)
-    deserializer = Serialization.Serializer(io)
-    restored = Serialization.deserialize(deserializer)
-    @test restored.root_state == 2.1
-    @test restored.theta0 === nothing
-    @test Serialization.deserialize(deserializer) === :legacy_tail
-    @test_throws ArgumentError estim_node(tree, y, restored; edge_segments = segments)
 end
 
 @testset "OUM-family fitted means and diagnostics" begin
@@ -236,12 +211,6 @@ end
         @test fit.mean_diagnostics !== nothing
         @test isapprox(fit.aic, 2fit.nparams - 2fit.loglik; atol = 1e-10)
         @test estim_node(tree, y, fit; edge_segments = segments).success
-        io = IOBuffer()
-        serialize(io, fit)
-        seekstart(io)
-        restored = deserialize(io)
-        @test restored.mean_diagnostics.rank == fit.mean_diagnostics.rank
-        @test restored.mean_diagnostics.identifiable == fit.mean_diagnostics.identifiable
     end
     cache = EvoTraits._prepare_oum_edge_cache(tree, segments)
     spec = EvoTraits.ou_spec(:OUMVA; root_mean_mode = :regime, root_cov_mode = :random)
@@ -297,11 +266,10 @@ end
     end
 end
 
-@testset "Univariate shared OU root combinations and saved names" begin
+@testset "Univariate shared OU root combinations" begin
     tree, segments, complete = ou_root_fixture()
     cache = EvoTraits._prepare_oum_edge_cache(tree, segments)
-    for (old_mean, mean_mode) in ((:root_regime_theta, :regime), (:normalized_design, :stationary)),
-        (old_cov, cov_mode) in ((:fixed, :fixed), (:stationary, :random)),
+    for mean_mode in (:regime, :stationary), cov_mode in (:fixed, :random),
         missing_tip in (false, true), alpha in (0.001, 0.5)
         y = copy(complete)
         missing_tip && (y[2] = NaN)
@@ -333,49 +301,6 @@ end
         expected_profiled = -(sum(abs2, profiled_residual) + logdet(oracle.factor) +
             length(residual) * log(2pi)) / 2
         @test isapprox(evaluation.profile.loglik, expected_profiled; atol = 2e-10)
-
-        for current in (fit, ou1_loglikelihood(tree, y, alpha, sigma2, theta[1];
-            root_mean_mode = mean_mode, root_cov_mode = cov_mode))
-            T = typeof(current)
-            values = NamedTuple{fieldnames(T)}(ntuple(i -> getfield(current, i), fieldcount(T)))
-            old = T(; merge(values, (; root_mean_mode = old_mean,
-                root_cov_mode = old_cov, root_treatment = old_cov))...)
-            fields = current.model === :OUM ? EvoTraits._CONTINUOUS_MULTIREGIME_LEGACY_FIELDS :
-                EvoTraits._CONTINUOUS_FIT_LEGACY_FIELDS
-            asr_kwargs = current.model === :OUM ? (; edge_segments = segments) : (;)
-            expected_node = estim_node(tree, y, current; asr_kwargs...)
-            for versioned in (false, true)
-                io = IOBuffer()
-                if versioned
-                    serialize(io, (old, :tail))
-                else
-                    serializer = Serialization.Serializer(io)
-                    Serialization.writeheader(serializer)
-                    Serialization.serialize_type(serializer, T)
-                    for field in fields
-                        Serialization.serialize(serializer, getfield(old, field))
-                    end
-                    Serialization.serialize(serializer, :tail)
-                end
-                seekstart(io)
-                if versioned
-                    restored, tail = deserialize(io)
-                else
-                    deserializer = Serialization.Serializer(io)
-                    restored = Serialization.deserialize(deserializer)
-                    tail = Serialization.deserialize(deserializer)
-                end
-                @test tail === :tail
-                @test restored.root_mean_mode === mean_mode
-                @test restored.root_cov_mode === cov_mode
-                @test restored.root_treatment === cov_mode
-                @test restored.loglik === current.loglik
-                @test estim_node(tree, y, restored; asr_kwargs...).all_node_estimates ≈ expected_node.all_node_estimates
-            end
-            positional = T((getfield(old, field) for field in fields)...)
-            @test positional.root_mean_mode === mean_mode
-            @test positional.root_cov_mode === cov_mode
-        end
     end
     for model in (:OU1, :OUM), mode in (:root_regime_theta, :normalized_design, :free_theta0)
         @test_throws ArgumentError EvoTraits._validate_shared_ou_root(model, mode, :fixed)

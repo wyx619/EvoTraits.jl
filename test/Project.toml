@@ -14,7 +14,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 EvoTraits = {path = ".."}
 
 [compat]
-CSV = "0.10"
+CSV = "1"
 DataFrames = "1"
 NewickTree = "0.4"
 RCall = "0.14"

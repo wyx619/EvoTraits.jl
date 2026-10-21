@@ -9,7 +9,6 @@ using NLopt
 using Optim
 using DataFrames
 using Distributions
-import Serialization
 
 # Base types and shared utilities
 include("io.jl")
