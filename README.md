@@ -1,22 +1,22 @@
 # EvoTraits
 
-**Fit and analyze trait evolution models in Julia with high efficiency.**
+**Likelihood-based phylogenetic analysis of discrete and continuous trait evolution in Julia.**
 
 [中文说明](README_zh.md)
 
 EvoTraits is a Julia package for likelihood-based phylogenetic comparative analysis of discrete and continuous traits. It integrates evolutionary model fitting, stochastic character mapping, ancestral-state reconstruction and model comparison within a shared computational framework.
 
-The package supports analyses of evolutionary heterogeneity among lineages, multivariate trait dynamics, adaptive responses to evolving predictors, temporal changes in evolutionary processes and environmental dependence of evolutionary rates. Its principal emphasis is computational efficiency combined with explicit statistical assumptions and structured, interpretable results.
+The package supports the study of evolutionary heterogeneity among lineages, coordinated trait evolution, adaptive responses to evolving predictors, temporal changes in evolutionary processes and environmental dependence of evolutionary rates. It combines efficient computation with explicit statistical assumptions and structured, interpretable results.
 
 ## Principal Features
 
 **Integrated discrete and continuous inference.** Discrete-state models and SIMMAP histories provide a basis for regime-dependent continuous models. Shared tree representations and consistent result interfaces facilitate analysis across these stages while preserving node and branch correspondence.
 
-**Efficient phylogenetic likelihood computation.** Univariate and multivariate models share tree-based computational infrastructure. Pruning recursions evaluate likelihoods without constructing an observation-sized dense covariance matrix. Supported multi-start fitting paths use Julia threads for parallel candidate optimization.
+**Efficient phylogenetic likelihood computation.** Tree-based pruning recursions support univariate and multivariate likelihoods without constructing a dense covariance matrix across all observations. Supported multi-start fitting routines use Julia threads to optimize candidates in parallel.
 
 **Flexible specification of evolutionary hypotheses.** Models accommodate differences in optima, attraction and diffusion among regimes, dependence of adaptive optima on evolving predictors, and contrasts between early and late evolutionary processes. Environmental histories provide a further basis for testing variation in evolutionary rates. Candidate-specific settings support comparison of alternative parameterizations within a common workflow.
 
-**Structured results for reproducible analysis.** Fit objects retain parameter estimates, likelihoods, information criteria and convergence status. Reconstruction tables preserve node identities and temporal coordinates, supporting subsequent analyses of ancestral change and temporal patterns.
+**Structured results for reproducible analysis.** Fit objects retain parameter estimates, likelihoods, information criteria and convergence status. OU mean diagnostics distinguish parameter identifiability from optimizer convergence. Reconstruction tables preserve node identities and temporal coordinates for analyses of ancestral change and temporal patterns.
 
 ## Research Applications
 
@@ -31,37 +31,37 @@ The package supports analyses of evolutionary heterogeneity among lineages, mult
 | What histories are consistent with observed tip states? | SIMMAP stochastic mapping |
 | What were ancestral traits, and how did they vary through time? | Supported node/branch reconstruction and sliding-window summaries |
 
-## Recent Developments
+## Modeling Capabilities
 
 ### Environmental dependence of evolutionary rates
 
-`fit_t_env` relates the diffusion rate of a continuous trait to an environmental history through exponential (EnvExp) or linear (EnvLin) rate functions. Comparing these models with BM1 and EB distinguishes an environmental rate hypothesis from constant-rate evolution or a directional temporal trend. The formulation follows RPANDA's environmental BM models and estimates variation in evolutionary rates, rather than environmental effects on trait means or adaptive optima.
+`fit_t_env` relates the diffusion rate of a continuous trait to environmental history through exponential (EnvExp) or linear (EnvLin) rate functions. Comparison with BM1 and EB evaluates support for environmental dependence, constant-rate evolution and an exponential temporal trend. These models describe variation in evolutionary rates; they do not estimate environmental effects on trait means or adaptive optima.
 
-Environmental histories may be represented by piecewise-linear curves or explicitly smoothed with fixed-effective-df cubic splines. The `fit_compare` workflow compares all four models without requiring ancestral reconstruction. Shared integration intervals avoid redundant storage and computation; EnvLin uses analytical integration for these known curve types.
+Environmental histories may be represented by piecewise-linear curves or cubic smoothing splines with a specified effective number of degrees of freedom. The `fit_compare` workflow compares all four models without requiring ancestral reconstruction.
 
 Environmental models optionally account for known tip standard errors and estimate an additional common terminal variance. Use `error=missing` to estimate this component when standard errors are unavailable, or supply a vector in tree-tip order or a taxon-keyed dictionary. The default `error=nothing` retains the model without this component.
 
-In a local validation using a complete InfTemp history, an 87-tip tree and simulated traits, four-model fitting was approximately 12.5 times faster after cache optimization, while the retained 16-point EnvExp cache decreased by 93.7%. These are single-case measurements excluding compilation and smoothing, not general performance guarantees. Independent integration and likelihood checks preserved numerical agreement and model ranking.
-
 ### Multivariate adaptive-response models
 
-`fit_mvoubm` partitions traits into OU response variables and BM predictor variables. The model estimates predictor contributions to response optima together with attraction and diffusion parameters. Regime-specific intercepts allow the adaptive relationship to be evaluated in the context of mapped evolutionary histories. This formulation supports model-based assessment of adaptive-response hypotheses; estimated relationships do not, by themselves, establish causality.
+`fit_mvoubm` partitions traits into OU response variables and BM predictor variables. It jointly estimates predictor contributions to response optima, attraction strengths and diffusion parameters. Regime-specific intercepts allow adaptive relationships to vary among mapped evolutionary states, supporting the assessment of trait coadaptation hypotheses.
 
 ### Flexible multivariate OU parameterization
 
 Diagonal attraction matrices allow trait-specific attraction rates, whereas supported asymmetric structures accommodate directional coupling among traits. The general positive-real-spectrum parameterization extends asymmetric attraction beyond the two-trait case. A diagonal attraction matrix does not imply independent trait evolution, because diffusion may remain correlated.
 
-Supported multivariate OU fits combine structured starting values with optional random multi-start optimization and reproducible seeds. Named candidates may specify distinct fitting settings, facilitating explicit comparison of alternative model structures.
+Supported multivariate OU fits combine structured starting values with optional random starts and reproducible seeds. Alternative parameterizations can be compared as named model candidates.
 
 ### Temporal heterogeneity in evolutionary processes
 
-`fit_shift` and `fit_mvshift` add 13 time-shift models combining BM, OU and EB components, including rate-shift SR. They share fixed-parameter likelihood APIs, reusable time mappings, optional tree-height normalization and explicit curvature diagnostics.
+`fit_shift` and `fit_mvshift` provide 13 time-shift models combining BM, OU and EB components, including the rate-shift model SR. These models support tests of differences between early and late evolutionary processes within a common fitting and comparison framework.
 
-These models follow the reference's two-period covariance construction, in which period-specific stochastic contributions are added. They are distinct from a generic continuously switched stochastic differential equation. The temporal boundary is specified by the user; fitting estimates process parameters rather than detecting an unknown boundary automatically.
+The covariance combines period-specific stochastic contributions at a user-specified temporal boundary. Fitting estimates the evolutionary parameters for that hypothesis; it does not automatically locate an unknown boundary. Optional tree-height normalization and curvature diagnostics support model assessment.
 
-### Numerical stability and validation
+### Consistent fitting and ancestral reconstruction
 
-Recent updates corrected fixed-theta evaluation and a parameter-dependent normalization term in profiled-root OU likelihoods. BMM/SR use covariance or square-root recursions for complete and partially missing observations to avoid catastrophic cancellation near singular diffusion matrices. Regression tests and independent small-tree covariance calculations assess numerical agreement under these conditions. Such validation does not establish global optimality of fitted solutions.
+OU fitting and ancestral reconstruction use consistent root assumptions. Regime optima are estimated by generalized least squares, with diagnostics for their identifiability. Node and branch reconstructions retain their correspondence to the original tree, and time-window summaries support the study of reconstructed trait histories.
+
+Unit and regression tests assess likelihoods, model relationships and reconstruction against independent calculations on small trees and reference cases. Missing observations and numerically challenging covariance structures receive targeted coverage.
 
 ## Installation and Examples
 
@@ -99,8 +99,6 @@ nodes = estim_node_table(tree, analysis.asr)
 
 `load_tree` reads directly into the computation-ready tree representation. The explicit `read_tree` → `serialize_tree` route remains available.
 
-Univariate OU1, OUM, OUMV, OUMA and OUMVA use the root regime optimum as the root mean (`root_mean_mode=:regime`), with zero root process variance (`root_cov_mode=:fixed`) by default. OU1/OUM also support a normalized mean design (`root_mean_mode=:stationary`) and a random root with stationary covariance (`root_cov_mode=:random`). A separate root mean is not estimated. Inspect `fit.mean_diagnostics` before interpreting regime optima; optimizer convergence does not establish identifiability.
-
 ### Compare environmental and temporal rate hypotheses
 
 Assume `environment.csv` contains `age` (time before present, in the same units as tree branches) and `temperature` columns. The history must cover the present through the tree's root age and contain more than ten distinct ages for this example:
@@ -126,16 +124,19 @@ Use `EnvCurve(history.age, history.temperature; scale=true)` for piecewise-linea
 
 ### Fit regime-dependent multivariate evolution
 
-Here `mapped.simmap` describes histories on the same tree, and `traits.csv` also contains `lnVD`:
+Here `mapped.simmap` contains mapped evolutionary histories, and `traits.csv` also contains `lnVD`. Use the tree returned with the mapping to preserve branch correspondence:
 
 ```julia
-sim = read_simmap("mapped.simmap")
+mapped = read_simmap("mapped.simmap")
+tree, sim = mapped.tree, mapped.simmap
 X = align_traits_to_tree(tree, traits;
     taxon_col=:taxon, trait_cols=[:lnH, :lnVD])
 
 fit = fit_mvoumva(tree, X, sim;
     trait_names=["lnH", "lnVD"], A_decomp=:diagonal)
 ```
+
+OU1, OUM and their regime-specific variants, including their multivariate counterparts, default to the root regime optimum as the root mean (`root_mean_mode=:regime`) and zero root process variance (`root_cov_mode=:fixed`). OU1/OUM and their multivariate counterparts also support a normalized mean design (`:stationary`) and stationary root covariance (`:random`), in any combination. Public OUMV/OUMA/OUMVA APIs and their multivariate counterparts accept only `:regime + :fixed`. A separate root mean is not estimated; inspect `fit.mean_diagnostics` before interpreting regime optima.
 
 To model the first trait as an OU response to the second trait as a BM predictor:
 
@@ -171,7 +172,7 @@ Discrete analysis includes Mk, observed/hidden-rate corHMM-style models, ambiguo
 
 ## Scope and Statistical Considerations
 
-Continuous models require bifurcating trees, and many require ultrametric trees. Missing-data support varies by model. Check taxon and SIMMAP alignment, compare AIC using the same observations and consistent assumptions, and inspect convergence and boundary estimates. Time-shift and environmental models currently require ultrametric trees and do not support observation error or ASR; environmental models are univariate, with explicit fixed-df smoothing. Check integration accuracy for steep environmental histories.
+Continuous models require bifurcating trees, and many require ultrametric trees. Missing-data support varies by model. Check taxon and SIMMAP alignment, compare AIC using the same observations and consistent assumptions, and assess convergence, boundary estimates and identifiability. Time-shift and environmental models require ultrametric trees and currently lack ASR; time-shift models do not support observation error, whereas environmental models support tip standard errors and a common terminal variance. Environmental models are univariate; smoothing and integration accuracy require particular attention for rapidly varying histories. Estimated trait associations alone do not establish causality.
 
 ## Documentation and Validation
 
