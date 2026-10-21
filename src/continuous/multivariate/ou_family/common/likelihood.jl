@@ -427,6 +427,7 @@ function _mv_recursive_posterior_cache(
         upward = upward,
         edge_context_mean = edge_context_mean,
         edge_context_cov = edge_context_cov,
+        tip_index = tip_index,
     )
 end
 
@@ -566,8 +567,14 @@ function _mvou_profile_theta_tree_pruning_profile(
     bundle::MVOUParameterBundle,
     precalc::MVOUPrecalc,
     spec::MVOUSpec,
-    workspace::Union{Nothing, MVProfileWorkspace, MVOUThetaProfileWorkspace} = nothing,
+    workspace::Union{Nothing, MVProfileWorkspace, MVOUThetaProfileWorkspace, MVOUFixedMeanWorkspace} = nothing;
+    diagnostics::Bool = false,
 )
+    _validate_ou_theta0(spec.root_mean_mode, bundle.theta0)
+    _validate_ou_root_mean_mode(precalc.root_mean_mode)
+    if _mvou_profiles_fixed_mean(spec)
+        return _mvou_profile_fixed_mean(tree, trait, bundle, precalc, spec, workspace; diagnostics)
+    end
     data = trait isa Matrix{Float64} ? trait : _validate_multivariate_trait(tree, trait)
     p = size(data, 2)
     q = p * precalc.nregimes

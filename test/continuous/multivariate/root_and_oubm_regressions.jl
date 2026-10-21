@@ -89,6 +89,21 @@ function _test_fixed_oum(model, tree, data, segments, As, Sigmas, theta; kwargs.
         cat(As...; dims = 3), cat(Sigmas...; dims = 3), theta; kwargs...)
 end
 
+# Restore historical root specifications without reopening them to new fits.
+function _test_legacy_fixed_oum(model, tree, data, segments, As, Sigmas, theta; kwargs...)
+    spec = EvoTraits._mvou_spec_with_root(model; kwargs...)
+    precalc = EvoTraits._mvou_precalc(tree, spec; edge_segments = segments)
+    bundle = EvoTraits.MVOUParameterBundle(theta = vec(theta'), A = As[1], Sigma = Sigmas[1],
+        A_regimes = model in (:mvOUMA, :mvOUMVA) ? cat(As...; dims = 3) : zeros(0, 0, 0),
+        Sigma_regimes = model in (:mvOUMV, :mvOUMVA) ? cat(Sigmas...; dims = 3) : zeros(0, 0, 0))
+    prof = EvoTraits._mvou_fixed_loglikelihood(tree, data, precalc, bundle)
+    return MVContinuousOUResult(model = model, success = prof.success, loglik = prof.loglik,
+        ntraits = size(data, 2), nregimes = length(As), theta = theta,
+        A = model in (:mvOUMA, :mvOUMVA) ? cat(As...; dims = 3) : cat(As[1]; dims = 3),
+        Sigma = model in (:mvOUMV, :mvOUMVA) ? cat(Sigmas...; dims = 3) : cat(Sigmas[1]; dims = 3),
+        root_mean_mode = spec.root_mean_mode, root_cov_mode = spec.root_cov_mode)
+end
+
 @testset "OUM-family root means and covariance match independent Gaussian conditioning" begin
     tree = simulate_yule_tree(12; tree_height = 1.0, rng = MersenneTwister(731))
     A = [0.9 0.2; 0.2 0.6]
@@ -104,7 +119,7 @@ end
             As = [r == 1 || model in (:mvOUM, :mvOUMV) ? A : 1.4A for r in 1:nregimes]
             Sigmas = [r == 1 || model in (:mvOUM, :mvOUMA) ? Sigma : 0.6Sigma for r in 1:nregimes]
             processes = _test_affine_processes(segments, As, Sigmas, collect(eachrow(theta_r)))
-            for mean_mode in (:stationary_design, :root_regime_theta), cov_mode in (:fixed, :stationary), missing in (false, true)
+            for mean_mode in (:stationary_design, :regime), cov_mode in (:fixed, :random), missing in (false, true)
                 data = copy(original)
                 if missing
                     data[1, 1] = NaN
@@ -116,7 +131,7 @@ end
                     reshape((kron(Matrix{Float64}(I, 2, 2), As[root_regime]) +
                         kron(As[root_regime], Matrix{Float64}(I, 2, 2))) \ vec(Sigmas[root_regime]), 2, 2)
                 reference = _test_affine_tree_reference(tree, data, root_mean, root_cov, processes)
-                fixed = _test_fixed_oum(model, tree, data, segments, As, Sigmas, theta_r;
+                fixed = _test_legacy_fixed_oum(model, tree, data, segments, As, Sigmas, theta_r;
                     root_mean_mode = mean_mode, root_cov_mode = cov_mode)
                 @test fixed.success
                 @test isapprox(fixed.loglik, reference.loglik; atol = 1e-8, rtol = 1e-10)
@@ -143,7 +158,7 @@ end
     handlers = (EvoTraits._mvoum_tree_pruning_profile, EvoTraits._mvoumv_tree_pruning_profile,
         EvoTraits._mvouma_tree_pruning_profile, EvoTraits._mvoumva_tree_pruning_profile)
     for (model, handler) in zip((:mvOUM, :mvOUMV, :mvOUMA, :mvOUMVA), handlers)
-        fixed = _test_fixed_oum(model, tree, data, segments, [A, 1.4A], [Sigma, 0.6Sigma], theta;
+        fixed = _test_legacy_fixed_oum(model, tree, data, segments, [A, 1.4A], [Sigma, 0.6Sigma], theta;
             root_mean_mode = :theta)
         spec = EvoTraits._mvou_spec_with_root(model; root_mean_mode = :theta)
         precalc = EvoTraits._mvou_precalc(tree, spec; edge_segments = segments)
@@ -163,18 +178,18 @@ end
     for model in (:mvOUM, :mvOUMV, :mvOUMA, :mvOUMVA), missing in (false, true)
         traits = copy(data)
         missing && (traits[1, 1] = NaN)
-        spec = EvoTraits.mvou_spec(model)
+        spec = EvoTraits._mvou_spec_with_root(model; root_mean_mode = :stationary_design)
         precalc = EvoTraits._mvou_precalc(tree, spec; edge_segments = segments)
         ws = EvoTraits._mvou_theta_profile_workspace(tree, 2, 4)
         for (delta, sigma_scale) in ((0.0, 1.0), (0.0, 1.2), (1e-13, 1.2))
             As = [A + delta * Matrix{Float64}(I, 2, 2), 1.3A]
             Sigmas = [sigma_scale * Sigma, 0.8Sigma]
-            initial = _test_fixed_oum(model, tree, traits, segments, As, Sigmas, zeros(2, 2))
+            initial = _test_legacy_fixed_oum(model, tree, traits, segments, As, Sigmas, zeros(2, 2); root_mean_mode = :stationary_design)
             bundle = EvoTraits._mvou_asr_bundle(initial)
             prof = EvoTraits._mvou_profile_theta_tree_pruning_profile(tree, traits, bundle, precalc, spec, ws)
             @test prof.success
             theta = permutedims(reshape(copy(prof.theta), 2, 2))
-            fixed = _test_fixed_oum(model, tree, traits, segments, As, Sigmas, theta)
+            fixed = _test_legacy_fixed_oum(model, tree, traits, segments, As, Sigmas, theta; root_mean_mode = :stationary_design)
             @test isapprox(prof.loglik, fixed.loglik; atol = 1e-7, rtol = 1e-10)
             uncached = EvoTraits._mvou_profile_theta_tree_pruning_profile(tree, traits, bundle, precalc, spec)
             @test isapprox(prof.loglik, uncached.loglik; atol = 1e-7, rtol = 1e-10)

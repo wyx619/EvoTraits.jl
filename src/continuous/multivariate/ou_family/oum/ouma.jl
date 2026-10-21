@@ -4,6 +4,10 @@
 Evaluate the multivariate multi-optimum, multi-alpha Ornstein-Uhlenbeck
 (`mvOUMA`) log-likelihood with regime-specific optimum vectors and
 regime-specific pull matrices under a shared scatter matrix `Sigma`.
+
+Root covariance is fixed at zero. The default mean is the root regime optimum
+vector. This is a matrix extension of the univariate root
+conventions, not additional mvMORPH model variants.
 """
 function mvouma_loglikelihood(
     tree::CompactTree,
@@ -12,13 +16,14 @@ function mvouma_loglikelihood(
     A_regimes::Array{<:Real, 3},
     Sigma::AbstractMatrix{<:Real},
     theta_regimes::AbstractMatrix{<:Real};
-    root_mean_mode::Symbol = :stationary_design,
+    root_mean_mode::Symbol = :regime,
     root_cov_mode::Symbol = :fixed,
+    theta0::Union{Nothing, AbstractVector{<:Real}} = nothing,
     A_decomp::Symbol = :cholesky,
     trait_names = nothing,
     regime_names = nothing,
 )
-    spec = _mvou_spec_with_root(
+    spec = _mvou_public_spec(
         :mvOUMA;
         A_decomp = A_decomp,
         root_mean_mode = root_mean_mode,
@@ -26,6 +31,9 @@ function mvouma_loglikelihood(
     )
     data = _validate_multivariate_trait(tree, trait)
     p = size(data, 2)
+    _validate_ou_theta0(root_mean_mode, theta0)
+    theta0 === nothing || length(theta0) == p ||
+        throw(ArgumentError("theta0 length must match trait dimension"))
     size(theta_regimes, 2) == p || throw(ArgumentError("theta_regimes column count must match trait dimension"))
     size(A_regimes, 1) == size(A_regimes, 2) == p || throw(ArgumentError("A_regimes dimensions must match trait dimension"))
     size(Sigma, 1) == size(Sigma, 2) == p || throw(ArgumentError("Sigma dimensions must match trait dimension"))
@@ -33,6 +41,7 @@ function mvouma_loglikelihood(
     size(theta_regimes, 1) == precalc.nregimes || throw(ArgumentError("theta_regimes row count must match regime count"))
     size(A_regimes, 3) == precalc.nregimes || throw(ArgumentError("A_regimes count must match regime count"))
     bundle = MVOUParameterBundle(
+        theta0 = theta0 === nothing ? nothing : Float64.(theta0),
         theta = vec(copy(theta_regimes')),
         A = Matrix{Float64}(A_regimes[:, :, 1]),
         A_regimes = Float64.(A_regimes),
@@ -41,7 +50,7 @@ function mvouma_loglikelihood(
     prof = _mvou_fixed_loglikelihood(tree, data, precalc, bundle)
     Ablock = _mvou_A_block_nparams(spec, p)
     Sblock = _mvou_sigma_block_nparams(p)
-    nparams = Ablock * precalc.nregimes + Sblock + p * precalc.nregimes
+    nparams = Ablock * precalc.nregimes + Sblock + _mvou_mean_ncoefficients(spec, p, precalc.nregimes)
     return MVContinuousOUResult(
         model = :mvOUMA,
         success = prof.success,
@@ -59,6 +68,7 @@ function mvouma_loglikelihood(
         A_decomp = spec.A_decomp,
         root_mean_mode = spec.root_mean_mode,
         root_cov_mode = spec.root_cov_mode,
+        theta0 = bundle.theta0,
     )
 end
 
@@ -68,6 +78,11 @@ end
 Fit the multivariate multi-optimum, multi-alpha Ornstein-Uhlenbeck (`mvOUMA`)
 model with regime-specific `theta` and regime-specific `A` under a shared
 scatter matrix `Sigma`.
+
+Regime optima are profiled by GLS. Root options are
+`root_mean_mode=:regime` with `root_cov_mode=:fixed`.
+Inspect `mean_diagnostics` for
+identifiability separately from optimizer convergence.
 
 Set `n_starts > 0` to add that many random starting points, each optimised
 independently (in parallel across threads) and combined with the structured
@@ -82,7 +97,7 @@ function fit_mvouma(
     max_iterations::Integer = 500,
     rel_tol::Float64 = 1e-5,
     A_decomp::Symbol = :cholesky,
-    root_mean_mode::Symbol = :stationary_design,
+    root_mean_mode::Symbol = :regime,
     root_cov_mode::Symbol = :fixed,
     trait_names = nothing,
     regime_names = nothing,
@@ -92,7 +107,7 @@ function fit_mvouma(
     return _fit_mvou_recursive(
         tree,
         trait,
-        _mvou_spec_with_root(
+        _mvou_public_spec(
             :mvOUMA;
             A_decomp = A_decomp,
             root_mean_mode = root_mean_mode,

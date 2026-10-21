@@ -46,7 +46,7 @@ include("root_and_oubm_regressions.jl")
     @test size(fit.A) == (2, 2, 1)
     @test size(fit.Sigma) == (2, 2, 1)
     @test size(fit.theta) == (1, 2)
-    @test fit.root_mean_mode == :theta
+    @test fit.root_mean_mode == :regime
     @test fit.root_cov_mode == :fixed
     @test minimum(eigvals(Symmetric(fit.A[:, :, 1]))) > 0.0
     @test minimum(eigvals(Symmetric(fit.Sigma[:, :, 1]))) > 0.0
@@ -140,7 +140,7 @@ end
     @test isfinite(fit.loglik)
 end
 
-@testset "mvOUM diagonal likelihood uses stationary design" begin
+@testset "mvOUM diagonal likelihood uses root regime mean" begin
     tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(421)))
 
     edge_segments = _test_edge_segments(tree, 2)
@@ -162,7 +162,7 @@ end
     mv = mvoum_loglikelihood(tree, traits, edge_segments, A, Sigma, theta)
     @test mv.success
     @test isfinite(mv.loglik)
-    @test mv.root_mean_mode == :stationary_design
+    @test mv.root_mean_mode == :regime
     @test mv.root_cov_mode == :fixed
 end
 
@@ -181,7 +181,7 @@ end
         A,
         Sigma,
         theta;
-        root_mean_mode = :root_regime_theta,
+        root_mean_mode = :regime,
     )
     random = mvoum_loglikelihood(
         tree,
@@ -190,13 +190,13 @@ end
         A,
         Sigma,
         theta;
-        root_mean_mode = :root_regime_theta,
-        root_cov_mode = :stationary,
+        root_mean_mode = :regime,
+        root_cov_mode = :random,
     )
     @test fixed.success
     @test random.success
-    @test fixed.root_mean_mode == :root_regime_theta
-    @test random.root_cov_mode == :stationary
+    @test fixed.root_mean_mode == :regime
+    @test random.root_cov_mode == :random
     @test isfinite(random.loglik)
 
     fit = fit_mvoum(
@@ -204,12 +204,12 @@ end
         traits,
         edge_segments;
         max_iterations = 20,
-        root_mean_mode = :root_regime_theta,
-        root_cov_mode = :stationary,
+        root_mean_mode = :regime,
+        root_cov_mode = :random,
     )
     @test fit.success
-    @test fit.root_mean_mode == :root_regime_theta
-    @test fit.root_cov_mode == :stationary
+    @test fit.root_mean_mode == :regime
+    @test fit.root_cov_mode == :random
     asr = estim_node(tree, traits, fit; edge_segments = edge_segments)
     @test asr.success
     @test all(isfinite, asr.estimates)
@@ -233,7 +233,7 @@ end
     Sigma = [0.7 0.16; 0.16 0.5]
     theta = [0.15, 0.75]
     fixed = mvou1_loglikelihood(tree, traits, A, Sigma, theta; root_cov_mode = :fixed)
-    stationary = mvou1_loglikelihood(tree, traits, A, Sigma, theta; root_cov_mode = :stationary)
+    stationary = mvou1_loglikelihood(tree, traits, A, Sigma, theta; root_cov_mode = :random)
     @test fixed.success
     @test stationary.success
     fixed_asr = estim_node(tree, traits, fixed)
@@ -277,7 +277,7 @@ end
     @test fit.ntraits == 2
     @test fit.nregimes == 2
     @test size(fit.theta) == (2, 2)
-    @test fit.root_mean_mode == :stationary_design
+    @test fit.root_mean_mode == :regime
     @test fit.root_cov_mode == :fixed
 
     asr = estim_node(tree, traits, fit; edge_segments = edge_segments)
@@ -298,7 +298,7 @@ end
     means = EvoTraits._mvou_asr_node_means(tree, fit, bundle, edge_segments, precalc.root_regime)
     branch_cache = EvoTraits._mvou_branch_cache(precalc, bundle.A, bundle.Sigma)
     theta_matrix = reshape(bundle.theta, fit.ntraits, :)
-    @test maximum(abs, means[Int(tree.root)]) == 0.0
+    @test means[Int(tree.root)] == vec(fit.theta[precalc.root_regime, :])
     @test all(
         isapprox(
             means[Int(tree.child_of_edge[edge])],
@@ -371,7 +371,7 @@ end
     A_regimes = repeat(reshape(A, 2, 2, 1), 1, 1, 3)
     Sigma_regimes = repeat(reshape(Sigma, 2, 2, 1), 1, 1, 3)
 
-    oum = mvoum_loglikelihood(tree, traits, edge_segments, A, Sigma, theta)
+    oum = mvoum_loglikelihood(tree, traits, edge_segments, A, Sigma, theta; root_mean_mode = :regime)
     oumv = mvoumv_loglikelihood(tree, traits, edge_segments, A, Sigma_regimes, theta)
     ouma = mvouma_loglikelihood(tree, traits, edge_segments, A_regimes, Sigma, theta)
     oumva = mvoumva_loglikelihood(tree, traits, edge_segments, A_regimes, Sigma_regimes, theta)
@@ -414,19 +414,19 @@ end
     Sigma_regimes = reshape(sigma2_regimes, 1, 1, :)
 
     uni_oumv = oumv_loglikelihood(tree, y, edge_segments, alpha, sigma2_regimes, theta_regimes)
-    mv_oumv = mvoumv_loglikelihood(tree, X, edge_segments, A, Sigma_regimes, theta_matrix; root_mean_mode = :root_regime_theta)
+    mv_oumv = mvoumv_loglikelihood(tree, X, edge_segments, A, Sigma_regimes, theta_matrix; root_mean_mode = :regime)
     @test uni_oumv.success
     @test mv_oumv.success
     @test isapprox(mv_oumv.loglik, uni_oumv.loglik; atol = 1e-8)
 
     uni_ouma = ouma_loglikelihood(tree, y, edge_segments, alpha_regimes, sigma2, theta_regimes)
-    mv_ouma = mvouma_loglikelihood(tree, X, edge_segments, A_regimes, Sigma, theta_matrix; root_mean_mode = :root_regime_theta)
+    mv_ouma = mvouma_loglikelihood(tree, X, edge_segments, A_regimes, Sigma, theta_matrix; root_mean_mode = :regime)
     @test uni_ouma.success
     @test mv_ouma.success
     @test isapprox(mv_ouma.loglik, uni_ouma.loglik; atol = 1e-8)
 
     uni_oumva = oumva_loglikelihood(tree, y, edge_segments, alpha_regimes, sigma2_regimes, theta_regimes)
-    mv_oumva = mvoumva_loglikelihood(tree, X, edge_segments, A_regimes, Sigma_regimes, theta_matrix; root_mean_mode = :root_regime_theta)
+    mv_oumva = mvoumva_loglikelihood(tree, X, edge_segments, A_regimes, Sigma_regimes, theta_matrix; root_mean_mode = :regime)
     @test uni_oumva.success
     @test mv_oumva.success
     @test isapprox(mv_oumva.loglik, uni_oumva.loglik; atol = 1e-8)
@@ -520,8 +520,8 @@ end
         theta;
         rng = MersenneTwister(430),
     )
-    oumv_true = mvoumv_loglikelihood(tree, X_oumv, edge_segments, A_shared, Sigma_regimes, theta; root_mean_mode = :root_regime_theta)
-    oumv_wrong = mvoumv_loglikelihood(tree, X_oumv, edge_segments, A_shared, Sigma_wrong, theta; root_mean_mode = :root_regime_theta)
+    oumv_true = mvoumv_loglikelihood(tree, X_oumv, edge_segments, A_shared, Sigma_regimes, theta; root_mean_mode = :regime)
+    oumv_wrong = mvoumv_loglikelihood(tree, X_oumv, edge_segments, A_shared, Sigma_wrong, theta; root_mean_mode = :regime)
     @test oumv_true.success
     @test oumv_wrong.success
     @test oumv_true.loglik > oumv_wrong.loglik
@@ -534,15 +534,15 @@ end
         theta;
         rng = MersenneTwister(431),
     )
-    ouma_true = mvouma_loglikelihood(tree, X_ouma, edge_segments, A_regimes, Sigma_shared, theta; root_mean_mode = :root_regime_theta)
-    ouma_wrong = mvouma_loglikelihood(tree, X_ouma, edge_segments, A_wrong, Sigma_shared, theta; root_mean_mode = :root_regime_theta)
+    ouma_true = mvouma_loglikelihood(tree, X_ouma, edge_segments, A_regimes, Sigma_shared, theta; root_mean_mode = :regime)
+    ouma_wrong = mvouma_loglikelihood(tree, X_ouma, edge_segments, A_wrong, Sigma_shared, theta; root_mean_mode = :regime)
     @test ouma_true.success
     @test ouma_wrong.success
     @test ouma_true.loglik > ouma_wrong.loglik
 
     X_oumva = _test_simulate_mvou_family(tree, edge_segments, A_regimes, Sigma_regimes, theta; rng = MersenneTwister(432))
-    oumva_true = mvoumva_loglikelihood(tree, X_oumva, edge_segments, A_regimes, Sigma_regimes, theta; root_mean_mode = :root_regime_theta)
-    oumva_wrong = mvoumva_loglikelihood(tree, X_oumva, edge_segments, A_wrong, Sigma_wrong, theta; root_mean_mode = :root_regime_theta)
+    oumva_true = mvoumva_loglikelihood(tree, X_oumva, edge_segments, A_regimes, Sigma_regimes, theta; root_mean_mode = :regime)
+    oumva_wrong = mvoumva_loglikelihood(tree, X_oumva, edge_segments, A_wrong, Sigma_wrong, theta; root_mean_mode = :regime)
     @test oumva_true.success
     @test oumva_wrong.success
     @test oumva_true.loglik > oumva_wrong.loglik
@@ -587,7 +587,7 @@ end
     @test fit.nregimes == 2
     @test size(fit.Sigma) == (2, 2, 2)
     @test size(fit.theta) == (2, 2)
-    @test fit.root_mean_mode == :stationary_design
+    @test fit.root_mean_mode == :regime
     @test fit.root_cov_mode == :fixed
 
     asr = estim_node(tree, traits, fit; edge_segments = edge_segments)
@@ -627,7 +627,7 @@ end
         rng = MersenneTwister(435),
     )
 
-    oum_fit = fit_mvoum(tree, traits, edge_segments; max_iterations = 80, rel_tol = 1e-6)
+    oum_fit = fit_mvoum(tree, traits, edge_segments; max_iterations = 80, rel_tol = 1e-6, root_mean_mode = :regime)
     oumv_fit = fit_mvoumv(tree, traits, edge_segments; max_iterations = 220, rel_tol = 1e-6)
     @test oum_fit.success
     @test oumv_fit.success
@@ -698,7 +698,7 @@ end
     @test fit_oumva.model == :mvOUMVA
     @test size(fit_oumva.A) == (2, 2, 2)
     @test size(fit_oumva.Sigma) == (2, 2, 2)
-    @test fit_oumva.root_mean_mode == :stationary_design
+    @test fit_oumva.root_mean_mode == :regime
     @test fit_oumva.root_cov_mode == :fixed
 
     asr_oumva = estim_node(tree, traits, fit_oumva; edge_segments = edge_segments)

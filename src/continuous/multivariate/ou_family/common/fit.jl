@@ -14,8 +14,8 @@ Base.@kwdef struct MVOUCompositeOptResult
 end
 
 @inline _mvou_profiles_theta(spec::MVOUSpec) =
-    spec.root_cov_mode === :fixed &&
-    (spec.model === :mvOU1 || spec.root_mean_mode === :stationary_design)
+    _mvou_profiles_fixed_mean(spec) || (spec.root_cov_mode === :fixed &&
+    (spec.model === :mvOU1 || spec.root_mean_mode === :stationary_design))
 
 function _mvou_spd_block_valid(M::AbstractMatrix{<:Real}; mineig::Float64, maxeig::Float64 = 1e8)
     all(isfinite, M) || return false
@@ -106,12 +106,14 @@ function _mvou_build_objective(
 )
     data = _validate_multivariate_trait(tree, trait)
     p = size(data, 2)
-    workspace = _mv_profile_workspace(tree, p)
+    workspace = _mvou_profiles_theta(spec) ? nothing : _mv_profile_workspace(tree, p)
     cov_unpack_workspace =
         _mvou_profiles_theta(spec) ?
         _mvou_cov_unpack_workspace(spec, p, precalc.nregimes) :
         nothing
     theta_workspace =
+        _mvou_profiles_fixed_mean(spec) ?
+        _mvou_fixed_mean_workspace(tree, p, _mvou_mean_ncoefficients(spec, p, precalc.nregimes); nregimes = precalc.nregimes) :
         _mvou_profiles_theta(spec) ?
         _mvou_theta_profile_workspace(tree, p, p * precalc.nregimes; nregimes = precalc.nregimes) :
         workspace
@@ -139,6 +141,7 @@ function _mvou_build_objective(
         catch err
             err isa LinearAlgebra.SingularException && return Inf
             err isa PosDefException && return Inf
+            err isa DomainError && return Inf
             err isa ArgumentError && occursin("Infs or NaNs", sprint(showerror, err)) && return Inf
             rethrow()
         end
@@ -238,6 +241,9 @@ function _mvou_tip_regime_covariances(
         rows = findall(==(Int32(r)), precalc.tip_terminal_regime)
         isempty(rows) && continue
         sub = @view data[rows, :]
+        # A regime without observations for a trait cannot supply a joint
+        # covariance start. The full-data covariance candidate remains valid.
+        any(j -> all(isnan, @view(sub[:, j])), 1:p) && continue
         C = _mv_complete_rows_cov(sub)
         C = (C + C') / 2 + 1e-8 * Matrix{Float64}(I, p, p)
         push!(covs, C)
@@ -1050,27 +1056,32 @@ function _mvou_finalize_fit_result(
     bundle =
         if _mvou_profiles_theta(spec)
             cov_bundle = _mvou_unpack_cov_params(spec, _mvou_result_minimizer(result), p, precalc.nregimes)
-            prof_tmp = _mvou_profile_theta_tree_pruning_profile(tree, data, cov_bundle, precalc, spec)
+            prof_tmp = _mvou_profile_theta_tree_pruning_profile(tree, data, cov_bundle, precalc, spec; diagnostics = true)
             MVOUParameterBundle(
                 theta = prof_tmp.success ? prof_tmp.theta : zeros(Float64, p * precalc.nregimes),
                 A = cov_bundle.A,
                 A_regimes = cov_bundle.A_regimes,
                 Sigma = cov_bundle.Sigma,
                 Sigma_regimes = cov_bundle.Sigma_regimes,
+                theta0 = hasproperty(prof_tmp, :theta0) ? prof_tmp.theta0 : nothing,
             )
         else
             _mvou_unpack_params(spec, _mvou_result_minimizer(result), p)
         end
     prof =
         if _mvou_profiles_theta(spec)
-            _mvou_profile_theta_tree_pruning_profile(tree, data, bundle, precalc, spec)
+            prof_tmp
         else
             _mvou_profile_dispatch(tree, data, bundle, precalc)
         end
     nparams =
         (spec.A_mode === :by_regime ? _mvou_A_block_nparams(spec, p) * precalc.nregimes : _mvou_A_block_nparams(spec, p)) +
         (spec.Sigma_mode === :by_regime ? _mvou_sigma_block_nparams(p) * precalc.nregimes : _mvou_sigma_block_nparams(p)) +
-        p * precalc.nregimes
+        _mvou_mean_ncoefficients(spec, p, precalc.nregimes)
+    info = hasproperty(prof, :mean_diagnostics) ? prof.mean_diagnostics : nothing
+    if info !== nothing && info.rank < info.ncoefficients
+        @warn "OU mean design is rank deficient; minimum-norm GLS coefficients are not all individually identifiable" model=spec.model rank=info.rank ncoefficients=info.ncoefficients identifiable=info.identifiable
+    end
     A_blocks =
         if spec.A_mode === :by_regime
             bundle.A_regimes
@@ -1103,6 +1114,8 @@ function _mvou_finalize_fit_result(
         converged = _mvou_result_converged(result),
         iterations = _mvou_result_iterations(result),
         f_calls = _mvou_result_f_calls(result),
+        theta0 = bundle.theta0,
+        mean_diagnostics = info,
     )
 end
 

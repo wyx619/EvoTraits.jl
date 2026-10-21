@@ -314,7 +314,7 @@ end
 function _mvou_root_covariance(precalc::MVOUPrecalc, bundle::MVOUParameterBundle)
     p = isempty(bundle.A) ? size(bundle.A_regimes, 1) : size(bundle.A, 1)
     precalc.root_cov_mode === :fixed && return zeros(Float64, p, p)
-    precalc.root_cov_mode === :stationary ||
+    precalc.root_cov_mode === :random ||
         throw(ArgumentError("Unsupported multivariate OU root_cov_mode=$(precalc.root_cov_mode)"))
 
     r = precalc.root_regime
@@ -644,23 +644,59 @@ end
 
 
 
+function _mvou_normalize_design!(W::AbstractMatrix{Float64})
+    for row in axes(W, 1)
+        denominator = sum(@view W[row, :])
+        isfinite(denominator) && !iszero(denominator) ||
+            throw(DomainError(denominator, "OU normalized mean design has an undefined row sum"))
+        @views W[row, :] ./= denominator
+    end
+    return W
+end
+
+function _mvou_mean_designs!(designs, work, transition, tree, bundle, precalc)
+    _validate_ou_theta0(precalc.root_mean_mode, bundle.theta0)
+    p = size(bundle.A, 1)
+    if isempty(precalc.edge_segments)
+        for node in 1:tree.nnodes
+            W = designs[node]
+            fill!(W, 0.0)
+            for j in 1:p
+                W[j, j] += 1.0
+            end
+        end
+        return designs
+    end
+    root_regime = precalc.root_mean_mode === :regime ? precalc.root_regime : 0
+    if isempty(bundle.A_regimes)
+        _mvou_node_design_matrices!(designs, work, transition, tree, bundle.A,
+            precalc.edge_segments, precalc.nregimes, precalc.A_decomp; root_regime)
+    else
+        _mvouma_node_design_matrices!(designs, work, transition, tree, bundle.A_regimes,
+            precalc.edge_segments, precalc.nregimes, precalc.A_decomp; root_regime)
+    end
+    if precalc.root_mean_mode === :stationary
+        for node in 1:tree.nnodes
+            if tree.dist_from_root[node] == 0.0
+                # Continuous t -> 0+ extension of the row-normalized design.
+                columns = ((precalc.root_regime - 1) * p + 1):(precalc.root_regime * p)
+                designs[node][:, columns] .= bundle.A
+            end
+            _mvou_normalize_design!(designs[node])
+        end
+    end
+    return designs
+end
+
 function _mvou_node_means(
     tree::CompactTree,
     bundle::MVOUParameterBundle,
     precalc::MVOUPrecalc,
 )
     p = size(bundle.A, 1)
-    theta = reshape(bundle.theta, p, :)
-    if isempty(precalc.edge_segments)
-        return [copy(vec(theta)) for _ in 1:tree.nnodes]
-    end
-    root_regime = precalc.root_mean_mode === :root_regime_theta ? precalc.root_regime : 0
-    designs =
-        isempty(bundle.A_regimes) ?
-        _mvou_node_design_matrices(tree, bundle.A, precalc.edge_segments,
-            precalc.nregimes, precalc.A_decomp; root_regime) :
-        _mvouma_node_design_matrices(tree, bundle.A_regimes, precalc.edge_segments,
-            precalc.nregimes, precalc.A_decomp; root_regime)
+    q = p * precalc.nregimes
+    designs = [zeros(p, q) for _ in 1:tree.nnodes]
+    _mvou_mean_designs!(designs, zeros(p, q), zeros(p, p), tree, bundle, precalc)
     means = [W * bundle.theta for W in designs]
     # Preserve the legacy row-standardized design for explicit :theta input.
     if precalc.root_mean_mode === :theta

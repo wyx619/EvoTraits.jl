@@ -56,7 +56,7 @@ function estim_branch_for_simmap(
         parent = Int(tree.parent_of_edge[edge])
         child = Int(tree.child_of_edge[edge])
         segments = edge_segments[edge]
-        start_node_mean = node_means[parent]
+        start_node_mean = prep.raw_means[parent]
         kernel_cache = _mvou_edge_kernel_cache(
             fit.model,
             bundle,
@@ -75,6 +75,12 @@ function estim_branch_for_simmap(
             tree_height = maximum(tree.dist_from_root[tree.tip_ids])
 
             local function _point(frac::Float64)
+                # Endpoints use the same conditioned states as node ASR.
+                if seg_idx == 1 && frac == 0.0
+                    return (success = true, mean = post.full_mean[parent] + node_means[parent], cov = post.full_cov[parent])
+                elseif seg_idx == length(segments) && frac == 1.0
+                    return (success = true, mean = post.full_mean[child] + node_means[child], cov = post.full_cov[child])
+                end
                 split_len = clamp(frac, 0.0, 1.0) * seg.length
                 remain_len = seg.length - split_len
                 prefix_kernel =
@@ -110,6 +116,12 @@ function estim_branch_for_simmap(
                     prefix_kernel.Q,
                 )
                 backward =
+                    tree.is_tip[child] ?
+                    _mvou_observation_info_to_parent(
+                        @view(prep.centered[post.tip_index[child], :]),
+                        suffix_kernel.Phi,
+                        suffix_kernel.Q,
+                    ) :
                     maximum(abs, suffix_kernel.Q) <= 1e-12 && maximum(abs, suffix_kernel.Phi - Matrix{Float64}(I, p, p)) <= 1e-12 ?
                     (
                         success = true,
@@ -135,6 +147,13 @@ function estim_branch_for_simmap(
                         bundle,
                         SimmapSegment[SimmapSegment(state = seg.state, length = split_len)],
                     )
+                if fit.root_mean_mode === :stationary
+                    t = root_dist + seg_start + split_len
+                    denom = vec(sum(Matrix{Float64}(I, p, p) - _mvou_transition(bundle.A, t); dims = 2))
+                    all(x -> isfinite(x) && !iszero(x), denom) ||
+                        throw(DomainError(denom, "OU normalized mean design has an undefined row sum"))
+                    eval_mean = eval_mean ./ denom
+                end
                 return (success = combined.success, mean = combined.mean .+ eval_mean, cov = combined.cov)
             end
 

@@ -16,7 +16,7 @@ function mvou_spec(model::Symbol; A_decomp::Symbol = :cholesky)
             A_mode = :shared,
             Sigma_mode = :shared,
             A_decomp = A_decomp,
-            root_mean_mode = :theta,
+            root_mean_mode = :regime,
             root_cov_mode = :fixed,
         )
     elseif model === :mvOUM
@@ -26,7 +26,7 @@ function mvou_spec(model::Symbol; A_decomp::Symbol = :cholesky)
             A_mode = :shared,
             Sigma_mode = :shared,
             A_decomp = A_decomp,
-            root_mean_mode = :stationary_design,
+            root_mean_mode = :regime,
             root_cov_mode = :fixed,
         )
     elseif model === :mvOUMV
@@ -36,7 +36,7 @@ function mvou_spec(model::Symbol; A_decomp::Symbol = :cholesky)
             A_mode = :shared,
             Sigma_mode = :by_regime,
             A_decomp = A_decomp,
-            root_mean_mode = :stationary_design,
+            root_mean_mode = :regime,
             root_cov_mode = :fixed,
         )
     elseif model === :mvOUMA
@@ -46,7 +46,7 @@ function mvou_spec(model::Symbol; A_decomp::Symbol = :cholesky)
             A_mode = :by_regime,
             Sigma_mode = :shared,
             A_decomp = A_decomp,
-            root_mean_mode = :stationary_design,
+            root_mean_mode = :regime,
             root_cov_mode = :fixed,
         )
     elseif model === :mvOUMVA
@@ -56,7 +56,7 @@ function mvou_spec(model::Symbol; A_decomp::Symbol = :cholesky)
             A_mode = :by_regime,
             Sigma_mode = :by_regime,
             A_decomp = A_decomp,
-            root_mean_mode = :stationary_design,
+            root_mean_mode = :regime,
             root_cov_mode = :fixed,
         )
     end
@@ -71,9 +71,8 @@ function _mvou_spec_with_root(
 )
     base = mvou_spec(model; A_decomp = A_decomp)
     mean_mode = something(root_mean_mode, base.root_mean_mode)
-    mean_mode in (:theta, :root_regime_theta, :stationary_design) ||
-        throw(ArgumentError("Unsupported multivariate OU root_mean_mode=$mean_mode"))
-    root_cov_mode in (:fixed, :stationary) ||
+    _validate_ou_root_mean_mode(mean_mode)
+    root_cov_mode in (:fixed, :random) ||
         throw(ArgumentError("Unsupported multivariate OU root_cov_mode=$root_cov_mode"))
     return MVOUSpec(
         model = base.model,
@@ -85,6 +84,22 @@ function _mvou_spec_with_root(
         root_cov_mode = root_cov_mode,
     )
 end
+
+function _mvou_public_spec(model::Symbol; root_mean_mode::Symbol, root_cov_mode::Symbol, A_decomp::Symbol)
+    if model in (:mvOU1, :mvOUM)
+        _validate_shared_ou_root(model, root_mean_mode, root_cov_mode)
+    else
+        _validate_regime_ou_root(model, root_mean_mode, root_cov_mode)
+    end
+    return _mvou_spec_with_root(model; root_mean_mode, root_cov_mode, A_decomp)
+end
+
+@inline _mvou_profiles_fixed_mean(spec::MVOUSpec) =
+    spec.root_mean_mode in (:regime, :stationary) &&
+    spec.root_cov_mode in (:fixed, :random)
+
+@inline _mvou_mean_ncoefficients(spec::MVOUSpec, p::Integer, nregimes::Integer) =
+    p * nregimes
 
 @inline function _mvou_A_block_nparams(spec::MVOUSpec, p::Integer)
     if spec.A_decomp === :cholesky
@@ -701,9 +716,10 @@ function _mvou_build_precalc(
 end
 
 function _mvou_precalc(tree::CompactTree, spec::MVOUSpec; edge_segments = nothing)
+    _validate_ou_root_mean_mode(spec.root_mean_mode)
     _validate_binary_tree(tree)
     _validate_ultrametric_tree(tree)
-    spec.root_cov_mode in (:fixed, :stationary) ||
+    spec.root_cov_mode in (:fixed, :random) ||
         throw(ArgumentError("Unsupported multivariate OU root_cov_mode=$(spec.root_cov_mode)"))
     return _mvou_build_precalc(tree, spec; edge_segments = edge_segments)
 end

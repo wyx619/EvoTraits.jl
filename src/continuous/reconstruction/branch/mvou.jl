@@ -46,10 +46,12 @@ function _mvou_segment_eval_mean(
 end
 
 function _mvou_asr_bundle(fit::MVContinuousOUResult)
+    _validate_ou_theta0(fit.root_mean_mode, fit.theta0)
     if fit.model === :mvOU1 || fit.model === :mvOUM
-        return MVOUParameterBundle(theta = vec(fit.theta'), A = fit.A[:, :, 1], Sigma = fit.Sigma[:, :, 1])
+        return MVOUParameterBundle(theta = vec(fit.theta'), A = fit.A[:, :, 1], Sigma = fit.Sigma[:, :, 1], theta0 = fit.theta0)
     elseif fit.model === :mvOUMV
         return MVOUParameterBundle(
+            theta0 = fit.theta0,
             theta = vec(fit.theta'),
             A = fit.A[:, :, 1],
             Sigma = fit.Sigma[:, :, 1],
@@ -57,6 +59,7 @@ function _mvou_asr_bundle(fit::MVContinuousOUResult)
         )
     elseif fit.model === :mvOUMA
         return MVOUParameterBundle(
+            theta0 = fit.theta0,
             theta = vec(fit.theta'),
             A = fit.A[:, :, 1],
             A_regimes = fit.A,
@@ -64,6 +67,7 @@ function _mvou_asr_bundle(fit::MVContinuousOUResult)
         )
     elseif fit.model === :mvOUMVA
         return MVOUParameterBundle(
+            theta0 = fit.theta0,
             theta = vec(fit.theta'),
             A = fit.A[:, :, 1],
             A_regimes = fit.A,
@@ -190,5 +194,13 @@ function _mvou_branch_posterior(
         root_cov = _mvou_root_covariance(precalc, bundle),
     )
     post.success || return (success = false,)
-    return (success = true, post = post, bundle = bundle, node_means = node_means, precalc = precalc, p = p)
+    raw_means = if fit.root_mean_mode === :stationary
+        raw = MVOUPrecalc(edge_segments = edge_segments, nregimes = fit.nregimes,
+            root_regime = precalc.root_regime, A_decomp = fit.A_decomp, root_mean_mode = :stationary_design)
+        _mvou_node_means(tree, bundle, raw)
+    else
+        node_means
+    end
+    return (success = true, post = post, bundle = bundle, node_means = node_means, raw_means = raw_means,
+        precalc = precalc, p = p, centered = centered)
 end

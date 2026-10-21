@@ -32,7 +32,9 @@ end
 """
     MVContinuousOUResult
 
-Result type returned by multivariate OU-family fits.
+Result type returned by multivariate OU-family fits. Mean diagnostics follow
+trait order within each regime. The `theta0` field is retained only for reading
+historical results and is `nothing` in new fits.
 """
 Base.@kwdef struct MVContinuousOUResult <: AbstractMVContinuousFitResult
     model::Symbol = :unknown
@@ -56,6 +58,8 @@ Base.@kwdef struct MVContinuousOUResult <: AbstractMVContinuousFitResult
     f_calls::Int = 0
     B::Matrix{Float64} = zeros(0, 0)
     vX0::Vector{Float64} = Float64[]
+    theta0::Union{Nothing, Vector{Float64}} = nothing
+    mean_diagnostics::Union{Nothing, OUMeanDiagnostics} = nothing
 end
 
 function Base.summary(res::MVContinuousOUResult)
@@ -85,6 +89,11 @@ function Base.show(io::IO, ::MIME"text/plain", res::MVContinuousOUResult)
     println(io, "  traits:    ", join(trait_names, ", "))
     println(io, "  regimes:   ", join(regime_names, ", "))
     println(io, "  A decomp:  ", res.A_decomp)
+    println(io, "  root mean: ", res.root_mean_mode)
+    println(io, "  root cov:  ", res.root_cov_mode)
+    res.theta0 === nothing || println(io, "  theta0:    ", res.theta0)
+    res.mean_diagnostics === nothing || println(io, "  mean rank: ",
+        res.mean_diagnostics.rank, "/", res.mean_diagnostics.ncoefficients)
     println(io, "  iterations:", res.iterations)
     println(io, "  f_calls:   ", res.f_calls)
     println(io)

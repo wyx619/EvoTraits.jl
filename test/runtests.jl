@@ -13,6 +13,8 @@ include("simulate/simulation.jl")
 include("continuous/multivariate/simulation_and_assets.jl")
 include("continuous/multivariate/bm_family.jl")
 include("continuous/multivariate/ou_family.jl")
+include("continuous/multivariate/regime_root_contract.jl")
+include("continuous/multivariate/shared_root_contract.jl")
 
 include("discrete/MK/mk.jl")
 include("discrete/corHMM/corhmm.jl")

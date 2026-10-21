@@ -25,7 +25,11 @@ function _mvou1_tree_pruning_profile(
         return (success = false, loglik = -Inf)
     end
 
-    centered = data .- reshape(bundle.theta, 1, p)
+    means = _mvou_node_means(tree, bundle, precalc)
+    centered = copy(data)
+    for (i, tip) in enumerate(tree.tip_ids)
+        @views centered[i, :] .-= means[tip]
+    end
     branch = _mvou_branch_cache(precalc, bundle.A, bundle.Sigma)
     return _mv_recursive_profile(
         tree,
@@ -51,7 +55,6 @@ function _mvou1_tree_pruning_asr(
     p = fit.ntraits
     size(data, 2) == p || throw(ArgumentError("Trait dimension does not match fit"))
 
-    centered = data .- repeat(fit.theta, tree.ntips, 1)
     precalc = _mvou_precalc(
         tree,
         _mvou_spec_with_root(
@@ -61,21 +64,33 @@ function _mvou1_tree_pruning_asr(
             root_cov_mode = fit.root_cov_mode,
         ),
     )
-    bundle = MVOUParameterBundle(
-        theta = vec(fit.theta),
-        A = fit.A[:, :, 1],
-        Sigma = fit.Sigma[:, :, 1],
-    )
+    bundle = _mvou_asr_bundle(fit)
+    means = _mvou_node_means(tree, bundle, precalc)
+    centered = copy(data)
+    for (i, tip) in enumerate(tree.tip_ids)
+        @views centered[i, :] .-= means[tip]
+    end
     branch = _mvou_branch_cache(precalc, bundle.A, bundle.Sigma)
-    return _mv_recursive_asr(
+    asr = _mv_recursive_asr(
         tree,
         centered,
         branch.Phi,
         branch.Q;
         root_mean = zeros(Float64, p),
         root_cov = _mvou_root_covariance(precalc, bundle),
-        shift = vec(fit.theta),
+        shift = zeros(p),
         model = :mvOU1,
     )
+    asr.success || return asr
+    for (i, node) in enumerate(asr.node_ids)
+        @views asr.estimates[i, :] .+= means[node]
+    end
+    for node in 1:tree.nnodes
+        @views asr.all_node_estimates[node, :] .+= means[node]
+    end
+    for (i, tip) in enumerate(asr.tip_ids)
+        @views asr.tip_estimates[i, :] .+= means[tip]
+    end
+    return asr
 end
 
