@@ -3,7 +3,7 @@ using Test, EvoTraits, LinearAlgebra, Random, TOML, DataFrames
 set_engine_blas_threads!(1)
 
 function _regime_root_fixture(p = 2)
-    tree = simulate_yule_tree(14; tree_height = 1.0, rng = MersenneTwister(1191))
+    tree = sim_yule_tree(14; tree_height = 1.0, rng = MersenneTwister(1191))
     segments = [[SimmapSegment(state = 2, length = 0.2t),
         SimmapSegment(state = 1 + e % 2, length = 0.45t),
         SimmapSegment(state = 1 + (e + 1) % 2, length = 0.35t)]
@@ -20,11 +20,11 @@ end
 
 function _regime_root_fixed(model, tree, data, segments, bundle, theta; kwargs...)
     if model === :mvOUMV
-        return mvoumv_loglikelihood(tree, data, segments, bundle.A, bundle.Sigma_regimes, theta; kwargs...)
+        return mvoumv_LL(tree, data, segments, bundle.A, bundle.Sigma_regimes, theta; kwargs...)
     elseif model === :mvOUMA
-        return mvouma_loglikelihood(tree, data, segments, bundle.A_regimes, bundle.Sigma, theta; kwargs...)
+        return mvouma_LL(tree, data, segments, bundle.A_regimes, bundle.Sigma, theta; kwargs...)
     end
-    return mvoumva_loglikelihood(tree, data, segments, bundle.A_regimes, bundle.Sigma_regimes, theta; kwargs...)
+    return mvoumva_LL(tree, data, segments, bundle.A_regimes, bundle.Sigma_regimes, theta; kwargs...)
 end
 
 # Independent dense propagation is restricted to these tiny test trees.
@@ -102,7 +102,7 @@ end
     for (uni, mv) in ((:OUMV, :mvOUMV), (:OUMA, :mvOUMA), (:OUMVA, :mvOUMVA))
         A, Sigma = [0.7 0.12; 0.12 0.9], [0.5 -0.08; -0.08 0.8]
         bundle = _regime_root_bundle(mv, A, Sigma)
-        unilik = getfield(EvoTraits, Symbol(lowercase(string(uni)), "_loglikelihood"))
+        unilik = getfield(EvoTraits, Symbol(lowercase(string(uni)), "_LL"))
         unifit = getfield(EvoTraits, Symbol("fit_", lowercase(string(uni))))
         mvfit = getfield(EvoTraits, Symbol("fit_", lowercase(string(mv))))
         alpha = uni === :OUMV ? 0.7 : [0.7, 0.9]

@@ -28,7 +28,7 @@ function _ou_root_prior(spec::OUSpec, bundle::OUParameterBundle; cache = nothing
     throw(ArgumentError("Unsupported OU root_cov_mode=$(spec.root_cov_mode)"))
 end
 
-function _ou_loglikelihood(
+function _ou_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     spec::OUSpec,
@@ -87,7 +87,7 @@ function _ou_prepare_context(
     return OULikelihoodContext(tree, tr, spec, cache, tip_index)
 end
 
-function _ou_context_loglikelihood(
+function _ou_context_LL(
     context::OULikelihoodContext,
     bundle::OUParameterBundle,
     workspace::OULikelihoodWorkspace,
@@ -142,7 +142,7 @@ function _ou_context_objective(
     nregimes = context.cache === nothing ? 1 : context.cache.nregimes
     return function (par)
         bundle = _ou_unpack_params(context.spec, par, nregimes)
-        prof = _ou_context_loglikelihood(context, bundle, workspace)
+        prof = _ou_context_LL(context, bundle, workspace)
         return prof.success ? -prof.loglik : Inf
     end
 end

@@ -1,5 +1,5 @@
 """
-    ou1_loglikelihood(tree, trait, alpha, sigma2, theta)
+    ou1_LL(tree, trait, alpha, sigma2, theta)
 
 Evaluate the single-optimum Ornstein-Uhlenbeck (`OU1`) log-likelihood under the
 unified OU engine. `alpha`, `sigma2`, and `theta` are treated as fixed inputs,
@@ -11,7 +11,7 @@ and the returned result records the current OU root-mode metadata.
 `root_cov_mode=:fixed` (default) or `:random` selects zero or stationary
 root process variance.
 """
-function ou1_loglikelihood(
+function ou1_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     alpha::Real,
@@ -26,7 +26,7 @@ function ou1_loglikelihood(
     spec = _ou_public_spec(:OU1; root_mean_mode, root_cov_mode)
     _validate_ou_theta0(root_mean_mode, theta0)
     bundle = OUParameterBundle(theta = [Float64(theta)], alpha = [Float64(alpha)], sigma2 = [Float64(sigma2)], theta0 = theta0)
-    prof = _ou_loglikelihood(tree, trait, spec, bundle)
+    prof = _ou_LL(tree, trait, spec, bundle)
     nparams = _ou_nparams(spec, 1)
     return ContinuousFitResult(
         model = :OU1,
@@ -51,7 +51,7 @@ end
 
 Fit the single-trait `OU1` model by maximum likelihood using the unified OU
 engine. Keyword arguments provide optimizer controls and optional trait naming.
-Root options match [`ou1_loglikelihood`](@ref). The root mean is the optimum;
+Root options match [`ou1_LL`](@ref). The root mean is the optimum;
 the model has three parameters: `alpha`, `sigma2`, and `theta`.
 """
 function fit_ou1(
@@ -105,7 +105,7 @@ function fit_ou1(
     return fit_ou1(tree, trait; trait_name = trait_name, kwargs...)
 end
 
-function ou1_loglikelihood(
+function ou1_LL(
     tree::CompactTree,
     data::AbstractDataFrame,
     alpha::Real,
@@ -115,6 +115,6 @@ function ou1_loglikelihood(
     kwargs...,
 )
     trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
-    return ou1_loglikelihood(tree, trait, alpha, sigma2, theta; trait_name = trait_name, kwargs...)
+    return ou1_LL(tree, trait, alpha, sigma2, theta; trait_name = trait_name, kwargs...)
 end
 

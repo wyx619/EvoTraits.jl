@@ -1,5 +1,5 @@
 """
-    mvoum_loglikelihood(tree, trait, edge_segments, A, Sigma, theta_regimes)
+    mvoum_LL(tree, trait, edge_segments, A, Sigma, theta_regimes)
 
 Evaluate the multivariate multi-optimum Ornstein-Uhlenbeck (`mvOUM`)
 log-likelihood with regime-specific optimum vectors, shared `A`, and shared
@@ -12,7 +12,7 @@ Root means `:regime` (default) and
 each full mean-design row by its sum; undefined sums raise an error. Its root value uses the t -> 0+
 limit. It is distinct from legacy zero-root `:stationary_design`.
 """
-function mvoum_loglikelihood(
+function mvoum_LL(
     tree::CompactTree,
     trait::AbstractMatrix{<:Real},
     edge_segments::Vector{Vector{SimmapSegment}},
@@ -40,7 +40,7 @@ function mvoum_loglikelihood(
     precalc = _mvou_precalc(tree, spec; edge_segments = edge_segments)
     size(theta_regimes, 1) == precalc.nregimes || throw(ArgumentError("theta_regimes row count must match regime count"))
     bundle = MVOUParameterBundle(theta = vec(copy(theta_regimes')), A = Matrix{Float64}(A), Sigma = Matrix{Float64}(Sigma), theta0 = theta0 === nothing ? nothing : Float64.(theta0))
-    prof = _mvou_fixed_loglikelihood(tree, data, precalc, bundle)
+    prof = _mvou_fixed_LL(tree, data, precalc, bundle)
     Ablock = _mvou_A_block_nparams(spec, p)
     Sblock = _mvou_sigma_block_nparams(p)
     nparams = Ablock + Sblock + _mvou_mean_ncoefficients(spec, p, precalc.nregimes)
@@ -71,7 +71,7 @@ end
 Fit the multivariate multi-optimum Ornstein-Uhlenbeck (`mvOUM`) model with
 regime-specific optimum vectors and shared `A` / `Sigma`.
 
-Root options match [`mvoum_loglikelihood`](@ref). GLS profiles the regime optima;
+Root options match [`mvoum_LL`](@ref). GLS profiles the regime optima;
 inspect `mean_diagnostics` for rank deficiency.
 
 Set `n_starts > 0` to add that many random starting points, each optimised

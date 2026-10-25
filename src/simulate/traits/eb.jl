@@ -1,9 +1,9 @@
 """
-    simulate_mveb(tree, Sigma, beta; root_state=nothing, rng=Random.GLOBAL_RNG)
+    sim_mveb(tree, Sigma, beta; root_state=nothing, rng=Random.GLOBAL_RNG)
 
 Simulate an early-burst trait matrix with shared `Sigma` and scalar `beta`.
 """
-function simulate_mveb(
+function sim_mveb(
     tree::CompactTree,
     Sigma::AbstractMatrix,
     beta::Real;

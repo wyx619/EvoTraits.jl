@@ -34,7 +34,7 @@ end
         S=rotation*Diagonal([small,0.8])*rotation'
         S=(S+S')/2
         S2=[1.2 0.1;0.1 1.]
-        fixed=mvshift_loglikelihood(tree,Y,[S,S2];model=:SR,age=2.)
+        fixed=mvshift_LL(tree,Y,[S,S2];model=:SR,age=2.)
         @test fixed.success
         # Independent tip covariance: early shared times and late shared times.
         early=[2. 2. 0. 0.;2. 2. 0. 0.;0. 0. 2. 2.;0. 0. 2. 2.]
@@ -48,10 +48,10 @@ end
         @test fixed.loglik ≈ ll atol=1e-10
         @test fixed.theta ≈ theta atol=1e-10
         roundtrip=EvoTraits._shift_unpack_sigma(EvoTraits._shift_pack_sigma(S,:cholesky),2,:cholesky)
-        replay=mvshift_loglikelihood(tree,Y,[roundtrip,S2];model=:SR,age=2.)
+        replay=mvshift_LL(tree,Y,[roundtrip,S2];model=:SR,age=2.)
         @test replay.loglik ≈ ll atol=1e-10
         supplied=[0.1,-0.2]
-        fixedtheta=mvshift_loglikelihood(tree,Y,[S,S2];model=:SR,age=2.,theta=supplied)
+        fixedtheta=mvshift_LL(tree,Y,[S,S2];model=:SR,age=2.,theta=supplied)
         residual=vec(Y)-W*supplied
         @test fixedtheta.loglik ≈ -0.5*(dot(residual,F\residual)+logdet(F)+8log(2pi)) atol=1e-10
         for pattern in ([(1,1)],[(1,1),(2,2)],[(1,1),(1,2)],
@@ -60,7 +60,7 @@ end
             for (i,j) in pattern
                 missingY[i,j]=NaN
             end
-            uncertain=mvshift_loglikelihood(tree,missingY,[S,S2];model=:SR,age=2.)
+            uncertain=mvshift_LL(tree,missingY,[S,S2];model=:SR,age=2.)
             @test uncertain.success
             observed=findall(!isnan,vec(missingY))
             Wobs=W[observed,:]
@@ -71,20 +71,20 @@ end
             expected=-0.5*(dot(residual,Fobs\residual)+logdet(Fobs)+length(observed)*log(2pi))
             @test uncertain.loglik ≈ expected atol=1e-10
             @test uncertain.theta ≈ mean atol=1e-10
-            suppliedfit=mvshift_loglikelihood(tree,missingY,[S,S2];model=:SR,age=2.,theta=supplied)
+            suppliedfit=mvshift_LL(tree,missingY,[S,S2];model=:SR,age=2.,theta=supplied)
             residual=yobs-Wobs*supplied
             @test suppliedfit.loglik ≈ -0.5*(dot(residual,Fobs\residual)+logdet(Fobs)+length(observed)*log(2pi)) atol=1e-10
         end
     end
     zero=EvoTraits._parse_load_tree_text("(((a:1,b:1):0,c:1):1,(d:1,e:1):1);")
     Yzero=[0.2 NaN;NaN 0.6;1.4 -0.3;NaN NaN;0.9 1.2]
-    zerofit=mvshift_loglikelihood(zero,Yzero,[[0.8 0.1;0.1 0.6],[1.2 0.1;0.1 1.]];model=:SR,age=0.5)
+    zerofit=mvshift_LL(zero,Yzero,[[0.8 0.1;0.1 0.6],[1.2 0.1;0.1 1.]];model=:SR,age=0.5)
     @test zerofit.success
     @test all(isfinite,zerofit.theta)
     # Exactly deterministic contradictory observations do not define a nonsingular density.
     singular=EvoTraits._parse_load_tree_text("((a:0,b:0):2,(c:1,d:1):1);")
     singularY=[0.2 NaN;0.4 NaN;1.4 -0.3;0.9 1.2]
-    invalid=mvshift_loglikelihood(singular,singularY,[[0.8 0.1;0.1 0.6],[1.2 0.1;0.1 1.]];model=:SR,age=0.5)
+    invalid=mvshift_LL(singular,singularY,[[0.8 0.1;0.1 0.6],[1.2 0.1;0.1 1.]];model=:SR,age=0.5)
     @test !invalid.success
     @test invalid.loglik==-Inf
 end

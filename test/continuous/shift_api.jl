@@ -13,7 +13,7 @@
             eb ? (beta=-0.3,) : NamedTuple(), independent ? (sig=fill(1.04,1,1),) : NamedTuple())
         fitextra=merge(ou ? (guess_A=fill(0.4,1,1),) : NamedTuple(),
             eb ? (guess_beta=-0.3,) : NamedTuple(),independent ? (guess_sig=fill(1.04,1,1),) : NamedTuple())
-        fixed=mvshift_loglikelihood(tree,Y,S;model=name,age=2.,fixedextra...)
+        fixed=mvshift_LL(tree,Y,S;model=name,age=2.,fixedextra...)
         fitted=fit_mvshift(tree,Y;model=name,age=2.,guess_sigma=S,
             optimization=:LN_SBPLX,max_iterations=1,fitextra...)
         @test fixed isa ShiftFitResult
@@ -26,7 +26,7 @@
         replayextra=merge(ou ? (A=fitted.A,) : NamedTuple(),
             eb ? (beta=fitted.input_beta,) : NamedTuple(),
             independent ? (sig=fitted.sig,) : NamedTuple())
-        replay=mvshift_loglikelihood(tree,Y,replayS;model=name,age=2.,replayextra...)
+        replay=mvshift_LL(tree,Y,replayS;model=name,age=2.,replayextra...)
         @test replay.loglik ≈ fitted.loglik atol=1e-10
         @test size(fitted.sigma)==(1,1)
         @test length(fitted.theta)==1
@@ -37,14 +37,14 @@
         @test nparams(fitted)==fixed.nparams
         @test length(aic_table(:fixed=>fixed,:fit=>fitted))==2
         cache=shift_precalc(tree;age=2.)
-        reused=mvshift_loglikelihood(tree,Y,S;model=name,precalc=cache,fixedextra...)
+        reused=mvshift_LL(tree,Y,S;model=name,precalc=cache,fixedextra...)
         @test reused.loglik ≈ fixed.loglik atol=1e-10
         uniextra=merge(ou ? (alpha=0.4,) : NamedTuple(), eb ? (beta=-0.3,) : NamedTuple(),
             independent ? (sig=1.04,) : NamedTuple())
         unifitextra=merge(ou ? (guess_alpha=0.4,) : NamedTuple(),eb ? (guess_beta=-0.3,) : NamedTuple(),
             independent ? (guess_sig=1.04,) : NamedTuple())
         scalarS=name===:SR ? [0.8,1.04] : 0.8
-        uni=shift_loglikelihood(tree,y,scalarS;model=name,age=2.,uniextra...)
+        uni=shift_LL(tree,y,scalarS;model=name,age=2.,uniextra...)
         unifit=fit_shift(tree,y;model=name,age=2.,guess_sigma2=scalarS,
             optimization=:LN_SBPLX,max_iterations=1,unifitextra...)
         @test uni.loglik ≈ fixed.loglik atol=1e-10
@@ -56,7 +56,7 @@
     @test fit_mvshift(tree,missingY;model=:EBBM,age=2.,max_iterations=10).nobs==3
     @test_throws ArgumentError fit_shift(tree,y;model=:unknown,age=2.)
     @test_throws ArgumentError fit_shift(tree,y;model=:SR,age=2.,guess_alpha=0.4)
-    @test_throws ArgumentError mvshift_loglikelihood(tree,Y,fill(0.8,1,1);model=:EBBM,age=2.)
+    @test_throws ArgumentError mvshift_LL(tree,Y,fill(0.8,1,1);model=:EBBM,age=2.)
     @test_throws ArgumentError fit_mvshift(tree,Y;model=:EBBM,age=2.,max_iterations=0)
     @test_throws MethodError fit_mvshift(tree,Y;model=:EBBM,age=2.,error=0.1)
 end

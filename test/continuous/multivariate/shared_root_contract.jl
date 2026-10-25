@@ -1,7 +1,7 @@
 using Test, EvoTraits, LinearAlgebra, Random
 
 function _shared_root_fixture(p = 2)
-    tree = simulate_yule_tree(12; tree_height = 1.0, rng = MersenneTwister(2911))
+    tree = sim_yule_tree(12; tree_height = 1.0, rng = MersenneTwister(2911))
     segments = [[SimmapSegment(state = 2, length = 0.3t),
         SimmapSegment(state = 1 + e % 2, length = 0.25t),
         SimmapSegment(state = 1 + (e + 1) % 2, length = 0.45t)]
@@ -66,8 +66,8 @@ function _shared_root_fixed(tree, data, segments, A, Sigma, mode, covariance_mod
     p, k = size(data, 2), ou1 ? 1 : 2
     theta = permutedims(reshape(coefficients[1:(k * p)], p, k))
     kwargs = (; root_mean_mode = mode, root_cov_mode = covariance_mode, A_decomp)
-    return ou1 ? mvou1_loglikelihood(tree, data, A, Sigma, vec(theta); kwargs...) :
-        mvoum_loglikelihood(tree, data, segments, A, Sigma, theta; kwargs...)
+    return ou1 ? mvou1_LL(tree, data, A, Sigma, vec(theta); kwargs...) :
+        mvoum_LL(tree, data, segments, A, Sigma, theta; kwargs...)
 end
 
 @testset "Shared OU root likelihood, GLS and Gaussian ASR" begin
@@ -166,9 +166,9 @@ end
             end
         end
         if p == 1
-            uni = ou1 ? ou1_loglikelihood(tree, data[:, 1], A[1], Sigma[1], coefficients[1];
+            uni = ou1 ? ou1_LL(tree, data[:, 1], A[1], Sigma[1], coefficients[1];
                 root_mean_mode = mode, root_cov_mode = covariance_mode) :
-                oum_loglikelihood(tree, data[:, 1], segments, A[1], Sigma[1], coefficients[1:2];
+                oum_LL(tree, data[:, 1], segments, A[1], Sigma[1], coefficients[1:2];
                     root_mean_mode = mode, root_cov_mode = covariance_mode)
             @test isapprox(uni.loglik, fixed.loglik; atol = 2e-9)
             unode = ou1 ? estim_node(tree, data[:, 1], uni) : estim_node(tree, data[:, 1], uni; edge_segments = segments)
@@ -209,7 +209,7 @@ end
     for mode in (:regime, :stationary), cov in (:fixed, :random)
         fit = fit_ou1(tree, data[:, 1]; max_iterations = 20, root_mean_mode = mode, root_cov_mode = cov)
         @test fit.success
-        replay = ou1_loglikelihood(tree, data[:, 1], fit.alpha, fit.sigma2, fit.theta;
+        replay = ou1_LL(tree, data[:, 1], fit.alpha, fit.sigma2, fit.theta;
             root_mean_mode = mode, root_cov_mode = cov, theta0 = fit.theta0)
         @test isapprox(fit.loglik, replay.loglik; atol = 1e-7)
         @test fit.nparams == 3
@@ -217,7 +217,7 @@ end
         oum = fit_oum(tree, data[:, 1], segments; max_iterations = 20,
             root_mean_mode = mode, root_cov_mode = cov)
         @test oum.success
-        replay_oum = oum_loglikelihood(tree, data[:, 1], segments, oum.alpha, oum.sigma2[1], oum.theta_regimes;
+        replay_oum = oum_LL(tree, data[:, 1], segments, oum.alpha, oum.sigma2[1], oum.theta_regimes;
             root_mean_mode = mode, root_cov_mode = cov, theta0 = oum.theta0)
         @test isapprox(oum.loglik, replay_oum.loglik; atol = 1e-7)
         @test isapprox(oum.aic, replay_oum.aic; atol = 1e-7)
@@ -231,9 +231,9 @@ end
         @test_throws ArgumentError EvoTraits._validate_shared_ou_root(model, mode, cov)
     end
     for ou1 in (false, true)
-        ul = ou1 ? ou1_loglikelihood : oum_loglikelihood
+        ul = ou1 ? ou1_LL : oum_LL
         uf = ou1 ? fit_ou1 : fit_oum
-        ml = ou1 ? mvou1_loglikelihood : mvoum_loglikelihood
+        ml = ou1 ? mvou1_LL : mvoum_LL
         mf = ou1 ? fit_mvou1 : fit_mvoum
         ua = ou1 ? (tree, data[:, 1]) : (tree, data[:, 1], segments)
         ma = ou1 ? (tree, data) : (tree, data, segments)
@@ -258,7 +258,7 @@ end
         @test_throws ArgumentError uf(ua...; root_cov_mode = :free)
         @test_throws ArgumentError mf(ma...; root_cov_mode = :nonstationary)
     end
-    @test_throws DomainError mvoum_loglikelihood(tree, data, segments, [1.0 -1.0; -1.0 2.0],
+    @test_throws DomainError mvoum_LL(tree, data, segments, [1.0 -1.0; -1.0 2.0],
         Matrix{Float64}(I, 2, 2), [0.2 0.3; 0.4 0.5]; root_mean_mode = :stationary)
     for theta0 in (nothing, 1.0)
         unsupported = ContinuousFitResult(model = :OU1, success = true, alpha = 0.5, sigma2 = 0.4,

@@ -51,7 +51,7 @@ end
         end
     end
     invalid = EnvCurve([0.,1.,3.],[0.,1.5,0.])
-    result = t_env_loglikelihood(tree,[0.4,-0.7,1.2,0.1],invalid,0.7,1e-15;model=:EnvLin)
+    result = t_env_LL(tree,[0.4,-0.7,1.2,0.1],invalid,0.7,1e-15;model=:EnvLin)
     @test !result.success
     constant = EnvCurve([0.,1.,3.],ones(3))
     cache = EvoTraits._env_precalc(tree,constant;model=:EnvLin)

@@ -56,13 +56,13 @@ function _mvbm1_asr(
 end
 
 """
-    mvbm1_loglikelihood(tree, trait, Sigma)
+    mvbm1_LL(tree, trait, Sigma)
 
 Evaluate the multivariate Brownian-motion (`mvBM1`) log-likelihood for a fixed
 shared trait diffusion covariance matrix `Sigma`. The root mean vector is
 profiled by generalized least squares.
 """
-function mvbm1_loglikelihood(
+function mvbm1_LL(
     tree::CompactTree,
     trait::AbstractMatrix{<:Real},
     Sigma::AbstractMatrix{<:Real};

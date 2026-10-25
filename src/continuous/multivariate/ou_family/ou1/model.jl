@@ -1,5 +1,5 @@
 """
-    mvou1_loglikelihood(tree, trait, A, Sigma, theta)
+    mvou1_LL(tree, trait, A, Sigma, theta)
 
 Evaluate the multivariate single-optimum Ornstein-Uhlenbeck (`mvOU1`)
 log-likelihood for fixed `A`, `Sigma`, and `theta` using tree pruning.
@@ -10,7 +10,7 @@ Root means `:regime` (default) and
 or stationary root covariance with `root_cov_mode=:fixed` (default) or
 `:random`.
 """
-function mvou1_loglikelihood(
+function mvou1_LL(
     tree::CompactTree,
     trait::AbstractMatrix{<:Real},
     A::AbstractMatrix{<:Real},
@@ -31,7 +31,7 @@ function mvou1_loglikelihood(
     length(theta_vec) == p || throw(ArgumentError("theta length must match trait dimension"))
     precalc = _mvou_precalc(tree, spec)
     bundle = MVOUParameterBundle(theta = theta_vec, A = Matrix{Float64}(A), Sigma = Matrix{Float64}(Sigma), theta0 = theta0 === nothing ? nothing : Float64.(theta0))
-    prof = _mvou_fixed_loglikelihood(tree, data, precalc, bundle)
+    prof = _mvou_fixed_LL(tree, data, precalc, bundle)
     Ablock = _mvou_A_block_nparams(spec, p)
     Sblock = _mvou_sigma_block_nparams(p)
     nparams = Ablock + Sblock + _mvou_mean_ncoefficients(spec, p, 1)
@@ -62,7 +62,7 @@ end
 Fit the multivariate single-optimum Ornstein-Uhlenbeck (`mvOU1`) model by
 maximum likelihood.
 
-Root options match [`mvou1_loglikelihood`](@ref). GLS profiles the optimum;
+Root options match [`mvou1_LL`](@ref). GLS profiles the optimum;
 the root mean is the same vector. The result records `mean_diagnostics`.
 
 Set `n_starts > 0` to add that many random starting points, each optimised

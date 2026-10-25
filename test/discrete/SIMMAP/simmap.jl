@@ -85,7 +85,7 @@ end
     @test length(replicate_events) == 2
     @test Set(event.sim_id for event in replicate_events) == Set([1, 2])
 
-    df_single = transition_events_DataFrame(toy_tree, simmap)
+    df_single = transition_events_table(toy_tree, simmap)
     @test names(df_single) == ["sim_id", "edge_id", "from", "to", "time_before_present"]
     @test size(df_single, 1) == 1
     @test df_single.sim_id == [1]
@@ -94,24 +94,28 @@ end
     @test df_single.to == ["blue"]
     @test isapprox(df_single.time_before_present[1], 1.75; atol = 1e-8)
 
-    df_single_R = transition_events_DataFrame(toy_tree, simmap; R_order = :postorder)
+    df_single_R = transition_events_table(toy_tree, simmap; R_order = :postorder)
     @test names(df_single_R) == ["sim_id", "edge_id", "from", "to", "time_before_present", "R_edge_id", "R_parent_node_id", "R_child_node_id", "branch_length", "tipX", "tipY", "descendant_signature"]
     @test df_single_R.R_edge_id == [3]
     @test df_single_R.tipX == ["A"]
     @test df_single_R.tipY == ["B"]
     @test df_single_R.descendant_signature == ["A|B"]
 
-    df_multi = transition_events_DataFrame(toy_tree, [simmap, simmap])
+    df_multi = transition_events_table(toy_tree, [simmap, simmap])
     @test size(df_multi, 1) == 2
     @test Set(df_multi.sim_id) == Set([1, 2])
     @test all(df_multi.from .== "red")
     @test all(df_multi.to .== "blue")
 
-    df_multi_R = transition_events_DataFrame(toy_tree, [simmap, simmap]; R_order = :cladewise)
+    df_multi_R = transition_events_table(toy_tree, [simmap, simmap]; R_order = :cladewise)
     @test size(df_multi_R, 1) == 2
     @test all(df_multi_R.R_edge_id .== 1)
     @test all(df_multi_R.tipX .== "A")
     @test all(df_multi_R.tipY .== "B")
+
+    @test isequal(transition_events_DataFrame(toy_tree, simmap), df_single)
+    @test isequal(transition_events_DataFrame(toy_tree, [simmap, simmap]; R_order = :cladewise), df_multi_R)
+    @test isequal(EvoTraits.transitionevents(toy_tree, simmap; R_order = :postorder), df_single_R)
 
     rates = transition_rates_through_time(toy_tree, [simmap, simmap]; bin = 1.0)
     red_blue = filter(rate -> rate.transition == "red -> blue" && isapprox(rate.mya, 2.0; atol = 1e-8), rates)

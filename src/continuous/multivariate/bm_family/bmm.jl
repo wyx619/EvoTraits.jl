@@ -267,13 +267,13 @@ function _mvbmm_asr(
 end
 
 """
-    mvbmm_loglikelihood(tree, trait, mapped_edge, Sigmas)
+    mvbmm_LL(tree, trait, mapped_edge, Sigmas)
 
 Evaluate the multivariate multi-regime Brownian-motion (`mvBMM`) log-likelihood
 for fixed regime-specific trait covariance matrices `Sigmas`. The root mean
 vectors are profiled by generalized least squares.
 """
-function mvbmm_loglikelihood(
+function mvbmm_LL(
     tree::CompactTree,
     trait::AbstractMatrix{<:Real},
     mapped_edge::AbstractMatrix{<:Real},

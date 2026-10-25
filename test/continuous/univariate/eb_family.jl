@@ -4,7 +4,7 @@
     toy_tree = serialize_tree(read_tree(eb_tree_path))
     trait = [1.0, 1.15, 2.0, 2.2]
 
-    ll = eb_loglikelihood(toy_tree, trait, 0.4, -0.2)
+    ll = eb_LL(toy_tree, trait, 0.4, -0.2)
     @test ll.success
     @test isfinite(ll.loglik)
     @test ll.nparams == 3
@@ -25,7 +25,7 @@ end
     toy_tree = serialize_tree(read_tree(tree_path))
     trait = [1.0, NaN, 2.0, 2.2]
 
-    eb = eb_loglikelihood(toy_tree, trait, 0.4, -0.2)
+    eb = eb_LL(toy_tree, trait, 0.4, -0.2)
     @test eb.success
     @test isfinite(eb.loglik)
     fit = fit_eb(toy_tree, trait; max_iterations = 40)
@@ -40,7 +40,7 @@ end
         [SimmapSegment(state = 1, length = 1.0)],
         [SimmapSegment(state = 2, length = 1.0)],
     ]
-    ebm = ebm_loglikelihood(toy_tree, trait, edge_segments, [0.2, 0.4], [-0.1, -0.2])
+    ebm = ebm_LL(toy_tree, trait, edge_segments, [0.2, 0.4], [-0.1, -0.2])
     @test ebm.success
     @test isfinite(ebm.loglik)
 end
@@ -59,7 +59,7 @@ end
         [SimmapSegment(state = 2, length = 1.0)],
     ]
 
-    ebm_ll = ebm_loglikelihood(toy_tree, trait, edge_segments, [0.2, 0.4], [-0.1, -0.2])
+    ebm_ll = ebm_LL(toy_tree, trait, edge_segments, [0.2, 0.4], [-0.1, -0.2])
     @test ebm_ll.success
     @test ebm_ll.model == :EBM
     @test length(ebm_ll.sigma2) == 2

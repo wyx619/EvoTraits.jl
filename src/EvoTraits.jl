@@ -5,8 +5,8 @@ using LinearAlgebra
 using Statistics
 using Random
 using NewickTree
-using NLopt
-using Optim
+import NLopt
+import Optim
 using DataFrames
 using Distributions
 
@@ -48,20 +48,20 @@ export to_real_tree
 
 # Simulation
 export SimulatedTree
-export simulate_yule_simtree
-export simulate_yule_tree
-export simulate_birth_death_simtree
-export simulate_birth_death_tree
-export simulate_ultrametric_newick
-export simulate_trait
-export simulate_mv_data
-export simulate_mvbm1
-export simulate_mvbmm
-export simulate_mvou1
-export simulate_mvoum
-export simulate_mvoumva
-export simulate_mveb
-export simulate_mvbm1_dataset
+export sim_yule_simtree
+export sim_yule_tree
+export sim_birth_death_simtree
+export sim_birth_death_tree
+export sim_ultrametric_newick
+export sim_trait
+export sim_mv_data
+export sim_mvbm1
+export sim_mvbmm
+export sim_mvou1
+export sim_mvoum
+export sim_mvoumva
+export sim_mveb
+export sim_mvbm1_dataset
 
 # Discrete likelihood, SIMMAP, and transition types
 export MkLikelihoodResult
@@ -92,54 +92,62 @@ export MVOUParameterBundle
 export MVContinuousOUResult
 
 # Multivariate continuous fitting and likelihood entry points
-export mvbm1_loglikelihood
+export mvbm1_LL
 export fit_mvbm1
-export mvou1_loglikelihood
+export mvou1_LL
 export fit_mvou1
-export mvoum_loglikelihood
+export mvoum_LL
 export fit_mvoum
-export mvoumv_loglikelihood
+export mvoumv_LL
 export fit_mvoumv
-export mvouma_loglikelihood
+export mvouma_LL
 export fit_mvouma
-export mvoumva_loglikelihood
+export mvoumva_LL
 export fit_mvoumva
-export mvoubm_loglikelihood
+export mvoubm_LL
 export fit_mvoubm
-export mvbmm_loglikelihood
+export mvbmm_LL
 export fit_mvbmm
-export mveb_loglikelihood
+export mveb_LL
 export fit_mveb
+
+# Univariate continuous fitting and likelihood entry points
+export bm1_LL
+export fit_bm1
+export bmm_LL
+export fit_bmm
+export ou1_LL
+export fit_ou1
+export eb_LL
+export fit_eb
+export ebm_LL
+export fit_ebm
+export oum_LL
+export fit_oum
+export oumv_LL
+export fit_oumv
+export ouma_LL
+export fit_ouma
+export oumva_LL
+export fit_oumva
+
+# Time-shift models
 export ShiftFitResult
 export ShiftPrecalc
 export shift_precalc
-export shift_loglikelihood
-export mvshift_loglikelihood
+export shift_LL
+export mvshift_LL
 export fit_shift
-export EnvCurve, EnvFitResult, t_env_loglikelihood, fit_t_env
-export SmoothEnvCurve, smooth_env
 export fit_mvshift
 export diagnose_shift
 
-# Univariate continuous fitting and likelihood entry points
-export bm1_loglikelihood
-export fit_bm1
-export bmm_loglikelihood
-export fit_bmm
-export ou1_loglikelihood
-export fit_ou1
-export eb_loglikelihood
-export fit_eb
-export ebm_loglikelihood
-export fit_ebm
-export oum_loglikelihood
-export fit_oum
-export oumv_loglikelihood
-export fit_oumv
-export ouma_loglikelihood
-export fit_ouma
-export oumva_loglikelihood
-export fit_oumva
+# Environment-dependent models
+export EnvCurve
+export SmoothEnvCurve
+export EnvFitResult
+export smooth_env
+export t_env_LL
+export fit_t_env
 
 # Shared model-comparison utilities
 export aic
@@ -171,11 +179,12 @@ export CorHMMSimmapResult
 
 # Discrete trait fitting and inference
 export tip_priors_from_states
-export mk_loglikelihood
+export mk_LL
 export mk_pruning_cache
 export sample_mk_endpoints
 export fit_mk
 export asr_mk
+export corhmm_LL
 export fit_corhmm
 export asr_corhmm
 
@@ -191,7 +200,7 @@ export prepare_simmap_sampler
 export simmap_sample
 export simmap_samples
 export transition_times
-export transition_events_DataFrame
+export transition_events_table
 export transition_rates_through_time
 export read_simmap
 export write_simmap
@@ -203,9 +212,11 @@ export print_simmap
 export describe_simmap
 export summary_simmap
 
-# The exported names above are the stable user-facing API. The implementation
-# aliases `endpoints`, `preparesampler`, and `transitionevents` remain internal;
-# `transition_events_DataFrame` is retained as a public compatibility name.
+# Legacy compatibility name; use `transition_events_table` in new code.
+export transition_events_DataFrame
+
+# The SIMMAP entry points `endpoints`, `preparesampler`, and `transitionevents`
+# remain internal.
 
 # Tree identity and mapping utilities
 export PhyloRef
@@ -222,12 +233,20 @@ export set_engine_blas_threads!
 """
     set_engine_blas_threads!(n::Integer)
 
-Set BLAS thread count explicitly. This is useful to avoid thread oversubscription
-when Julia-level threading is used for trials, bootstraps, or simmap replicates.
+Set the process-wide BLAS thread count to the positive integer `n` and return
+the resulting count. EvoTraits sets BLAS to one thread when the package loads
+to avoid oversubscription with Julia-level threading. Call this function after
+loading the package to override that default; other packages share this setting.
 """
 function set_engine_blas_threads!(n::Integer)
+    n > 0 || throw(ArgumentError("BLAS thread count must be positive"))
     BLAS.set_num_threads(n)
     return BLAS.get_num_threads()
+end
+
+function __init__()
+    set_engine_blas_threads!(1)
+    return nothing
 end
 
 end # module

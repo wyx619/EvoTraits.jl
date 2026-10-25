@@ -73,10 +73,10 @@ end
 @testset "OU branch interior agrees with dense conditioning" begin
     tree, segments, complete = ou_root_fixture()
     for (model, likelihood, alpha, sigma2) in (
-        (:OUM, oum_loglikelihood, [0.5], [0.4]),
-        (:OUMV, oumv_loglikelihood, [0.5], [0.4, 0.7]),
-        (:OUMA, ouma_loglikelihood, [0.5, 0.9], [0.4]),
-        (:OUMVA, oumva_loglikelihood, [0.5, 0.9], [0.4, 0.7]),
+        (:OUM, oum_LL, [0.5], [0.4]),
+        (:OUMV, oumv_LL, [0.5], [0.4, 0.7]),
+        (:OUMA, ouma_LL, [0.5, 0.9], [0.4]),
+        (:OUMVA, oumva_LL, [0.5, 0.9], [0.4, 0.7]),
     ), mode in (:regime, :stationary_design), missing_tip in (false, true)
         y = copy(complete)
         missing_tip && (y[2] = NaN)
@@ -87,7 +87,7 @@ end
         # public OUMV/OUMA/OUMVA now enforce the fixed-root contract.
         cache = EvoTraits._prepare_oum_edge_cache(tree, segments)
         bundle = EvoTraits.OUParameterBundle(theta = [0.3, 1.4], alpha = alpha, sigma2 = sigma2)
-        profile = EvoTraits._ou_loglikelihood(tree, y, spec, bundle; cache)
+        profile = EvoTraits._ou_LL(tree, y, spec, bundle; cache)
         fit = EvoTraits._ou_multiregime_result(spec, bundle, profile, cache.nregimes)
         oracle = ou_root_dense(tree, segments, spec, alpha, sigma2, y)
         coefficients = [0.3, 1.4]
@@ -179,10 +179,10 @@ end
 @testset "Removed independent root rejects fitting and reconstruction" begin
     tree, segments, y = ou_root_fixture()
     for (model, likelihood, alpha, sigma2) in (
-        (:OUM, oum_loglikelihood, 0.5, 0.4),
-        (:OUMV, oumv_loglikelihood, 0.5, [0.4, 0.7]),
-        (:OUMA, ouma_loglikelihood, [0.5, 0.9], 0.4),
-        (:OUMVA, oumva_loglikelihood, [0.5, 0.9], [0.4, 0.7]),
+        (:OUM, oum_LL, 0.5, 0.4),
+        (:OUMV, oumv_LL, 0.5, [0.4, 0.7]),
+        (:OUMA, ouma_LL, [0.5, 0.9], 0.4),
+        (:OUMVA, oumva_LL, [0.5, 0.9], [0.4, 0.7]),
     )
         @test_throws ArgumentError likelihood(tree, y, segments, alpha, sigma2, [0.3, 1.4]; root_mean_mode = :free_theta0)
         @test_throws ArgumentError likelihood(tree, y, segments, alpha, sigma2, [0.3, 1.4];
@@ -274,7 +274,7 @@ end
         y = copy(complete)
         missing_tip && (y[2] = NaN)
         theta, sigma2 = [0.3, 1.4], 0.4
-        fit = oum_loglikelihood(tree, y, segments, alpha, sigma2, theta;
+        fit = oum_LL(tree, y, segments, alpha, sigma2, theta;
             root_mean_mode = mean_mode, root_cov_mode = cov_mode)
         @test fit.success
         @test fit.root_mean_mode === mean_mode

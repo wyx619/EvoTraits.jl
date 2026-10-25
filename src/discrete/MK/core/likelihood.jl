@@ -1,10 +1,10 @@
 """
-    mk_loglikelihood(tree, tip_priors, Q; root_prior=:likelihoods, root_prior_probs=nothing, nparams=nothing)
+    mk_LL(tree, tip_priors, Q; root_prior=:likelihoods, root_prior_probs=nothing, nparams=nothing)
 
 Compute the Mk log-likelihood on a preprocessed `CompactTree` using a pruning pass.
 This layer only exposes likelihood and AIC bookkeeping.
 """
-function mk_loglikelihood(
+function mk_LL(
     tree::CompactTree,
     tip_priors::AbstractMatrix{<:Real},
     Q::AbstractMatrix{<:Real};

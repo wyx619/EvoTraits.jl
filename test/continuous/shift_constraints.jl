@@ -8,8 +8,8 @@
         pars = EvoTraits._shift_pack_sigma(S,decomp)
         @test length(pars)==k
         @test EvoTraits._shift_unpack_sigma(pars,2,decomp) ≈ S atol=1e-12
-        full = EvoTraits._mvshift_oubm_loglikelihood(tree,data,A,S;age=2.0,A_decomp=:upper)
-        constrained = EvoTraits._mvshift_oubm_loglikelihood(tree,data,A,S;
+        full = EvoTraits._mvshift_oubm_LL(tree,data,A,S;age=2.0,A_decomp=:upper)
+        constrained = EvoTraits._mvshift_oubm_LL(tree,data,A,S;
             age=2.0,A_decomp=:upper,Sigma_decomp=decomp)
         @test constrained.loglik ≈ full.loglik atol=1e-10
         @test constrained.nparams==2+3+k
@@ -18,7 +18,7 @@
         @test fitted.success
         @test !fitted.converged
         @test fitted.loglik ≈ constrained.loglik atol=1e-10
-        sr = EvoTraits._mvshift_sr_loglikelihood(tree,data,[S,1.3S];age=2.0,Sigma_decomp=decomp)
+        sr = EvoTraits._mvshift_sr_LL(tree,data,[S,1.3S];age=2.0,Sigma_decomp=decomp)
         @test sr.nparams==2+2k
         fitted_sr = EvoTraits._fit_mvshift_sr(tree,data;age=2.0,Sigma_decomp=decomp,
             guess_sigma=[S,1.3S],optimization=:LN_SBPLX,max_iterations=1)
@@ -40,33 +40,33 @@ end
         spec = EvoTraits._shift_process_spec(model)
         extra = spec.independent ? (sig=1.3S,) : NamedTuple()
         ouextra = spec.ou_period>0 ? (A=A,A_decomp=:upper) : NamedTuple()
-        fit = EvoTraits._mvshift_eb_loglikelihood(tree,data,S;age=2.0,model=model,beta=-0.3,extra...,ouextra...)
+        fit = EvoTraits._mvshift_eb_LL(tree,data,S;age=2.0,model=model,beta=-0.3,extra...,ouextra...)
         @test fit.success
         @test !fit.converged
-        fixed = EvoTraits._mvshift_eb_loglikelihood(tree,data,S;age=2.0,model=model,beta=-0.3,
+        fixed = EvoTraits._mvshift_eb_LL(tree,data,S;age=2.0,model=model,beta=-0.3,
             theta=fit.theta,extra...,ouextra...)
         @test fixed.loglik ≈ fit.loglik atol=1e-10
-        zero = EvoTraits._mvshift_eb_loglikelihood(tree,data,S;age=2.0,model=model,beta=0.0,extra...,ouextra...)
+        zero = EvoTraits._mvshift_eb_LL(tree,data,S;age=2.0,model=model,beta=0.0,extra...,ouextra...)
         limiting = if spec.ou_period>0
             bm_model = spec.ou_period==1 ? :OUBM : :BMOU
             spec.independent && (bm_model=Symbol(string(bm_model,"i")))
-            EvoTraits._mvshift_oubm_loglikelihood(tree,data,A,S;age=2.0,model=bm_model,A_decomp=:upper,extra...)
+            EvoTraits._mvshift_oubm_LL(tree,data,A,S;age=2.0,model=bm_model,A_decomp=:upper,extra...)
         else
             early = spec.primary_period==1 ? S : (spec.independent ? 1.3S : S)
             late = spec.primary_period==2 ? S : (spec.independent ? 1.3S : S)
-            EvoTraits._mvshift_sr_loglikelihood(tree,data,[early,late];age=2.0)
+            EvoTraits._mvshift_sr_LL(tree,data,[early,late];age=2.0)
         end
         @test zero.loglik ≈ limiting.loglik atol=1e-10
-        tiny = EvoTraits._mvshift_eb_loglikelihood(tree,data,S;age=2.0,model=model,beta=1e-320,extra...,ouextra...)
+        tiny = EvoTraits._mvshift_eb_LL(tree,data,S;age=2.0,model=model,beta=1e-320,extra...,ouextra...)
         @test tiny.loglik ≈ zero.loglik atol=1e-10
     end
-    @test_throws ArgumentError EvoTraits._mvshift_eb_loglikelihood(tree,data,S;age=2.0,beta=NaN)
-    @test_throws ArgumentError EvoTraits._mvshift_eb_loglikelihood(tree,data,S;age=2.0,beta=-0.3,model=:EBOU)
-    failed = EvoTraits._mvshift_eb_loglikelihood(tree,data,S;age=2.0,beta=1000.0,beta_bounds=nothing)
+    @test_throws ArgumentError EvoTraits._mvshift_eb_LL(tree,data,S;age=2.0,beta=NaN)
+    @test_throws ArgumentError EvoTraits._mvshift_eb_LL(tree,data,S;age=2.0,beta=-0.3,model=:EBOU)
+    failed = EvoTraits._mvshift_eb_LL(tree,data,S;age=2.0,beta=1000.0,beta_bounds=nothing)
     @test !failed.success
     @test failed.loglik==-Inf
-    reset = EvoTraits._mvshift_eb_loglikelihood(tree,data,S;age=2.0,beta=3.0)
-    zero = EvoTraits._mvshift_eb_loglikelihood(tree,data,S;age=2.0,beta=0.0)
+    reset = EvoTraits._mvshift_eb_LL(tree,data,S;age=2.0,beta=3.0)
+    zero = EvoTraits._mvshift_eb_LL(tree,data,S;age=2.0,beta=0.0)
     @test reset.beta==0.0
     @test reset.input_beta==3.0
     @test reset.loglik ≈ zero.loglik atol=1e-10
@@ -87,7 +87,7 @@ end
         @test fit.loglik ≈ fit.initial_loglik atol=1e-10
         @test fit.beta==-0.3
         fixedextra = spec.independent ? (sig=fit.sig,) : NamedTuple()
-        fixed = EvoTraits._mvshift_eb_loglikelihood(tree,Y,fit.sigma;model=model,age=2.0,
+        fixed = EvoTraits._mvshift_eb_LL(tree,Y,fit.sigma;model=model,age=2.0,
             A=fit.A,A_decomp=:upper,Sigma_decomp=:equal,beta=fit.input_beta,fixedextra...)
         @test fit.loglik ≈ fixed.loglik atol=1e-10
         @test fit.nparams==2+(spec.ou_period>0 ? 3 : 0)+2*(spec.independent ? 2 : 1)+1

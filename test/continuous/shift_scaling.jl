@@ -18,11 +18,11 @@
             independent ? (sig=1.3S,) : NamedTuple())
         fitextra=merge(ou ? (guess_A=A,A_decomp=:upper) : NamedTuple(),eb ? (guess_beta=-0.3,) : NamedTuple(),
             independent ? (guess_sig=1.3S,) : NamedTuple())
-        expected=mvshift_loglikelihood(normalized,Y,sigma;model=model,age=0.5,extra...)
+        expected=mvshift_LL(normalized,Y,sigma;model=model,age=0.5,extra...)
         cache=shift_precalc(tree;age=2.,ntraits=2)
         saved=copy(cache.mapping.mapped_edge)
         for input in ((age=2.,),(mapped_edge=saved,),(precalc=cache,))
-            result=mvshift_loglikelihood(tree,Y,sigma;model=model,scale_height=true,input...,extra...)
+            result=mvshift_LL(tree,Y,sigma;model=model,scale_height=true,input...,extra...)
             @test result.loglik ≈ expected.loglik atol=1e-10
             @test result.theta ≈ expected.theta atol=1e-10
             @test result.height ≈ 1.0
@@ -42,7 +42,7 @@
         # Convert rates to original time units for probability-model equivalence.
         rateextra=merge(ou ? (A=A/4,A_decomp=:upper) : NamedTuple(),
             eb ? (beta=-0.3/4,) : NamedTuple(),independent ? (sig=1.3S/4,) : NamedTuple())
-        original=mvshift_loglikelihood(tree,Y,model===:SR ? [S/4,1.3S/4] : S/4;
+        original=mvshift_LL(tree,Y,model===:SR ? [S/4,1.3S/4] : S/4;
             model=model,age=2.,rateextra...)
         @test expected.loglik ≈ original.loglik atol=1e-10
         @test expected.aic ≈ original.aic atol=1e-10
@@ -70,8 +70,8 @@ end
             spec=EvoTraits._shift_process_spec(model)
             extra=merge(spec.independent ? (sig=1.3S,) : NamedTuple(),
                 spec.eb_period>0 ? (beta=-0.3,) : NamedTuple())
-            full=mvshift_loglikelihood(tree,Y,S;model=model,age=2.,A=A,A_decomp=:diagonal,extra...)
-            constrained=mvshift_loglikelihood(tree,Y,S;model=model,age=2.,A=A,A_decomp=:equaldiagonal,extra...)
+            full=mvshift_LL(tree,Y,S;model=model,age=2.,A=A,A_decomp=:diagonal,extra...)
+            constrained=mvshift_LL(tree,Y,S;model=model,age=2.,A=A,A_decomp=:equaldiagonal,extra...)
             @test constrained.loglik ≈ full.loglik atol=1e-10
             @test constrained.nparams==full.nparams-p+1
             fitted=fit_mvshift(tree,Y;model=model,age=2.,A_decomp=:equaldiagonal,
@@ -82,8 +82,8 @@ end
         end
     end
     Y=zeros(4,2)
-    @test_throws ArgumentError mvshift_loglikelihood(tree,Y,Matrix{Float64}(I,2,2);
+    @test_throws ArgumentError mvshift_LL(tree,Y,Matrix{Float64}(I,2,2);
         model=:OUBM,age=2.,A=[0.4 0;0 0.8],A_decomp=:equaldiagonal)
-    @test_throws ArgumentError mvshift_loglikelihood(tree,Y,Matrix{Float64}(I,2,2);
+    @test_throws ArgumentError mvshift_LL(tree,Y,Matrix{Float64}(I,2,2);
         model=:OUBM,age=2.,A=[0.4 0.1;0.1 0.4],A_decomp=:equaldiagonal)
 end

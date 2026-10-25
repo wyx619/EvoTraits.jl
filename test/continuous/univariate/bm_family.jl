@@ -4,7 +4,7 @@
     toy_tree = serialize_tree(read_tree(bm_tree_path))
     trait = [1.0, 1.2, 2.5, 2.8]
 
-    ll = bm1_loglikelihood(toy_tree, trait, 0.5)
+    ll = bm1_LL(toy_tree, trait, 0.5)
     @test ll.success
     @test isfinite(ll.loglik)
     @test isfinite(ll.root_state)
@@ -44,7 +44,7 @@ end
     toy_tree = serialize_tree(read_tree(tree_path))
     trait = [1.0, NaN, 2.5, 2.8]
 
-    bm = bm1_loglikelihood(toy_tree, trait, 0.5)
+    bm = bm1_LL(toy_tree, trait, 0.5)
     @test bm.success
     @test isfinite(bm.loglik)
     fit = fit_bm1(toy_tree, trait; max_iterations = 40)
@@ -62,7 +62,7 @@ end
         1.0 0.0;
         0.0 1.0;
     ]
-    bmm = bmm_loglikelihood(toy_tree, trait, mapped, [0.3, 0.8])
+    bmm = bmm_LL(toy_tree, trait, mapped, [0.3, 0.8])
     @test bmm.success
     @test isfinite(bmm.loglik)
 end
@@ -95,7 +95,7 @@ end
         0.0 1.0;
     ]
 
-    ll = bmm_loglikelihood(toy_tree, trait, mapped, [0.3, 0.8])
+    ll = bmm_LL(toy_tree, trait, mapped, [0.3, 0.8])
     @test ll.success
     @test isfinite(ll.loglik)
     @test ll.nregimes == 2

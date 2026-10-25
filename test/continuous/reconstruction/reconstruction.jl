@@ -72,7 +72,7 @@ end
         0.1 0.7;
     ]
     fit_mvoum_res = fit_mvoum(tree, trait_mv, edge_segments; max_iterations = 20, rel_tol = 1e-5)
-    fit_mvbmm_res = mvbmm_loglikelihood(tree, trait_mv, mapped_edge, [sigma1, sigma2])
+    fit_mvbmm_res = mvbmm_LL(tree, trait_mv, mapped_edge, [sigma1, sigma2])
     branch_mvoum_kw = estim_branch_for_simmap(tree, trait_mv, fit_mvoum_res; edge_segments = edge_segments)
     branch_mvoum_simmap = estim_branch_for_simmap(tree, trait_mv, fit_mvoum_res, simmap)
     branch_mvbmm_kw = estim_branch_for_simmap(tree, trait_mv, fit_mvbmm_res; edge_segments = edge_segments)
@@ -82,7 +82,7 @@ end
 end
 
 @testset "Multivariate OU branch posterior" begin
-    simtree = simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(510))
+    simtree = sim_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(510))
     tree = serialize_tree(simtree)
     root = tree.root
     edge_segments = [
@@ -101,7 +101,7 @@ end
         0.15 0.5;
     ]
     theta_regimes = [[0.0, 0.2], [0.8, -0.1]]
-    trait = simulate_mvoum(tree, edge_segments, A, Sigma, theta_regimes; rng = MersenneTwister(511))
+    trait = sim_mvoum(tree, edge_segments, A, Sigma, theta_regimes; rng = MersenneTwister(511))
     fit = fit_mvoum(tree, trait, edge_segments; max_iterations = 20, rel_tol = 1e-5)
     branch = estim_branch_for_simmap(tree, trait, fit; edge_segments = edge_segments)
     @test branch.success
@@ -126,7 +126,7 @@ end
 end
 
 @testset "Advanced multivariate OU branch posterior" begin
-    simtree = simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(512))
+    simtree = sim_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(512))
     tree = serialize_tree(simtree)
     root = tree.root
     edge_segments = [
@@ -166,12 +166,12 @@ end
         0.0 0.2;
         0.8 -0.1;
     ]
-    trait = simulate_mvoum(tree, edge_segments, A, Sigma, eachrow(theta_regimes) |> collect; rng = MersenneTwister(513))
+    trait = sim_mvoum(tree, edge_segments, A, Sigma, eachrow(theta_regimes) |> collect; rng = MersenneTwister(513))
 
     fits = (
-        mvoumv_loglikelihood(tree, trait, edge_segments, A, Sigma_regimes, theta_regimes),
-        mvouma_loglikelihood(tree, trait, edge_segments, A_regimes, Sigma, theta_regimes),
-        mvoumva_loglikelihood(tree, trait, edge_segments, A_regimes, Sigma_regimes, theta_regimes),
+        mvoumv_LL(tree, trait, edge_segments, A, Sigma_regimes, theta_regimes),
+        mvouma_LL(tree, trait, edge_segments, A_regimes, Sigma, theta_regimes),
+        mvoumva_LL(tree, trait, edge_segments, A_regimes, Sigma_regimes, theta_regimes),
     )
     missing_trait = copy(trait)
     missing_trait[2, 1] = NaN
@@ -228,9 +228,9 @@ end
         0.1 0.7;
     ]
 
-    bm_fit = mvbm1_loglikelihood(tree, trait, sigma1)
-    eb_fit = mveb_loglikelihood(tree, trait, sigma1, -0.3)
-    bmm_fit = mvbmm_loglikelihood(tree, trait, mapped, [sigma1, sigma2])
+    bm_fit = mvbm1_LL(tree, trait, sigma1)
+    eb_fit = mveb_LL(tree, trait, sigma1, -0.3)
+    bmm_fit = mvbmm_LL(tree, trait, mapped, [sigma1, sigma2])
 
     for fit in (bm_fit, eb_fit, bmm_fit)
         branch = estim_branch_for_simmap(tree, trait, fit; edge_segments = edge_segments)
@@ -287,7 +287,7 @@ end
         0.7 0.1;
         0.1 0.5;
     ]
-    mv_fit = mvbm1_loglikelihood(tree, mv_trait, sigma)
+    mv_fit = mvbm1_LL(tree, mv_trait, sigma)
     mv_asr = estim_node(tree, mv_trait, mv_fit)
     @test mv_asr.success
     @test mv_asr.tip_ids == Int32.(tree.tip_ids)
@@ -415,7 +415,7 @@ end
         0.5 0.1;
         0.1 0.7;
     ]
-    fit_mvbmm_res = mvbmm_loglikelihood(tree, trait_mv, mapped_edge, [sigma1, sigma2])
+    fit_mvbmm_res = mvbmm_LL(tree, trait_mv, mapped_edge, [sigma1, sigma2])
     fit_mvoum_res = fit_mvoum(tree, trait_mv, edge_segments; max_iterations = 20, rel_tol = 1e-5)
     asr_mvbmm_kw = estim_node(tree, trait_mv, fit_mvbmm_res; mapped_edge = mapped_edge)
     asr_mvbmm_simmap = estim_node(tree, trait_mv, fit_mvbmm_res, simmap)
@@ -478,7 +478,7 @@ end
         0.7 0.1;
         0.1 0.5;
     ]
-    fit_mv = mvbm1_loglikelihood(tree, trait_mv, sigma)
+    fit_mv = mvbm1_LL(tree, trait_mv, sigma)
     asr_mv = estim_node(tree, trait_mv, fit_mv)
     tbl_mv = estim_node_table(tree, asr_mv; map = map)
     tbl_mv_named = estim_node_table(tree, asr_mv, fit_mv; map = map, simmap = simmap)

@@ -34,7 +34,7 @@ using Test, EvoTraits, LinearAlgebra, TOML
         coefficients = evaluation.bundle.theta
         @test isapprox(W * coefficients, W * reference["expected_coefficients"]; atol = 1e-9, rtol = 1e-9)
         @test isapprox(evaluation.profile.loglik, reference["profiled_loglik"]; atol = 1e-9, rtol = 1e-10)
-        likelihood = getfield(EvoTraits, Symbol(lowercase(reference["model"]) * "_loglikelihood"))
+        likelihood = getfield(EvoTraits, Symbol(lowercase(reference["model"]) * "_LL"))
         fit = likelihood(tree, y, segments, length(alpha) == 1 ? only(alpha) : alpha,
             length(sigma2) == 1 ? only(sigma2) : sigma2, theta;
             root_mean_mode = spec.root_mean_mode, root_cov_mode = :fixed)

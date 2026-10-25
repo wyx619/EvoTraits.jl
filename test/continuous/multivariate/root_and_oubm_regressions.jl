@@ -79,13 +79,13 @@ end
 
 function _test_fixed_oum(model, tree, data, segments, As, Sigmas, theta; kwargs...)
     if model === :mvOUM
-        return mvoum_loglikelihood(tree, data, segments, As[1], Sigmas[1], theta; kwargs...)
+        return mvoum_LL(tree, data, segments, As[1], Sigmas[1], theta; kwargs...)
     elseif model === :mvOUMV
-        return mvoumv_loglikelihood(tree, data, segments, As[1], cat(Sigmas...; dims = 3), theta; kwargs...)
+        return mvoumv_LL(tree, data, segments, As[1], cat(Sigmas...; dims = 3), theta; kwargs...)
     elseif model === :mvOUMA
-        return mvouma_loglikelihood(tree, data, segments, cat(As...; dims = 3), Sigmas[1], theta; kwargs...)
+        return mvouma_LL(tree, data, segments, cat(As...; dims = 3), Sigmas[1], theta; kwargs...)
     end
-    return mvoumva_loglikelihood(tree, data, segments,
+    return mvoumva_LL(tree, data, segments,
         cat(As...; dims = 3), cat(Sigmas...; dims = 3), theta; kwargs...)
 end
 
@@ -96,7 +96,7 @@ function _test_legacy_fixed_oum(model, tree, data, segments, As, Sigmas, theta; 
     bundle = EvoTraits.MVOUParameterBundle(theta = vec(theta'), A = As[1], Sigma = Sigmas[1],
         A_regimes = model in (:mvOUMA, :mvOUMVA) ? cat(As...; dims = 3) : zeros(0, 0, 0),
         Sigma_regimes = model in (:mvOUMV, :mvOUMVA) ? cat(Sigmas...; dims = 3) : zeros(0, 0, 0))
-    prof = EvoTraits._mvou_fixed_loglikelihood(tree, data, precalc, bundle)
+    prof = EvoTraits._mvou_fixed_LL(tree, data, precalc, bundle)
     return MVContinuousOUResult(model = model, success = prof.success, loglik = prof.loglik,
         ntraits = size(data, 2), nregimes = length(As), theta = theta,
         A = model in (:mvOUMA, :mvOUMVA) ? cat(As...; dims = 3) : cat(As[1]; dims = 3),
@@ -105,7 +105,7 @@ function _test_legacy_fixed_oum(model, tree, data, segments, As, Sigmas, theta; 
 end
 
 @testset "OUM-family root means and covariance match independent Gaussian conditioning" begin
-    tree = simulate_yule_tree(12; tree_height = 1.0, rng = MersenneTwister(731))
+    tree = sim_yule_tree(12; tree_height = 1.0, rng = MersenneTwister(731))
     A = [0.9 0.2; 0.2 0.6]
     Sigma = [0.7 -0.12; -0.12 1.1]
     theta = [-0.7 0.4; 1.2 -0.9]
@@ -150,7 +150,7 @@ end
 end
 
 @testset "Explicit legacy theta design agrees across likelihood and ASR" begin
-    tree = simulate_yule_tree(12; tree_height = 1.0, rng = MersenneTwister(733))
+    tree = sim_yule_tree(12; tree_height = 1.0, rng = MersenneTwister(733))
     segments = _test_two_regime_segments(tree)
     A, Sigma = [0.9 0.2; 0.2 0.6], [0.7 -0.12; -0.12 1.1]
     theta = [-0.7 0.4; 1.2 -0.9]
@@ -169,7 +169,7 @@ end
 end
 
 @testset "BM-boundary theta profiling and workspace reuse preserve the likelihood" begin
-    tree = simulate_yule_tree(16; tree_height = 1.0, rng = MersenneTwister(739))
+    tree = sim_yule_tree(16; tree_height = 1.0, rng = MersenneTwister(739))
     segments = _test_two_regime_segments(tree)
     rotation = [cos(0.7) -sin(0.7); sin(0.7) cos(0.7)]
     A = rotation * Diagonal([1.2e-8, 0.9]) * rotation'
@@ -198,7 +198,7 @@ end
 end
 
 @testset "mvOUBM affine ASR matches independent Gaussian conditioning" begin
-    tree = simulate_yule_tree(16; tree_height = 1.0, rng = MersenneTwister(735))
+    tree = sim_yule_tree(16; tree_height = 1.0, rng = MersenneTwister(735))
     segments = _test_two_regime_segments(tree)
     A = [1.1 0.25; 0.25 0.7]
     B = reshape([0.45, -0.3], 2, 1)
@@ -219,7 +219,7 @@ end
             data[3, :] .= NaN
         end
         reference = _test_affine_tree_reference(tree, data, root_mean, zeros(3, 3), processes)
-        fixed = mvoubm_loglikelihood(tree, data, segments, A, B, SigmaY, SigmaX, mPsi; vX0)
+        fixed = mvoubm_LL(tree, data, segments, A, B, SigmaY, SigmaX, mPsi; vX0)
         @test fixed.success
         @test isapprox(fixed.loglik, reference.loglik; atol = 1e-8, rtol = 1e-10)
         asr = estim_node(tree, data, fixed; edge_segments = segments)
@@ -235,7 +235,7 @@ end
 end
 
 @testset "mvOUBM initialization handles sparse and missing observations" begin
-    tree = simulate_yule_tree(16; tree_height = 1.0, rng = MersenneTwister(737))
+    tree = sim_yule_tree(16; tree_height = 1.0, rng = MersenneTwister(737))
     segments = _test_two_regime_segments(tree)
     spec = EvoTraits.MVOUSpec(model = :mvOUBM)
     precalc = EvoTraits._mvou_build_precalc(tree, spec; edge_segments = segments)
@@ -274,7 +274,7 @@ end
     @test fit.success
     @test fit.nobs == count(!isnan, data)
     @test isequal(data, before)
-    fixed = mvoubm_loglikelihood(tree, data, segments, fit.A[:, :, 1], fit.B,
+    fixed = mvoubm_LL(tree, data, segments, fit.A[:, :, 1], fit.B,
         fit.Sigma[1:1, 1:1, 1], fit.Sigma[2:2, 2:2, 1], permutedims(fit.theta); vX0 = fit.vX0)
     @test isapprox(fit.loglik, fixed.loglik; atol = 1e-8, rtol = 1e-10)
     @test estim_node(tree, data, fit; edge_segments = segments).success

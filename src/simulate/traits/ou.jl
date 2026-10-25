@@ -1,9 +1,9 @@
 """
-    simulate_mvou1(tree, A, Sigma, theta; root_state=nothing, rng=Random.GLOBAL_RNG)
+    sim_mvou1(tree, A, Sigma, theta; root_state=nothing, rng=Random.GLOBAL_RNG)
 
 Simulate an OU1 trait matrix with shared `A`, `Sigma`, and `theta`.
 """
-function simulate_mvou1(
+function sim_mvou1(
     tree::CompactTree,
     A::AbstractMatrix,
     Sigma::AbstractMatrix,
@@ -44,12 +44,12 @@ function simulate_mvou1(
 end
 
 """
-    simulate_mvoum(tree, edge_segments, A, Sigma, thetas; root_state=nothing, rng=Random.GLOBAL_RNG)
+    sim_mvoum(tree, edge_segments, A, Sigma, thetas; root_state=nothing, rng=Random.GLOBAL_RNG)
 
 Simulate an OUM trait matrix with regime-specific optima and shared `A` and
 `Sigma`.
 """
-function simulate_mvoum(
+function sim_mvoum(
     tree::CompactTree,
     edge_segments::Vector{Vector{SimmapSegment}},
     A::AbstractMatrix,
@@ -100,11 +100,11 @@ function simulate_mvoum(
 end
 
 """
-    simulate_mvoumva(tree, edge_segments, As, Sigmas, thetas; root_state=nothing, rng=Random.GLOBAL_RNG)
+    sim_mvoumva(tree, edge_segments, As, Sigmas, thetas; root_state=nothing, rng=Random.GLOBAL_RNG)
 
 Simulate an OUMVA trait matrix with regime-specific `A`, `Sigma`, and `theta`.
 """
-function simulate_mvoumva(
+function sim_mvoumva(
     tree::CompactTree,
     edge_segments::Vector{Vector{SimmapSegment}},
     As::AbstractVector{<:AbstractMatrix},

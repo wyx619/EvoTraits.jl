@@ -1,4 +1,4 @@
-function _mvshift_sr_loglikelihood(
+function _mvshift_sr_LL(
     tree::CompactTree,
     trait::AbstractMatrix{<:Real},
     Sigmas::AbstractVector{<:AbstractMatrix};
@@ -39,7 +39,7 @@ function _mvshift_sr_loglikelihood(
             sigma = success ? prof.sigma : zeros(p, p, 2), theta = reshape(mean, 1, p))
         return merge(_shift_sr_result(fit, mapping, count(!isnan, data)), (Sigma_decomp = Sigma_decomp,))
     end
-    fit = mvbmm_loglikelihood(tree, trait, mapping.mapped_edge, Sigmas;
+    fit = mvbmm_LL(tree, trait, mapping.mapped_edge, Sigmas;
         trait_names = trait_names, regime_names = ["early", "late"])
     if Sigma_decomp !== :cholesky
         values = (; (name => getfield(fit, name) for name in fieldnames(typeof(fit)))...)
@@ -51,7 +51,7 @@ function _mvshift_sr_loglikelihood(
 end
 
 """
-    _mvshift_process_loglikelihood(tree, trait, A, sigma; model=:OUBM, ...)
+    _mvshift_process_LL(tree, trait, A, sigma; model=:OUBM, ...)
 
 Internal fixed-parameter OU/BM and EB shift evaluation. `sigma` is the OU
 diffusion when present, otherwise BM; independent models use `sig` for the
@@ -59,7 +59,7 @@ remaining BM or EB component, regardless of period order.
 The observed trait is the sum of two independent process components and a
 constant mean. This is not a sequential switch of a single process.
 """
-function _mvshift_process_loglikelihood(
+function _mvshift_process_LL(
     tree::CompactTree,
     trait::AbstractMatrix{<:Real},
     A::Union{Nothing, AbstractMatrix{<:Real}},
@@ -129,17 +129,17 @@ function _mvshift_process_loglikelihood(
     )
 end
 
-function _mvshift_oubm_loglikelihood(tree::CompactTree, trait::AbstractMatrix{<:Real},
+function _mvshift_oubm_LL(tree::CompactTree, trait::AbstractMatrix{<:Real},
     A::AbstractMatrix{<:Real}, sigma::AbstractMatrix{<:Real}; model::Symbol = :OUBM, kwargs...)
     _shift_oubm_spec(model)
-    return _mvshift_process_loglikelihood(tree, trait, A, sigma; model = model, kwargs...)
+    return _mvshift_process_LL(tree, trait, A, sigma; model = model, kwargs...)
 end
 
-function _mvshift_eb_loglikelihood(tree::CompactTree, trait::AbstractMatrix{<:Real},
+function _mvshift_eb_LL(tree::CompactTree, trait::AbstractMatrix{<:Real},
     sigma::AbstractMatrix{<:Real}; model::Symbol = :EBBM, A = nothing, beta::Real, kwargs...)
     spec = _shift_process_spec(model)
     spec.eb_period > 0 || throw(ArgumentError("An EB shift model is required"))
-    return _mvshift_process_loglikelihood(tree, trait, A, sigma; model = model, beta = beta, kwargs...)
+    return _mvshift_process_LL(tree, trait, A, sigma; model = model, beta = beta, kwargs...)
 end
 
 function _fit_mvshift_sr(

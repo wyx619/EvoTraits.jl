@@ -77,7 +77,7 @@ function _eb_profile(tree::CompactTree, trait::AbstractVector{<:Real}, sigma2::F
     return (success = isfinite(loglik), loglik = loglik, root_state = means[root])
 end
 
-function eb_loglikelihood(
+function eb_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     sigma2::Real,
@@ -171,7 +171,7 @@ function fit_eb(
     return fit_eb(tree, trait; trait_name = trait_name, kwargs...)
 end
 
-function eb_loglikelihood(
+function eb_LL(
     tree::CompactTree,
     data::AbstractDataFrame,
     sigma2::Real,
@@ -180,6 +180,6 @@ function eb_loglikelihood(
     kwargs...,
 )
     trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
-    return eb_loglikelihood(tree, trait, sigma2, beta; trait_name = trait_name, kwargs...)
+    return eb_LL(tree, trait, sigma2, beta; trait_name = trait_name, kwargs...)
 end
 

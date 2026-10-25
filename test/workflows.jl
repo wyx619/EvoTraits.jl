@@ -96,19 +96,19 @@ end
 end
 
 @testset "Multivariate workflow wrappers" begin
-    tree = serialize_tree(simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(500)))
+    tree = serialize_tree(sim_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(500)))
     Sigma = [
         0.7 0.15;
         0.15 0.5;
     ]
-    bm_data = simulate_mvbm1(tree, Sigma; rng = MersenneTwister(501))
+    bm_data = sim_mvbm1(tree, Sigma; rng = MersenneTwister(501))
 
     bm_workflow = fit_compare_multivariate(tree, bm_data, [:mvBM1, :mvEB]; max_iterations = 40, rel_tol = 1e-6)
     @test bm_workflow.best_fit !== nothing
     @test bm_workflow.asr !== nothing
     @test bm_workflow.best_name in (:mvBM1, :mvEB)
 
-    ou_simtree = simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(502))
+    ou_simtree = sim_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(502))
     ou_tree = serialize_tree(ou_simtree)
     ou_root = ou_tree.root
     edge_segments = [
@@ -123,7 +123,7 @@ end
         0.1 1.0;
     ]
     theta_regimes = [[0.0, 0.2], [0.8, -0.1]]
-    ou_data = simulate_mvoum(ou_tree, edge_segments, A, Sigma, theta_regimes; rng = MersenneTwister(503))
+    ou_data = sim_mvoum(ou_tree, edge_segments, A, Sigma, theta_regimes; rng = MersenneTwister(503))
 
     ou_workflow = fit_compare_multivariate(
         ou_tree,

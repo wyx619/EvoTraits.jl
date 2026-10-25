@@ -27,6 +27,14 @@
     @test vec(sum(fit.tip_priors_hidden; dims = 2)) == [1.0, 2.0, 3.0, 3.0]
     @test isfinite(fit.loglik)
     @test isfinite(fit.aic)
+
+    state_data = CorHMMStateData(tip_priors_hidden = fit.tip_priors_hidden)
+    fixed = corhmm_LL(tree, state_data, fit.transition_matrix;
+        root_prior = :flat, nparams = fit.nparams)
+    @test fixed.success
+    @test fixed.nparams == fit.nparams
+    @test fixed.loglik ≈ fit.loglik
+    @test fixed.aic ≈ fit.aic
 end
 
 @testset "corHMM DataFrame and vector inputs" begin
@@ -211,7 +219,7 @@ end
     states = Dict("A" => "red", "B" => "red", "C" => "blue", "D" => "blue")
 
     cor = fit_corhmm(tree, states; model = :ER, rate_cat = 1, root_prior = :flat, node_states = :none, max_iterations = 500, rng = MersenneTwister(20260903))
-    mk_like = mk_loglikelihood(tree, cor.tip_priors_hidden, cor.transition_matrix; root_prior = :flat, nparams = cor.nparams)
+    mk_like = mk_LL(tree, cor.tip_priors_hidden, cor.transition_matrix; root_prior = :flat, nparams = cor.nparams)
 
     @test cor.success
     @test mk_like.success

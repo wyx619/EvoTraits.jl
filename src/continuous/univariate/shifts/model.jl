@@ -1,4 +1,4 @@
-function _shift_sr_loglikelihood(
+function _shift_sr_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     sigma2::AbstractVector{<:Real};
@@ -26,23 +26,23 @@ function _shift_sr_loglikelihood(
             theta = mean, root_state = mean, nregimes = 2)
         return merge(_shift_sr_result(fit, mapping, count(!isnan, trait)), (Sigma_decomp = Sigma_decomp,))
     end
-    fit = bmm_loglikelihood(tree, trait, mapping.mapped_edge, sigma2;
+    fit = bmm_LL(tree, trait, mapping.mapped_edge, sigma2;
         trait_name = trait_name, regime_names = ["early", "late"])
     return merge(_shift_sr_result(fit, mapping, count(!isnan, trait)), (Sigma_decomp = Sigma_decomp,))
 end
 
-function _shift_eb_loglikelihood(tree::CompactTree, trait::AbstractVector{<:Real}, sigma2::Real;
+function _shift_eb_LL(tree::CompactTree, trait::AbstractVector{<:Real}, sigma2::Real;
     alpha::Union{Nothing, Real} = nothing, sig::Union{Nothing, Real} = nothing,
     theta::Union{Nothing, Real} = nothing, trait_name = nothing, kwargs...)
     data = _validate_univariate_trait_allow_missing(tree, trait)
     matrix(x) = x === nothing ? nothing : reshape([Float64(x)], 1, 1)
-    result = _mvshift_eb_loglikelihood(tree, reshape(data, :, 1), matrix(sigma2);
+    result = _mvshift_eb_LL(tree, reshape(data, :, 1), matrix(sigma2);
         A = matrix(alpha), sig = matrix(sig), theta = theta === nothing ? nothing : [Float64(theta)],
         trait_names = [_continuous_checked_trait_name(trait_name)], kwargs...)
     return merge(result, (theta = only(result.theta), alpha = alpha, sigma2 = Float64(sigma2), sig = only(result.sig)))
 end
 
-function _shift_oubm_loglikelihood(
+function _shift_oubm_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     alpha::Real,
@@ -53,7 +53,7 @@ function _shift_oubm_loglikelihood(
     kwargs...,
 )
     data = _validate_univariate_trait_allow_missing(tree, trait)
-    result = _mvshift_oubm_loglikelihood(tree, reshape(data, :, 1),
+    result = _mvshift_oubm_LL(tree, reshape(data, :, 1),
         reshape([Float64(alpha)], 1, 1), reshape([Float64(sigma2)], 1, 1);
         sig = sig === nothing ? nothing : reshape([Float64(sig)], 1, 1),
         theta = theta === nothing ? nothing : [Float64(theta)],

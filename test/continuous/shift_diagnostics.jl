@@ -23,9 +23,9 @@
             @test size(diagnostic.hessian,1)==fit.nparams-1
         end
     end
-    plateau=shift_loglikelihood(tree,y,0.8;model=:EBBM,age=2.,beta=3.)
+    plateau=shift_LL(tree,y,0.8;model=:EBBM,age=2.,beta=3.)
     @test diagnose_shift(tree,y,plateau).status===:beta_plateau
-    boundary=shift_loglikelihood(tree,y,0.8;model=:EBBM,age=2.,beta=2.)
+    boundary=shift_LL(tree,y,0.8;model=:EBBM,age=2.,beta=2.)
     @test diagnose_shift(tree,y,boundary).status===:beta_boundary
     scaled=fit_shift(tree,y;model=:EBBM,age=2.,scale_height=true,max_iterations=10)
     @test diagnose_shift(tree,y,scaled).f_calls>0

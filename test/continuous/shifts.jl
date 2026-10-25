@@ -7,10 +7,10 @@ include("shift_constraints.jl")
     for model in (:OUBM,:OUBMi,:BMOU,:BMOUi)
         independent = model in (:OUBMi,:BMOUi)
         extra = independent ? (sig=1.2,) : NamedTuple()
-        profiled = EvoTraits._shift_oubm_loglikelihood(tree,trait,0.5,0.7;model=model,precalc=cache,extra...)
-        at_mean = EvoTraits._shift_oubm_loglikelihood(tree,trait,0.5,0.7;
+        profiled = EvoTraits._shift_oubm_LL(tree,trait,0.5,0.7;model=model,precalc=cache,extra...)
+        at_mean = EvoTraits._shift_oubm_LL(tree,trait,0.5,0.7;
             model=model,age=2.0,theta=profiled.theta,extra...)
-        away = EvoTraits._shift_oubm_loglikelihood(tree,trait,0.5,0.7;
+        away = EvoTraits._shift_oubm_LL(tree,trait,0.5,0.7;
             model=model,mapped_edge=cache.mapping.mapped_edge,theta=profiled.theta+0.4,extra...)
         @test profiled.success
         @test at_mean.loglik ≈ profiled.loglik atol=1e-10
@@ -53,7 +53,7 @@ end
     @test P ≈ E[1:2,1:2] atol=1e-10
     @test Q ≈ E[1:2,3:4]*E[1:2,1:2]' atol=1e-10
     for model in (:OUBMi,:BMOUi)
-        evaluated = EvoTraits._mvshift_oubm_loglikelihood(tree,data,A,sigma;
+        evaluated = EvoTraits._mvshift_oubm_LL(tree,data,A,sigma;
             age=2.0,model=model,sig=sigma,A_decomp=:decomposable_positive)
         @test evaluated.success
         @test evaluated.nparams == 12
@@ -72,7 +72,7 @@ end
     @test !initialized.converged
     rotation = [cos(0.3) -sin(0.3);sin(0.3) cos(0.3)]
     unreliable = rotation*[6e14 0;0 0.7]*rotation'
-    failed = EvoTraits._mvshift_oubm_loglikelihood(tree,data,unreliable,sigma;
+    failed = EvoTraits._mvshift_oubm_LL(tree,data,unreliable,sigma;
         age=2.0,A_decomp=:decomposable_positive)
     @test !failed.success
     @test failed.loglik == -Inf
@@ -93,7 +93,7 @@ end
         pars = EvoTraits._shift_pack_A(A,decomp)
         @test EvoTraits._shift_unpack_A(pars,2,decomp) ≈ A atol=1e-12
         for model in (:OUBMi,:BMOUi)
-            evaluated = EvoTraits._mvshift_oubm_loglikelihood(tree,data,A,sigma;
+            evaluated = EvoTraits._mvshift_oubm_LL(tree,data,A,sigma;
                 age=2.0,model=model,sig=sigma,A_decomp=decomp)
             @test evaluated.success
             @test evaluated.nparams == 11
@@ -108,7 +108,7 @@ end
     factor = EvoTraits._shift_ou_factor(A,2,:upper)
     P,Q = EvoTraits._shift_ou_increment(factor,sigma,2.0)
     @test P[2,2] ≈ exp(-A[2,2]*2) atol=1e-14
-    unreliable = EvoTraits._mvshift_oubm_loglikelihood(tree,data,A,sigma;
+    unreliable = EvoTraits._mvshift_oubm_LL(tree,data,A,sigma;
         age=2.0,model=:BMOUi,sig=sigma,A_decomp=:upper)
     @test !unreliable.success
     @test unreliable.loglik == -Inf

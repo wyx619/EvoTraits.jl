@@ -237,7 +237,7 @@ function _mv_recursive_asr(
     )
 end
 
-function _mvou_fixed_loglikelihood(
+function _mvou_fixed_LL(
     tree::CompactTree,
     trait::AbstractMatrix{<:Real},
     precalc::MVOUPrecalc,

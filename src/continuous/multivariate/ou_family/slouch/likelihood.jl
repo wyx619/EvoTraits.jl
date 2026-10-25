@@ -341,7 +341,7 @@ function _mvoubm_loglik!(
     return prof.success ? Float64(prof.loglik) : -Inf
 end
 
-function mvoubm_loglikelihood(
+function mvoubm_LL(
     tree::CompactTree,
     trait::AbstractMatrix{<:Real},
     edge_segments::Vector{Vector{SimmapSegment}},

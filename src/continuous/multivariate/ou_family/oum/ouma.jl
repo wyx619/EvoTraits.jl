@@ -1,5 +1,5 @@
 """
-    mvouma_loglikelihood(tree, trait, edge_segments, A_regimes, Sigma, theta_regimes)
+    mvouma_LL(tree, trait, edge_segments, A_regimes, Sigma, theta_regimes)
 
 Evaluate the multivariate multi-optimum, multi-alpha Ornstein-Uhlenbeck
 (`mvOUMA`) log-likelihood with regime-specific optimum vectors and
@@ -9,7 +9,7 @@ Root covariance is fixed at zero. The default mean is the root regime optimum
 vector. This is a matrix extension of the univariate root
 conventions, not additional mvMORPH model variants.
 """
-function mvouma_loglikelihood(
+function mvouma_LL(
     tree::CompactTree,
     trait::AbstractMatrix{<:Real},
     edge_segments::Vector{Vector{SimmapSegment}},
@@ -47,7 +47,7 @@ function mvouma_loglikelihood(
         A_regimes = Float64.(A_regimes),
         Sigma = Matrix{Float64}(Sigma),
     )
-    prof = _mvou_fixed_loglikelihood(tree, data, precalc, bundle)
+    prof = _mvou_fixed_LL(tree, data, precalc, bundle)
     Ablock = _mvou_A_block_nparams(spec, p)
     Sblock = _mvou_sigma_block_nparams(p)
     nparams = Ablock * precalc.nregimes + Sblock + _mvou_mean_ncoefficients(spec, p, precalc.nregimes)

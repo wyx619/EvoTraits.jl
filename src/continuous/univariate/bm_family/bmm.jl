@@ -24,13 +24,13 @@ function _bmm_profile(tree::CompactTree, trait::AbstractVector{<:Real}, mapped_e
 end
 
 """
-    bmm_loglikelihood(tree, trait, mapped_edge, sigma2)
+    bmm_LL(tree, trait, mapped_edge, sigma2)
 
 Evaluate the multi-regime Brownian-motion (`BMM`) log-likelihood for a fixed
 vector of regime-specific diffusion rates `sigma2`. `mapped_edge` must contain
 per-edge regime durations whose rows sum to the original branch lengths.
 """
-function bmm_loglikelihood(
+function bmm_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     mapped_edge::AbstractMatrix{<:Real},
@@ -150,7 +150,7 @@ function fit_bmm(
     )
 end
 
-function bmm_loglikelihood(
+function bmm_LL(
     tree::CompactTree,
     data::AbstractDataFrame,
     simmap::SimmapSample,
@@ -159,7 +159,7 @@ function bmm_loglikelihood(
     kwargs...,
 )
     trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
-    return bmm_loglikelihood(
+    return bmm_LL(
         tree,
         trait,
         simmap.mapped_edge,
@@ -170,7 +170,7 @@ function bmm_loglikelihood(
     )
 end
 
-function bmm_loglikelihood(
+function bmm_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     simmap::SimmapSample,
@@ -178,7 +178,7 @@ function bmm_loglikelihood(
     trait_name = nothing,
     kwargs...,
 )
-    return bmm_loglikelihood(
+    return bmm_LL(
         tree,
         trait,
         simmap.mapped_edge,

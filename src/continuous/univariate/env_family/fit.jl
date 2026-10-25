@@ -72,7 +72,7 @@ function _env_result(tree,data,cache,variances,profile,sigma2,beta,model;
 end
 
 """
-    t_env_loglikelihood(tree, trait, environment, sigma2, beta;
+    t_env_LL(tree, trait, environment, sigma2, beta;
         model=:EnvExp, error=nothing, nuisance=0.0,
         quadrature_order=16, trait_name=nothing)
 
@@ -99,7 +99,7 @@ narrow pulses. EnvCurve knots are always used in addition to supplied breaks.
 EnvLin integrates EnvCurve and SmoothEnvCurve analytically; callable histories
 retain numerical quadrature.
 """
-function t_env_loglikelihood(tree::CompactTree,trait::AbstractVector{<:Real},
+function t_env_LL(tree::CompactTree,trait::AbstractVector{<:Real},
     environment,sigma2::Real,beta::Real;model::Symbol=:EnvExp,error=nothing,nuisance::Real=0.0,
     quadrature_order::Integer=16,quadrature_breakpoints::AbstractVector{<:Real}=Float64[],trait_name=nothing)
     _env_model(model)
@@ -140,7 +140,7 @@ For DataFrame input, `error=:se` selects a standard-error column and aligns
 it by taxon; specify `trait_col` when multiple numeric columns are present.
 Smoothing may be performed explicitly with smooth_env before fitting;
 no automatic smoothing, custom rate function or ASR is included.
-See t_env_loglikelihood for the statistical and quadrature conventions.
+See t_env_LL for the statistical and quadrature conventions.
 """
 function fit_t_env(tree::CompactTree,trait::AbstractVector{<:Real},environment;
     model::Symbol=:EnvExp,error=nothing,optimization::Symbol=:LN_SBPLX,

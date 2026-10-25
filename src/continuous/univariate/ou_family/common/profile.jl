@@ -174,7 +174,7 @@ function _ou_profile_parameters(context::OULikelihoodContext, parameters::Abstra
         end
     end
     bundle = OUParameterBundle(theta = coefficients, alpha = alpha, sigma2 = sigma2)
-    profile = _ou_context_loglikelihood(context, bundle, work.likelihood)
+    profile = _ou_context_LL(context, bundle, work.likelihood)
     if diagnostics
         identifiable = [sum(abs2, view(decomposition.Vt, 1:rank, j)) >= 1.0 - 1e-8
             for j in eachindex(coefficients)]

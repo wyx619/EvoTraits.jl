@@ -61,7 +61,7 @@ function _fit_mvshift_sr_constrained(tree, trait, mapping;
     end
     optimized = _mvbm_optimize_objective(objective, p0; optimization = optimization,
         max_iterations = max_iterations, rel_tol = rel_tol)
-    evaluated = _mvshift_sr_loglikelihood(tree, data, unpack(_mvbm_result_minimizer(optimized));
+    evaluated = _mvshift_sr_LL(tree, data, unpack(_mvbm_result_minimizer(optimized));
         mapped_edge = mapping.mapped_edge, Sigma_decomp = Sigma_decomp, trait_names = names)
     fit = evaluated.fit
     values = (; (name => getfield(fit, name) for name in fieldnames(typeof(fit)))...)
@@ -227,7 +227,7 @@ function _fit_mvshift_process(
     A, sigma, sig, beta = unpack(selected)
     extra = spec.independent ? (sig = sig,) : NamedTuple()
     ebextra = spec.eb_period > 0 ? (beta = beta, beta_bounds = beta_bounds) : NamedTuple()
-    evaluated = _mvshift_process_loglikelihood(tree, data, A, sigma;
+    evaluated = _mvshift_process_LL(tree, data, A, sigma;
         model = model, mapped_edge = mapping.mapped_edge, A_decomp = A_decomp,
         trait_names = names, Sigma_decomp = Sigma_decomp, extra..., ebextra...)
     converged = evaluated.success && !used_best && _mvbm_result_converged(optimized)

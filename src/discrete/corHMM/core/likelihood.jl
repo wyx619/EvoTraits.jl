@@ -1,4 +1,4 @@
-﻿function _corhmm_validate_liks(tree::CompactTree, liks::AbstractMatrix{<:Real})
+function _corhmm_validate_liks(tree::CompactTree, liks::AbstractMatrix{<:Real})
     size(liks, 1) == tree.ntips || throw(ArgumentError("corHMM tip likelihood matrix must have $(tree.ntips) rows"))
     size(liks, 2) >= 2 || throw(ArgumentError("corHMM tip likelihood matrix must have at least two states"))
     out = Matrix{Float64}(liks)
@@ -460,7 +460,16 @@ function corhmm_pruning_cache(
     )
 end
 
-function corhmm_loglikelihood(
+"""
+    corhmm_LL(tree, state_data::CorHMMStateData, Q;
+              root_prior=:yang, nparams=nothing, lewis_asc_bias=false)
+
+Evaluate the corHMM log-likelihood at a fixed transition-rate matrix `Q`, whose
+state order must match `state_data.tip_priors_hidden`. Returns a pruning result
+with `success`, `loglik`, `aic`, `aicc`, and conditional node likelihoods.
+`root_prior` accepts `:yang`, `:flat`, `:maddfitz`, or a probability vector.
+"""
+function corhmm_LL(
     tree::CompactTree,
     state_data::CorHMMStateData,
     Q::AbstractMatrix{<:Real};

@@ -1,11 +1,11 @@
-function simulate_yule_simtree(
+function sim_yule_simtree(
     n_tips::Integer;
     birth_rate::Real = 1.0,
     tree_height::Union{Nothing, Real} = nothing,
     tip_prefix::AbstractString = "t",
     rng::AbstractRNG = Random.GLOBAL_RNG,
 )
-    n_tips >= 2 || throw(ArgumentError("simulate_yule_tree requires at least 2 tips"))
+    n_tips >= 2 || throw(ArgumentError("sim_yule_tree requires at least 2 tips"))
     birth_rate > 0 || throw(ArgumentError("birth_rate must be positive"))
     tree_height === nothing || tree_height > 0 || throw(ArgumentError("tree_height must be positive"))
 
@@ -55,6 +55,6 @@ function simulate_yule_simtree(
     )
 end
 
-function simulate_yule_tree(args...; kwargs...)
-    return serialize_tree(simulate_yule_simtree(args...; kwargs...))
+function sim_yule_tree(args...; kwargs...)
+    return serialize_tree(sim_yule_simtree(args...; kwargs...))
 end

@@ -56,13 +56,13 @@ function _bm1_profile(tree::CompactTree, trait::AbstractVector{<:Real}, sigma2::
 end
 
 """
-    bm1_loglikelihood(tree, trait, sigma2)
+    bm1_LL(tree, trait, sigma2)
 
 Evaluate the single-trait Brownian-motion (`BM1`) log-likelihood on a
 tree. The returned `ContinuousFitResult` profiles the root state and reports
 the corresponding AIC with two free parameters (`sigma2` and root).
 """
-function bm1_loglikelihood(
+function bm1_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     sigma2::Real;
@@ -146,7 +146,7 @@ function fit_bm1(
     return fit_bm1(tree, trait; trait_name = trait_name, kwargs...)
 end
 
-function bm1_loglikelihood(
+function bm1_LL(
     tree::CompactTree,
     data::AbstractDataFrame,
     sigma2::Real;
@@ -154,6 +154,6 @@ function bm1_loglikelihood(
     kwargs...,
 )
     trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
-    return bm1_loglikelihood(tree, trait, sigma2; trait_name = trait_name, kwargs...)
+    return bm1_LL(tree, trait, sigma2; trait_name = trait_name, kwargs...)
 end
 

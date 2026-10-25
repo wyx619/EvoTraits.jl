@@ -55,12 +55,12 @@ function _ebm_profile(
 end
 
 """
-    ebm_loglikelihood(tree, trait, edge_segments, sigma2, beta_regimes)
+    ebm_LL(tree, trait, edge_segments, sigma2, beta_regimes)
 
 Evaluate a multi-regime early-burst model with regime-specific diffusion rates
 `sigma2` and regime-specific early-burst parameters `beta_regimes`.
 """
-function ebm_loglikelihood(
+function ebm_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     edge_segments::Vector{Vector{SimmapSegment}},
@@ -89,7 +89,7 @@ function ebm_loglikelihood(
     )
 end
 
-function ebm_loglikelihood(
+function ebm_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     edge_segments::Vector{Vector{SimmapSegment}},
@@ -226,7 +226,7 @@ function fit_ebm(
     )
 end
 
-function ebm_loglikelihood(
+function ebm_LL(
     tree::CompactTree,
     data::AbstractDataFrame,
     simmap::SimmapSample,
@@ -236,7 +236,7 @@ function ebm_loglikelihood(
     kwargs...,
 )
     trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
-    return ebm_loglikelihood(
+    return ebm_LL(
         tree,
         trait,
         simmap.edge_segments,
@@ -248,7 +248,7 @@ function ebm_loglikelihood(
     )
 end
 
-function ebm_loglikelihood(
+function ebm_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     simmap::SimmapSample,
@@ -257,7 +257,7 @@ function ebm_loglikelihood(
     trait_name = nothing,
     kwargs...,
 )
-    return ebm_loglikelihood(
+    return ebm_LL(
         tree,
         trait,
         simmap.edge_segments,

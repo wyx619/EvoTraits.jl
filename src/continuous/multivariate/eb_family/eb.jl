@@ -95,12 +95,12 @@ end
 end
 
 """
-    mveb_loglikelihood(tree, trait, Sigma, beta)
+    mveb_LL(tree, trait, Sigma, beta)
 
 Evaluate the multivariate early-burst (`mvEB`) log-likelihood for a fixed shared
 trait covariance matrix `Sigma` and a shared global `beta`.
 """
-function mveb_loglikelihood(tree::CompactTree, trait::AbstractMatrix{<:Real}, Sigma::AbstractMatrix{<:Real}, beta::Real; trait_names = nothing)
+function mveb_LL(tree::CompactTree, trait::AbstractMatrix{<:Real}, Sigma::AbstractMatrix{<:Real}, beta::Real; trait_names = nothing)
     _validate_ultrametric_tree(tree)
     data = _validate_multivariate_trait(tree, trait)
     p = size(data, 2)
@@ -155,7 +155,7 @@ function fit_mveb(
     minimizer = _mvbm_result_minimizer(result)
     Sigma = _mvbm1_unpack_sigma(minimizer[1:(div(p * (p + 1), 2))], p)
     beta = _bounded_param_from_raw(minimizer[end], low_beta, up_beta)
-    prof = mveb_loglikelihood(tree, data, Sigma, beta; trait_names = trait_names)
+    prof = mveb_LL(tree, data, Sigma, beta; trait_names = trait_names)
     return MVContinuousBMResult(
         model = prof.model,
         backend = prof.backend,

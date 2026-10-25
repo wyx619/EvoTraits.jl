@@ -1,5 +1,5 @@
 """
-    oum_loglikelihood(tree, trait, edge_segments, alpha, sigma2, theta_regimes; kwargs...)
+    oum_LL(tree, trait, edge_segments, alpha, sigma2, theta_regimes; kwargs...)
 
 Evaluate OUM at fixed parameters. `root_mean_mode=:regime` (default)
 and `:stationary` correspond to mvMORPH's `root=FALSE`
@@ -8,7 +8,7 @@ correspond to `vcv="fixedRoot"` and `"randomRoot"`. The normalized design is
 distinct from legacy zero-root `:stationary_design`, which is only retained
 for restoring saved results.
 """
-function oum_loglikelihood(
+function oum_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     edge_segments::Vector{Vector{SimmapSegment}},
@@ -27,14 +27,14 @@ function oum_loglikelihood(
     cache = _prepare_oum_edge_cache(tree, edge_segments)
     length(theta_regimes) == cache.nregimes || throw(ArgumentError("theta_regimes length must match regime count"))
     bundle = OUParameterBundle(theta = Float64.(theta_regimes), alpha = [Float64(alpha)], sigma2 = [Float64(sigma2)], theta0 = theta0)
-    prof = _ou_loglikelihood(tree, trait, spec, bundle; cache = cache)
+    prof = _ou_LL(tree, trait, spec, bundle; cache = cache)
     return _ou_multiregime_result(spec, bundle, prof, cache.nregimes; trait_name = trait_name, regime_names = regime_names)
 end
 
 """
     fit_oum(tree, trait, edge_segments; kwargs...)
 
-Fit OUM using the root options documented for [`oum_loglikelihood`](@ref).
+Fit OUM using the root options documented for [`oum_LL`](@ref).
 Regime optima are profiled by GLS. Inspect `mean_diagnostics`
 before interpreting individual means on an ultrametric tree.
 """
@@ -97,7 +97,7 @@ function fit_oum(
     )
 end
 
-function oum_loglikelihood(
+function oum_LL(
     tree::CompactTree,
     data::AbstractDataFrame,
     simmap::SimmapSample,
@@ -108,7 +108,7 @@ function oum_loglikelihood(
     kwargs...,
 )
     trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
-    return oum_loglikelihood(
+    return oum_LL(
         tree,
         trait,
         simmap.edge_segments,
@@ -121,7 +121,7 @@ function oum_loglikelihood(
     )
 end
 
-function oum_loglikelihood(
+function oum_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     simmap::SimmapSample,
@@ -131,7 +131,7 @@ function oum_loglikelihood(
     trait_name = nothing,
     kwargs...,
 )
-    return oum_loglikelihood(
+    return oum_LL(
         tree,
         trait,
         simmap.edge_segments,

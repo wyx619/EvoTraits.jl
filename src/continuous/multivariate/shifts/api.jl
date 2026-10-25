@@ -113,7 +113,7 @@ Pass only precalc to subsequent evaluations; cached tree changes are rejected.
 shift_precalc(tree::CompactTree;kwargs...) = _shift_precalc(tree;kwargs...)
 
 """
-    mvshift_loglikelihood(tree, Y, sigma; model=:SR, A=nothing, kwargs...)
+    mvshift_LL(tree, Y, sigma; model=:SR, A=nothing, kwargs...)
 
 Evaluate a time-shift model, profiling constant theta unless supplied.
 Y rows follow tree.tip_ids; NaN denotes missing observations. Supply exactly
@@ -127,16 +127,16 @@ the tree and mapping are divided by source height. Parameters are interpreted
 in normalized time units, not automatically converted. Results record
 source_height and time_scale; returned age/height/mapping use normalized units.
 """
-function mvshift_loglikelihood(tree::CompactTree,Y::AbstractMatrix{<:Real},sigma;
+function mvshift_LL(tree::CompactTree,Y::AbstractMatrix{<:Real},sigma;
     model::Symbol=:SR,A=nothing,scale_height::Bool=false,
     age=nothing,mapped_edge=nothing,precalc=nothing,kwargs...)
     prepared=_shift_scaled_input(tree,size(Y,2);scale_height=scale_height,
         age=age,mapped_edge=mapped_edge,precalc=precalc)
     r = if model===:SR
         A===nothing || throw(ArgumentError("SR has no OU component; omit A"))
-        _mvshift_sr_loglikelihood(prepared.tree,Y,sigma;prepared.input...,kwargs...)
+        _mvshift_sr_LL(prepared.tree,Y,sigma;prepared.input...,kwargs...)
     else
-        _mvshift_process_loglikelihood(prepared.tree,Y,A,sigma;model=model,prepared.input...,kwargs...)
+        _mvshift_process_LL(prepared.tree,Y,A,sigma;model=model,prepared.input...,kwargs...)
     end
     return _shift_public_result(r;source_height=prepared.source_height,
         time_scale=prepared.time_scale,scale_height=scale_height)
@@ -145,7 +145,7 @@ end
 """
     fit_mvshift(tree, Y; model=:SR, kwargs...)
 
-Fit a time-shift model with profiled constant theta. See mvshift_loglikelihood
+Fit a time-shift model with profiled constant theta. See mvshift_LL
 for model and time inputs. Initial matrices: guess_sigma, guess_sig and guess_A;
 SR guess_sigma is a pair. EB accepts guess_beta and beta_bounds=(-2,2), with
 out-of-range beta mapped to zero for reference compatibility.
@@ -171,18 +171,18 @@ function fit_mvshift(tree::CompactTree,Y::AbstractMatrix{<:Real};model::Symbol=:
 end
 
 """
-    shift_loglikelihood(tree, y, sigma2; model=:SR, alpha=nothing, sig=nothing, theta=nothing, kwargs...)
+    shift_LL(tree, y, sigma2; model=:SR, alpha=nothing, sig=nothing, theta=nothing, kwargs...)
 
-Scalar counterpart of mvshift_loglikelihood. SR sigma2 is [early, late]; other
+Scalar counterpart of mvshift_LL. SR sigma2 is [early, late]; other
 models use a scalar variance. Returns ShiftFitResult with 1x1 parameter matrices.
 """
-function shift_loglikelihood(tree::CompactTree,y::AbstractVector{<:Real},sigma2;
+function shift_LL(tree::CompactTree,y::AbstractVector{<:Real},sigma2;
     model::Symbol=:SR,alpha=nothing,sig=nothing,theta=nothing,trait_name=nothing,kwargs...)
     data=_validate_univariate_trait_allow_missing(tree,y)
     matrix(x)=reshape([Float64(x)],1,1)
     S=model===:SR ? [matrix(x) for x in sigma2] : matrix(sigma2)
     extra=sig===nothing ? NamedTuple() : (sig=matrix(sig),)
-    return mvshift_loglikelihood(tree,reshape(data,:,1),S;model=model,
+    return mvshift_LL(tree,reshape(data,:,1),S;model=model,
         A=alpha===nothing ? nothing : matrix(alpha),
         theta=theta===nothing ? nothing : [Float64(theta)],
         trait_names=[_continuous_checked_trait_name(trait_name)],extra...,kwargs...)

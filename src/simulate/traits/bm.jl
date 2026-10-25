@@ -1,9 +1,9 @@
 """
-    simulate_mvbm1(tree, Sigma; root_state=nothing, rng=Random.GLOBAL_RNG)
+    sim_mvbm1(tree, Sigma; root_state=nothing, rng=Random.GLOBAL_RNG)
 
 Simulate a BM1 trait matrix on a preprocessed tree.
 """
-function simulate_mvbm1(
+function sim_mvbm1(
     tree::CompactTree,
     Sigma::AbstractMatrix;
     root_state = nothing,
@@ -50,12 +50,12 @@ function simulate_mvbm1(
 end
 
 """
-    simulate_mvbmm(tree, edge_segments, Sigmas; root_state=nothing, rng=Random.GLOBAL_RNG)
+    sim_mvbmm(tree, edge_segments, Sigmas; root_state=nothing, rng=Random.GLOBAL_RNG)
 
 Simulate a multi-regime BM trait matrix. `Sigmas[r]` is the diffusion covariance
 for regime `r`.
 """
-function simulate_mvbmm(
+function sim_mvbmm(
     tree::CompactTree,
     edge_segments::Vector{Vector{SimmapSegment}},
     Sigmas::AbstractVector{<:AbstractMatrix};

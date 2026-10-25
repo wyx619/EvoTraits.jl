@@ -72,12 +72,7 @@ using Pkg
 Pkg.add(url="https://github.com/wyx619/EvoTraits.jl")
 ```
 
-For parallel fitting, start Julia with multiple threads, for example `julia -t 8`. Limit BLAS threads when combining it with Julia-level parallelism:
-
-```julia
-using EvoTraits
-set_engine_blas_threads!(1)
-```
+For parallel fitting, start Julia with multiple threads, for example `julia -t 8`. EvoTraits sets BLAS to one thread on loading to avoid oversubscription. This setting is shared by all packages in the Julia process; use `set_engine_blas_threads!(n)` after loading to change it.
 
 ### Fit, compare and reconstruct
 

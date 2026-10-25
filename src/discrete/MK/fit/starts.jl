@@ -35,7 +35,7 @@ end
 function _scout_objective(tree, priors, nstates, trial_rates, root_prior, root_prior_probs, rate_model)
     Q = mk_rates_to_Q(trial_rates, nstates; rate_model = rate_model)
     root_mode, root_vec = _prepare_root_prior(root_prior, root_prior_probs, Q, nstates)
-    fit = mk_loglikelihood(tree, priors, Q; root_prior=root_mode, root_prior_probs=root_vec, nparams=length(trial_rates))
+    fit = mk_LL(tree, priors, Q; root_prior=root_mode, root_prior_probs=root_vec, nparams=length(trial_rates))
     return fit.loglik
 end
 

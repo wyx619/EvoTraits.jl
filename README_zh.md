@@ -74,12 +74,7 @@ using Pkg
 Pkg.add(url="https://github.com/wyx619/EvoTraits.jl")
 ```
 
-需要并行拟合时，以多线程启动 Julia，例如 `julia -t 8`。与 Julia 层并行配合时，限制 BLAS 线程数：
-
-```julia
-using EvoTraits
-set_engine_blas_threads!(1)
-```
+需要并行拟合时，以多线程启动 Julia，例如 `julia -t 8`。EvoTraits 在加载时自动将 BLAS 设为单线程，避免与 Julia 层并行叠加。此设置由整个 Julia 进程共享；加载后可通过 `set_engine_blas_threads!(n)` 调整。
 
 ### 拟合、比较与重建
 

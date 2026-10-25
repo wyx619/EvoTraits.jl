@@ -1,11 +1,11 @@
 """
-    oumva_loglikelihood(tree, trait, edge_segments, alpha, sigma2, theta; kwargs...)
+    oumva_LL(tree, trait, edge_segments, alpha, sigma2, theta; kwargs...)
 
 Evaluate the OUMVA likelihood with `root_cov_mode=:fixed`. The default
 `root_mean_mode=:regime` uses the root regime optimum as the root
 mean.
 """
-function oumva_loglikelihood(
+function oumva_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     edge_segments::Vector{Vector{SimmapSegment}},
@@ -31,7 +31,7 @@ function oumva_loglikelihood(
         sigma2 = Float64.(sigma2_regimes),
         theta0 = theta0,
     )
-    prof = _ou_loglikelihood(tree, trait, spec, bundle; cache = cache)
+    prof = _ou_LL(tree, trait, spec, bundle; cache = cache)
     return _ou_multiregime_result(spec, bundle, prof, cache.nregimes; trait_name = trait_name, regime_names = regime_names)
 end
 
@@ -101,7 +101,7 @@ function fit_oumva(
     )
 end
 
-function oumva_loglikelihood(
+function oumva_LL(
     tree::CompactTree,
     data::AbstractDataFrame,
     simmap::SimmapSample,
@@ -112,7 +112,7 @@ function oumva_loglikelihood(
     kwargs...,
 )
     trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
-    return oumva_loglikelihood(
+    return oumva_LL(
         tree,
         trait,
         simmap.edge_segments,
@@ -125,7 +125,7 @@ function oumva_loglikelihood(
     )
 end
 
-function oumva_loglikelihood(
+function oumva_LL(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
     simmap::SimmapSample,
@@ -135,7 +135,7 @@ function oumva_loglikelihood(
     trait_name = nothing,
     kwargs...,
 )
-    return oumva_loglikelihood(
+    return oumva_LL(
         tree,
         trait,
         simmap.edge_segments,

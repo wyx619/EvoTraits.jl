@@ -151,7 +151,7 @@ function _simulate_birth_death_attempt(
     return simtree
 end
 
-function simulate_birth_death_simtree(
+function sim_birth_death_simtree(
     n_tips::Integer;
     birth_rate::Real,
     death_rate::Real,
@@ -160,12 +160,12 @@ function simulate_birth_death_simtree(
     max_attempts::Integer = 1000,
     rng::AbstractRNG = Random.GLOBAL_RNG,
 )
-    n_tips >= 2 || throw(ArgumentError("simulate_birth_death_tree requires at least 2 tips"))
+    n_tips >= 2 || throw(ArgumentError("sim_birth_death_tree requires at least 2 tips"))
     birth_rate > 0 || throw(ArgumentError("birth_rate must be positive"))
     death_rate >= 0 || throw(ArgumentError("death_rate must be non-negative"))
     tree_height === nothing || tree_height > 0 || throw(ArgumentError("tree_height must be positive"))
     max_attempts >= 1 || throw(ArgumentError("max_attempts must be positive"))
-    death_rate == 0 && return simulate_yule_simtree(
+    death_rate == 0 && return sim_yule_simtree(
         n_tips;
         birth_rate = birth_rate,
         tree_height = tree_height,
@@ -187,6 +187,6 @@ function simulate_birth_death_simtree(
     throw(ArgumentError("birth-death simulation went extinct in all max_attempts attempts"))
 end
 
-function simulate_birth_death_tree(args...; kwargs...)
-    return serialize_tree(simulate_birth_death_simtree(args...; kwargs...))
+function sim_birth_death_tree(args...; kwargs...)
+    return serialize_tree(sim_birth_death_simtree(args...; kwargs...))
 end

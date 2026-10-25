@@ -61,13 +61,13 @@ function diagnose_shift(tree::CompactTree,traits,result::ShiftFitResult;
         try
             r=if sr
                 S=[_shift_unpack_sigma(@view(pars[(k-1)*block+1:k*block]),result.ntraits,result.Sigma_decomp) for k in 1:2]
-                _mvshift_sr_loglikelihood(prepared.tree,Y,S;mapped_edge=mapping.mapped_edge,
+                _mvshift_sr_LL(prepared.tree,Y,S;mapped_edge=mapping.mapped_edge,
                     Sigma_decomp=result.Sigma_decomp)
             else
                 A,S,S2,beta=_shift_process_unpack(pars,result.ntraits,result.A_decomp,result.Sigma_decomp,spec)
                 extra=merge(spec.independent ? (sig=S2,) : NamedTuple(),
                     spec.eb_period>0 ? (beta=beta,beta_bounds=result.beta_bounds) : NamedTuple())
-                _mvshift_process_loglikelihood(prepared.tree,Y,A,S;model=result.model,
+                _mvshift_process_LL(prepared.tree,Y,A,S;model=result.model,
                     mapped_edge=mapping.mapped_edge,A_decomp=result.A_decomp===nothing ? :cholesky : result.A_decomp,
                     Sigma_decomp=result.Sigma_decomp,extra...)
             end

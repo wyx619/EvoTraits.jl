@@ -131,8 +131,8 @@ function _transition_events_dataframe(events)
 end
 
 """
-    transition_events_DataFrame(tree, simmap; R_order = nothing, map = nothing)
-    transition_events_DataFrame(tree, simmaps; R_order = nothing, map = nothing)
+    transition_events_table(tree, simmap; R_order = nothing, map = nothing)
+    transition_events_table(tree, simmaps; R_order = nothing, map = nothing)
 
 Return a `DataFrame` with one row per SIMMAP transition event. By default the
 columns are `sim_id`, `edge_id`, `from`, `to`, and `time_before_present`.
@@ -140,7 +140,7 @@ columns are `sim_id`, `edge_id`, `from`, `to`, and `time_before_present`.
 If `R_order` is `:cladewise` or `:postorder`, the returned table is augmented
 with `phyloref` branch-identity columns using the requested R/ape edge order.
 """
-function transitionevents(
+function transition_events_table(
     tree::CompactTree,
     simmap::SimmapSample;
     R_order::Union{Nothing, Symbol} = nothing,
@@ -153,7 +153,7 @@ function transitionevents(
     return attach_R_edge_map(df, tree; edge_col = :edge_id, order = R_order, map = checked_map)
 end
 
-function transitionevents(
+function transition_events_table(
     tree::CompactTree,
     simmaps::AbstractVector{<:SimmapSample};
     R_order::Union{Nothing, Symbol} = nothing,
@@ -166,7 +166,15 @@ function transitionevents(
     return attach_R_edge_map(df, tree; edge_col = :edge_id, order = R_order, map = checked_map)
 end
 
-transition_events_DataFrame(args...; kwargs...) = transitionevents(args...; kwargs...)
+transitionevents(args...; kwargs...) = transition_events_table(args...; kwargs...)
+
+"""
+    transition_events_DataFrame(args...; kwargs...)
+
+Compatibility alias for [`transition_events_table`](@ref). Use
+`transition_events_table` in new code.
+"""
+transition_events_DataFrame(args...; kwargs...) = transition_events_table(args...; kwargs...)
 
 function _simmap_bin_index(time::Real, bin::Real, nbins::Integer)
     bin > 0 || throw(ArgumentError("bin must be positive"))

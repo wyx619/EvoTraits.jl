@@ -17,7 +17,7 @@ end
 include("root_and_oubm_regressions.jl")
 
 @testset "mvOU1 fitting and ancestral reconstruction" begin
-    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(420)))
+    tree = serialize_tree(sim_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(420)))
 
     A_true = [
         1.0 0.15;
@@ -28,9 +28,9 @@ include("root_and_oubm_regressions.jl")
         0.25 0.6;
     ]
     theta_true = [0.2, -0.1]
-    traits = simulate_mvou1(tree, A_true, Sigma_true, theta_true; rng = MersenneTwister(225))
+    traits = sim_mvou1(tree, A_true, Sigma_true, theta_true; rng = MersenneTwister(225))
 
-    fixed = mvou1_loglikelihood(tree, traits, A_true, Sigma_true, theta_true)
+    fixed = mvou1_LL(tree, traits, A_true, Sigma_true, theta_true)
     @test fixed.success
     @test fixed.model == :mvOU1
     @test fixed.ntraits == 2
@@ -61,7 +61,7 @@ include("root_and_oubm_regressions.jl")
 end
 
 @testset "mvOU1 p>=2 and missing likelihood" begin
-    tree = serialize_tree(simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(320)))
+    tree = serialize_tree(sim_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(320)))
     A3 = [
         1.0 0.1 0.0;
         0.1 0.9 0.08;
@@ -73,8 +73,8 @@ end
         0.1 0.15 0.6;
     ]
     theta3 = [0.2, -0.1, 0.35]
-    traits3 = simulate_mvou1(tree, A3, Sigma3, theta3; rng = MersenneTwister(321))
-    fixed3 = mvou1_loglikelihood(tree, traits3, A3, Sigma3, theta3)
+    traits3 = sim_mvou1(tree, A3, Sigma3, theta3; rng = MersenneTwister(321))
+    fixed3 = mvou1_LL(tree, traits3, A3, Sigma3, theta3)
     @test fixed3.success
     @test fixed3.ntraits == 3
     @test size(fixed3.A) == (3, 3, 1)
@@ -84,7 +84,7 @@ end
     missing_traits[3, 1] = NaN
     missing_traits[6, 3] = NaN
     missing_traits[9, :] .= NaN
-    missing_fixed = mvou1_loglikelihood(tree, missing_traits, A3, Sigma3, theta3)
+    missing_fixed = mvou1_LL(tree, missing_traits, A3, Sigma3, theta3)
     @test missing_fixed.success
     @test missing_fixed.ntraits == 3
     @test isfinite(missing_fixed.loglik)
@@ -105,7 +105,7 @@ end
 end
 
 @testset "mvOU1 near-BM alpha remains numerically valid" begin
-    tree = serialize_tree(simulate_yule_simtree(40; tree_height = 1.0, rng = MersenneTwister(326)))
+    tree = serialize_tree(sim_yule_simtree(40; tree_height = 1.0, rng = MersenneTwister(326)))
     A = [
         1.0681614698559785 -0.14938292367880018 0.023523131284298147;
         -0.14938292367880018 2.057137236721755 0.014946846700781051;
@@ -119,8 +119,8 @@ end
     theta = [3.9248426837990906, 1.987459530806447, -0.06310212097264915]
 
     @test minimum(eigvals(Symmetric(A))) > 0.0
-    traits = simulate_mvou1(tree, A, Sigma, theta; rng = MersenneTwister(327))
-    fixed = mvou1_loglikelihood(tree, traits, A, Sigma, theta)
+    traits = sim_mvou1(tree, A, Sigma, theta; rng = MersenneTwister(327))
+    fixed = mvou1_LL(tree, traits, A, Sigma, theta)
     @test fixed.success
     @test isfinite(fixed.loglik)
 end
@@ -141,7 +141,7 @@ end
 end
 
 @testset "mvOUM diagonal likelihood uses root regime mean" begin
-    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(421)))
+    tree = serialize_tree(sim_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(421)))
 
     edge_segments = _test_edge_segments(tree, 2)
     rng = MersenneTwister(233)
@@ -159,7 +159,7 @@ end
     Sigma = Matrix(Diagonal([sigma1, sigma2]))
     theta = hcat(theta1, theta2)
 
-    mv = mvoum_loglikelihood(tree, traits, edge_segments, A, Sigma, theta)
+    mv = mvoum_LL(tree, traits, edge_segments, A, Sigma, theta)
     @test mv.success
     @test isfinite(mv.loglik)
     @test mv.root_mean_mode == :regime
@@ -167,14 +167,14 @@ end
 end
 
 @testset "mvOU root treatments propagate to reconstruction" begin
-    tree = serialize_tree(simulate_yule_simtree(12; tree_height = 1.0, rng = MersenneTwister(991)))
+    tree = serialize_tree(sim_yule_simtree(12; tree_height = 1.0, rng = MersenneTwister(991)))
     edge_segments = _test_edge_segments(tree, 2)
     A = [0.9 0.1; 0.1 1.1]
     Sigma = [0.6 0.15; 0.15 0.5]
     theta = [0.2 -0.1; 0.8 0.4]
-    traits = simulate_mvoum(tree, edge_segments, A, Sigma, eachrow(theta) |> collect; rng = MersenneTwister(992))
+    traits = sim_mvoum(tree, edge_segments, A, Sigma, eachrow(theta) |> collect; rng = MersenneTwister(992))
 
-    fixed = mvoum_loglikelihood(
+    fixed = mvoum_LL(
         tree,
         traits,
         edge_segments,
@@ -183,7 +183,7 @@ end
         theta;
         root_mean_mode = :regime,
     )
-    random = mvoum_loglikelihood(
+    random = mvoum_LL(
         tree,
         traits,
         edge_segments,
@@ -224,7 +224,7 @@ end
 end
 
 @testset "stationary root covariance changes multivariate root ASR variance" begin
-    tree = serialize_tree(simulate_yule_simtree(10; tree_height = 1.0, rng = MersenneTwister(993)))
+    tree = serialize_tree(sim_yule_simtree(10; tree_height = 1.0, rng = MersenneTwister(993)))
     traits = hcat(
         collect(range(-0.7, 0.8; length = tree.ntips)),
         collect(range(0.4, 1.7; length = tree.ntips)),
@@ -232,8 +232,8 @@ end
     A = [0.9 0.14; 0.14 1.2]
     Sigma = [0.7 0.16; 0.16 0.5]
     theta = [0.15, 0.75]
-    fixed = mvou1_loglikelihood(tree, traits, A, Sigma, theta; root_cov_mode = :fixed)
-    stationary = mvou1_loglikelihood(tree, traits, A, Sigma, theta; root_cov_mode = :random)
+    fixed = mvou1_LL(tree, traits, A, Sigma, theta; root_cov_mode = :fixed)
+    stationary = mvou1_LL(tree, traits, A, Sigma, theta; root_cov_mode = :random)
     @test fixed.success
     @test stationary.success
     fixed_asr = estim_node(tree, traits, fixed)
@@ -244,7 +244,7 @@ end
 end
 
 @testset "mvOUM fitting and ancestral reconstruction" begin
-    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(422)))
+    tree = serialize_tree(sim_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(422)))
 
     A_true = [
         0.9 0.12;
@@ -259,9 +259,9 @@ end
         0.0 0.3;
         0.8 -0.2;
     ]
-    traits = simulate_mvoum(tree, edge_segments, A_true, Sigma_true, eachrow(theta_regimes) |> collect; rng = MersenneTwister(227))
+    traits = sim_mvoum(tree, edge_segments, A_true, Sigma_true, eachrow(theta_regimes) |> collect; rng = MersenneTwister(227))
 
-    fixed = mvoum_loglikelihood(tree, traits, edge_segments, A_true, Sigma_true, theta_regimes)
+    fixed = mvoum_LL(tree, traits, edge_segments, A_true, Sigma_true, theta_regimes)
     @test fixed.success
     @test fixed.model == :mvOUM
     @test fixed.ntraits == 2
@@ -310,13 +310,13 @@ end
 end
 
 @testset "mvOUM DataFrame and SimmapSample metadata" begin
-    ou_simtree = simulate_yule_simtree(14; tree_height = 1.0, rng = MersenneTwister(2241))
+    ou_simtree = sim_yule_simtree(14; tree_height = 1.0, rng = MersenneTwister(2241))
     tree = serialize_tree(ou_simtree)
     edge_segments = _test_edge_segments(tree, 2)
     A = [0.8 0.1; 0.1 0.9]
     Sigma = [0.5 0.05; 0.05 0.4]
     theta = [[0.0, 0.2], [0.7, -0.1]]
-    traits = simulate_mvoum(tree, edge_segments, A, Sigma, theta; rng = MersenneTwister(2242))
+    traits = sim_mvoum(tree, edge_segments, A, Sigma, theta; rng = MersenneTwister(2242))
     df = DataFrame(
         species = tree.tip_labels,
         plate = fill("simple", tree.ntips),
@@ -350,7 +350,7 @@ end
 end
 
 @testset "mvOUMV/OUMA/OUMVA fixed likelihood degeneracies" begin
-    tree = serialize_tree(simulate_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(425)))
+    tree = serialize_tree(sim_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(425)))
     edge_segments = _test_edge_segments(tree, 3)
     rng = MersenneTwister(427)
     traits = randn(rng, tree.ntips, 2)
@@ -371,10 +371,10 @@ end
     A_regimes = repeat(reshape(A, 2, 2, 1), 1, 1, 3)
     Sigma_regimes = repeat(reshape(Sigma, 2, 2, 1), 1, 1, 3)
 
-    oum = mvoum_loglikelihood(tree, traits, edge_segments, A, Sigma, theta; root_mean_mode = :regime)
-    oumv = mvoumv_loglikelihood(tree, traits, edge_segments, A, Sigma_regimes, theta)
-    ouma = mvouma_loglikelihood(tree, traits, edge_segments, A_regimes, Sigma, theta)
-    oumva = mvoumva_loglikelihood(tree, traits, edge_segments, A_regimes, Sigma_regimes, theta)
+    oum = mvoum_LL(tree, traits, edge_segments, A, Sigma, theta; root_mean_mode = :regime)
+    oumv = mvoumv_LL(tree, traits, edge_segments, A, Sigma_regimes, theta)
+    ouma = mvouma_LL(tree, traits, edge_segments, A_regimes, Sigma, theta)
+    oumva = mvoumva_LL(tree, traits, edge_segments, A_regimes, Sigma_regimes, theta)
 
     @test oum.success
     @test oumv.success
@@ -413,20 +413,20 @@ end
     Sigma = reshape([sigma2], 1, 1)
     Sigma_regimes = reshape(sigma2_regimes, 1, 1, :)
 
-    uni_oumv = oumv_loglikelihood(tree, y, edge_segments, alpha, sigma2_regimes, theta_regimes)
-    mv_oumv = mvoumv_loglikelihood(tree, X, edge_segments, A, Sigma_regimes, theta_matrix; root_mean_mode = :regime)
+    uni_oumv = oumv_LL(tree, y, edge_segments, alpha, sigma2_regimes, theta_regimes)
+    mv_oumv = mvoumv_LL(tree, X, edge_segments, A, Sigma_regimes, theta_matrix; root_mean_mode = :regime)
     @test uni_oumv.success
     @test mv_oumv.success
     @test isapprox(mv_oumv.loglik, uni_oumv.loglik; atol = 1e-8)
 
-    uni_ouma = ouma_loglikelihood(tree, y, edge_segments, alpha_regimes, sigma2, theta_regimes)
-    mv_ouma = mvouma_loglikelihood(tree, X, edge_segments, A_regimes, Sigma, theta_matrix; root_mean_mode = :regime)
+    uni_ouma = ouma_LL(tree, y, edge_segments, alpha_regimes, sigma2, theta_regimes)
+    mv_ouma = mvouma_LL(tree, X, edge_segments, A_regimes, Sigma, theta_matrix; root_mean_mode = :regime)
     @test uni_ouma.success
     @test mv_ouma.success
     @test isapprox(mv_ouma.loglik, uni_ouma.loglik; atol = 1e-8)
 
-    uni_oumva = oumva_loglikelihood(tree, y, edge_segments, alpha_regimes, sigma2_regimes, theta_regimes)
-    mv_oumva = mvoumva_loglikelihood(tree, X, edge_segments, A_regimes, Sigma_regimes, theta_matrix; root_mean_mode = :regime)
+    uni_oumva = oumva_LL(tree, y, edge_segments, alpha_regimes, sigma2_regimes, theta_regimes)
+    mv_oumva = mvoumva_LL(tree, X, edge_segments, A_regimes, Sigma_regimes, theta_matrix; root_mean_mode = :regime)
     @test uni_oumva.success
     @test mv_oumva.success
     @test isapprox(mv_oumva.loglik, uni_oumva.loglik; atol = 1e-8)
@@ -473,7 +473,7 @@ function _test_simulate_mvou_family(tree, edge_segments, A_regimes, Sigma_regime
 end
 
 @testset "mvOUMV/OUMA/OUMVA fixed likelihood favors simulation parameters" begin
-    tree = serialize_tree(simulate_yule_simtree(80; tree_height = 1.0, rng = MersenneTwister(428)))
+    tree = serialize_tree(sim_yule_simtree(80; tree_height = 1.0, rng = MersenneTwister(428)))
     edge_segments = _test_edge_segments(tree, 2)
     theta = [
         -0.6 0.4;
@@ -520,8 +520,8 @@ end
         theta;
         rng = MersenneTwister(430),
     )
-    oumv_true = mvoumv_loglikelihood(tree, X_oumv, edge_segments, A_shared, Sigma_regimes, theta; root_mean_mode = :regime)
-    oumv_wrong = mvoumv_loglikelihood(tree, X_oumv, edge_segments, A_shared, Sigma_wrong, theta; root_mean_mode = :regime)
+    oumv_true = mvoumv_LL(tree, X_oumv, edge_segments, A_shared, Sigma_regimes, theta; root_mean_mode = :regime)
+    oumv_wrong = mvoumv_LL(tree, X_oumv, edge_segments, A_shared, Sigma_wrong, theta; root_mean_mode = :regime)
     @test oumv_true.success
     @test oumv_wrong.success
     @test oumv_true.loglik > oumv_wrong.loglik
@@ -534,22 +534,22 @@ end
         theta;
         rng = MersenneTwister(431),
     )
-    ouma_true = mvouma_loglikelihood(tree, X_ouma, edge_segments, A_regimes, Sigma_shared, theta; root_mean_mode = :regime)
-    ouma_wrong = mvouma_loglikelihood(tree, X_ouma, edge_segments, A_wrong, Sigma_shared, theta; root_mean_mode = :regime)
+    ouma_true = mvouma_LL(tree, X_ouma, edge_segments, A_regimes, Sigma_shared, theta; root_mean_mode = :regime)
+    ouma_wrong = mvouma_LL(tree, X_ouma, edge_segments, A_wrong, Sigma_shared, theta; root_mean_mode = :regime)
     @test ouma_true.success
     @test ouma_wrong.success
     @test ouma_true.loglik > ouma_wrong.loglik
 
     X_oumva = _test_simulate_mvou_family(tree, edge_segments, A_regimes, Sigma_regimes, theta; rng = MersenneTwister(432))
-    oumva_true = mvoumva_loglikelihood(tree, X_oumva, edge_segments, A_regimes, Sigma_regimes, theta; root_mean_mode = :regime)
-    oumva_wrong = mvoumva_loglikelihood(tree, X_oumva, edge_segments, A_wrong, Sigma_wrong, theta; root_mean_mode = :regime)
+    oumva_true = mvoumva_LL(tree, X_oumva, edge_segments, A_regimes, Sigma_regimes, theta; root_mean_mode = :regime)
+    oumva_wrong = mvoumva_LL(tree, X_oumva, edge_segments, A_wrong, Sigma_wrong, theta; root_mean_mode = :regime)
     @test oumva_true.success
     @test oumva_wrong.success
     @test oumva_true.loglik > oumva_wrong.loglik
 end
 
 @testset "mvOUMV fitting and ancestral reconstruction" begin
-    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(423)))
+    tree = serialize_tree(sim_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(423)))
 
     A_true = [
         0.95 0.10;
@@ -569,9 +569,9 @@ end
         0.1 0.25;
         0.9 -0.15;
     ]
-    traits = simulate_mvoum(tree, edge_segments, A_true, Sigma_regimes[:, :, 1], eachrow(theta_regimes) |> collect; rng = MersenneTwister(229))
+    traits = sim_mvoum(tree, edge_segments, A_true, Sigma_regimes[:, :, 1], eachrow(theta_regimes) |> collect; rng = MersenneTwister(229))
 
-    fixed = mvoumv_loglikelihood(tree, traits, edge_segments, A_true, Sigma_regimes, theta_regimes)
+    fixed = mvoumv_LL(tree, traits, edge_segments, A_true, Sigma_regimes, theta_regimes)
     @test fixed.success
     @test fixed.model == :mvOUMV
     @test fixed.ntraits == 2
@@ -599,7 +599,7 @@ end
 end
 
 @testset "fit_mvoumv profiles theta and dominates nested mvOUM on simulated data" begin
-    tree = serialize_tree(simulate_yule_simtree(40; tree_height = 1.0, rng = MersenneTwister(433)))
+    tree = serialize_tree(sim_yule_simtree(40; tree_height = 1.0, rng = MersenneTwister(433)))
     edge_segments = _test_edge_segments(tree, 2)
     A = [
         1.1 0.06;
@@ -639,7 +639,7 @@ end
 end
 
 @testset "mvOUMA and mvOUMVA fitting and ancestral reconstruction" begin
-    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(424)))
+    tree = serialize_tree(sim_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(424)))
 
     A_regimes = Array{Float64, 3}(undef, 2, 2, 2)
     A_regimes[:, :, 1] = [
@@ -668,9 +668,9 @@ end
         0.05 0.20;
         0.85 -0.10;
     ]
-    traits = simulate_mvoum(tree, edge_segments, A_regimes[:, :, 1], Sigma_true, eachrow(theta_regimes) |> collect; rng = MersenneTwister(231))
+    traits = sim_mvoum(tree, edge_segments, A_regimes[:, :, 1], Sigma_true, eachrow(theta_regimes) |> collect; rng = MersenneTwister(231))
 
-    fixed_ouma = mvouma_loglikelihood(tree, traits, edge_segments, A_regimes, Sigma_true, theta_regimes)
+    fixed_ouma = mvouma_LL(tree, traits, edge_segments, A_regimes, Sigma_true, theta_regimes)
     @test fixed_ouma.success
     @test fixed_ouma.model == :mvOUMA
     @test size(fixed_ouma.A) == (2, 2, 2)
@@ -687,7 +687,7 @@ end
     @test asr_ouma.model == :mvOUMA
     @test size(asr_ouma.estimates) == (tree.ntips - 1, 2)
 
-    fixed_oumva = mvoumva_loglikelihood(tree, traits, edge_segments, A_regimes, Sigma_regimes, theta_regimes)
+    fixed_oumva = mvoumva_LL(tree, traits, edge_segments, A_regimes, Sigma_regimes, theta_regimes)
     @test fixed_oumva.success
     @test fixed_oumva.model == :mvOUMVA
     @test size(fixed_oumva.A) == (2, 2, 2)
@@ -737,7 +737,7 @@ end
 end
 
 @testset "mvOU1 schur supports asymmetric A for p=2" begin
-    tree = serialize_tree(simulate_yule_simtree(24; tree_height = 1.0, rng = MersenneTwister(6101)))
+    tree = serialize_tree(sim_yule_simtree(24; tree_height = 1.0, rng = MersenneTwister(6101)))
     A_true = [
         1.1 0.8;
         -0.2 0.6;
@@ -747,9 +747,9 @@ end
         0.15 0.5;
     ]
     theta_true = [0.3, -0.2]
-    traits = simulate_mvou1(tree, A_true, Sigma_true, theta_true; rng = MersenneTwister(6102))
+    traits = sim_mvou1(tree, A_true, Sigma_true, theta_true; rng = MersenneTwister(6102))
 
-    fixed = mvou1_loglikelihood(tree, traits, A_true, Sigma_true, theta_true; A_decomp = :schur)
+    fixed = mvou1_LL(tree, traits, A_true, Sigma_true, theta_true; A_decomp = :schur)
     @test fixed.success
     @test fixed.A_decomp == :schur
     @test fixed.nparams == 4 + 3 + 2
@@ -763,7 +763,7 @@ end
 end
 
 @testset "mvOUM schur supports asymmetric shared A for p=2" begin
-    tree = serialize_tree(simulate_yule_simtree(24; tree_height = 1.0, rng = MersenneTwister(6201)))
+    tree = serialize_tree(sim_yule_simtree(24; tree_height = 1.0, rng = MersenneTwister(6201)))
     edge_segments = _test_edge_segments(tree, 2)
     A_true = [
         0.9 0.7;
@@ -777,9 +777,9 @@ end
         -0.3 0.2;
          0.8 -0.1;
     ]
-    traits = simulate_mvoum(tree, edge_segments, A_true, Sigma_true, eachrow(theta_regimes) |> collect; rng = MersenneTwister(6202))
+    traits = sim_mvoum(tree, edge_segments, A_true, Sigma_true, eachrow(theta_regimes) |> collect; rng = MersenneTwister(6202))
 
-    fixed = mvoum_loglikelihood(tree, traits, edge_segments, A_true, Sigma_true, theta_regimes; A_decomp = :schur)
+    fixed = mvoum_LL(tree, traits, edge_segments, A_true, Sigma_true, theta_regimes; A_decomp = :schur)
     @test fixed.success
     @test fixed.A_decomp == :schur
     @test fixed.nparams == 4 + 3 + 4
@@ -793,7 +793,7 @@ end
 end
 
 @testset "schur rejects p!=2" begin
-    tree = serialize_tree(simulate_yule_simtree(12; tree_height = 1.0, rng = MersenneTwister(6301)))
+    tree = serialize_tree(sim_yule_simtree(12; tree_height = 1.0, rng = MersenneTwister(6301)))
     A3 = [
         1.0 0.1 0.0;
         0.2 0.9 0.1;
@@ -805,13 +805,13 @@ end
         0.0 0.1 0.6;
     ]
     theta3 = [0.1, -0.2, 0.3]
-    X = simulate_mvou1(tree, A3, Sigma3, theta3; rng = MersenneTwister(6302))
-    @test_throws ArgumentError mvou1_loglikelihood(tree, X, A3, Sigma3, theta3; A_decomp = :schur)
+    X = sim_mvou1(tree, A3, Sigma3, theta3; rng = MersenneTwister(6302))
+    @test_throws ArgumentError mvou1_LL(tree, X, A3, Sigma3, theta3; A_decomp = :schur)
     @test_throws ArgumentError fit_mvou1(tree, X; A_decomp = :schur, max_iterations = 5)
 end
 
 @testset "decomposable_positive supports asymmetric real-spectrum A for p=4" begin
-    tree = serialize_tree(simulate_yule_simtree(12; tree_height = 1.0, rng = MersenneTwister(6351)))
+    tree = serialize_tree(sim_yule_simtree(12; tree_height = 1.0, rng = MersenneTwister(6351)))
     edge_segments = _test_edge_segments(tree, 2)
     A = [
         0.55 0.20 -0.10 0.05;
@@ -837,8 +837,8 @@ end
     @test isapprox(A_roundtrip, A; atol = 1e-8)
     @test !isapprox(A_roundtrip[1, 2], A_roundtrip[2, 1]; atol = 1e-10)
 
-    traits = simulate_mvoum(tree, edge_segments, A, Sigma, eachrow(theta) |> collect; rng = MersenneTwister(6352))
-    fixed = mvoum_loglikelihood(tree, traits, edge_segments, A, Sigma, theta; A_decomp = :decomposable_positive)
+    traits = sim_mvoum(tree, edge_segments, A, Sigma, eachrow(theta) |> collect; rng = MersenneTwister(6352))
+    fixed = mvoum_LL(tree, traits, edge_segments, A, Sigma, theta; A_decomp = :decomposable_positive)
     @test fixed.success
     @test fixed.A_decomp == :decomposable_positive
     @test fixed.nparams == 16 + 10 + 8
@@ -850,7 +850,7 @@ end
 end
 
 @testset "mvOUMV/OUMA/OUMVA schur fixed likelihood supports asymmetric A" begin
-    tree = serialize_tree(simulate_yule_simtree(20; tree_height = 1.0, rng = MersenneTwister(6401)))
+    tree = serialize_tree(sim_yule_simtree(20; tree_height = 1.0, rng = MersenneTwister(6401)))
     edge_segments = _test_edge_segments(tree, 2)
     A_shared = [
         0.95 0.65;
@@ -873,26 +873,26 @@ end
         -0.2 0.3;
          0.9 -0.1;
     ]
-    traits = simulate_mvoum(tree, edge_segments, A_shared, Sigma_shared, eachrow(theta_regimes) |> collect; rng = MersenneTwister(6402))
+    traits = sim_mvoum(tree, edge_segments, A_shared, Sigma_shared, eachrow(theta_regimes) |> collect; rng = MersenneTwister(6402))
 
-    oumv = mvoumv_loglikelihood(tree, traits, edge_segments, A_shared, Sigma_regimes, theta_regimes; A_decomp = :schur)
+    oumv = mvoumv_LL(tree, traits, edge_segments, A_shared, Sigma_regimes, theta_regimes; A_decomp = :schur)
     @test oumv.success
     @test oumv.A_decomp == :schur
     @test isfinite(oumv.loglik)
 
-    ouma = mvouma_loglikelihood(tree, traits, edge_segments, A_regimes, Sigma_shared, theta_regimes; A_decomp = :schur)
+    ouma = mvouma_LL(tree, traits, edge_segments, A_regimes, Sigma_shared, theta_regimes; A_decomp = :schur)
     @test ouma.success
     @test ouma.A_decomp == :schur
     @test isfinite(ouma.loglik)
 
-    oumva = mvoumva_loglikelihood(tree, traits, edge_segments, A_regimes, Sigma_regimes, theta_regimes; A_decomp = :schur)
+    oumva = mvoumva_LL(tree, traits, edge_segments, A_regimes, Sigma_regimes, theta_regimes; A_decomp = :schur)
     @test oumva.success
     @test oumva.A_decomp == :schur
     @test isfinite(oumva.loglik)
 end
 
 @testset begin
-    tree = serialize_tree(simulate_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(6501)))
+    tree = serialize_tree(sim_yule_simtree(18; tree_height = 1.0, rng = MersenneTwister(6501)))
     edge_segments = _test_edge_segments(tree, 2)
     A_data = Matrix(Diagonal([0.7, 1.2, 2.1]))
     Sigma = [
@@ -904,23 +904,23 @@ end
         -0.2 0.5 1.0;
         0.3 0.1 -0.4;
     ]
-    traits = simulate_mvoum(tree, edge_segments, A_data, Sigma, eachrow(theta) |> collect; rng = MersenneTwister(6502))
+    traits = sim_mvoum(tree, edge_segments, A_data, Sigma, eachrow(theta) |> collect; rng = MersenneTwister(6502))
 
-    diagonal = mvoum_loglikelihood(tree, traits, edge_segments, A_data, Sigma, theta; A_decomp = :diagonal)
-    symmetric = mvoum_loglikelihood(tree, traits, edge_segments, A_data, Sigma, theta)
+    diagonal = mvoum_LL(tree, traits, edge_segments, A_data, Sigma, theta; A_decomp = :diagonal)
+    symmetric = mvoum_LL(tree, traits, edge_segments, A_data, Sigma, theta)
     @test diagonal.success
     @test diagonal.A_decomp == :diagonal
     @test diagonal.nparams == 3 + 6 + 6
     @test isapprox(diagonal.loglik, symmetric.loglik; atol = 1e-8)
     A_bad = copy(A_data)
     A_bad[1, 2] = 0.1
-    @test !mvoum_loglikelihood(tree, traits, edge_segments, A_bad, Sigma, theta; A_decomp = :diagonal).success
+    @test !mvoum_LL(tree, traits, edge_segments, A_bad, Sigma, theta; A_decomp = :diagonal).success
 
-    ou1 = mvou1_loglikelihood(tree, traits, A_data, Sigma, theta[1, :]; A_decomp = :diagonal)
+    ou1 = mvou1_LL(tree, traits, A_data, Sigma, theta[1, :]; A_decomp = :diagonal)
     @test ou1.success
     @test ou1.A_decomp == :diagonal
     @test ou1.nparams == 3 + 6 + 3
-    @test isapprox(ou1.loglik, mvou1_loglikelihood(tree, traits, A_data, Sigma, theta[1, :]).loglik; atol = 1e-8)
+    @test isapprox(ou1.loglik, mvou1_LL(tree, traits, A_data, Sigma, theta[1, :]).loglik; atol = 1e-8)
 
     @test EvoTraits._mvoubm_A_block_nparams(:diagonal, 3) == 3
     bm_params = EvoTraits._mvoubm_pack_A_block(:diagonal, A_data)
@@ -929,9 +929,9 @@ end
 
     A_regimes = repeat(reshape(A_data, 3, 3, 1), 1, 1, 2)
     Sigma_regimes = repeat(reshape(Sigma, 3, 3, 1), 1, 1, 2)
-    oumv = mvoumv_loglikelihood(tree, traits, edge_segments, A_data, Sigma_regimes, theta; A_decomp = :diagonal)
-    ouma = mvouma_loglikelihood(tree, traits, edge_segments, A_regimes, Sigma, theta; A_decomp = :diagonal)
-    oumva = mvoumva_loglikelihood(tree, traits, edge_segments, A_regimes, Sigma_regimes, theta; A_decomp = :diagonal)
+    oumv = mvoumv_LL(tree, traits, edge_segments, A_data, Sigma_regimes, theta; A_decomp = :diagonal)
+    ouma = mvouma_LL(tree, traits, edge_segments, A_regimes, Sigma, theta; A_decomp = :diagonal)
+    oumva = mvoumva_LL(tree, traits, edge_segments, A_regimes, Sigma_regimes, theta; A_decomp = :diagonal)
     @test oumv.success && oumv.A_decomp == :diagonal
     @test ouma.success && ouma.A_decomp == :diagonal
     @test oumva.success && oumva.A_decomp == :diagonal
@@ -962,7 +962,7 @@ end
     @test_throws ArgumentError EvoTraits._mvou_pack_A(spec, [1.0 0.1; 0.0 2.0])
     @test_throws ArgumentError EvoTraits._mvou_unpack_A(spec, [0.0, 0.0], 3)
 
-    tree = serialize_tree(simulate_yule_simtree(14; tree_height = 1.0, rng = MersenneTwister(7001)))
+    tree = serialize_tree(sim_yule_simtree(14; tree_height = 1.0, rng = MersenneTwister(7001)))
     edge_segments = _test_edge_segments(tree, 2)
     Sigma = [
         0.8 0.15 0.05;
@@ -973,7 +973,7 @@ end
         -0.2 0.5 1.0;
         0.3 0.1 -0.4;
     ]
-    traits = simulate_mvoum(tree, edge_segments, A_ok, Sigma, eachrow(theta) |> collect; rng = MersenneTwister(7002))
+    traits = sim_mvoum(tree, edge_segments, A_ok, Sigma, eachrow(theta) |> collect; rng = MersenneTwister(7002))
 
     oumv_fit = fit_mvoumv(tree, traits, edge_segments; A_decomp = :diagonal, max_iterations = 20, rel_tol = 1e-5)
     ouma_fit = fit_mvouma(tree, traits, edge_segments; A_decomp = :diagonal, max_iterations = 20, rel_tol = 1e-5)

@@ -4,7 +4,7 @@
     toy_tree = serialize_tree(read_tree(ou_tree_path))
     trait = [1.0, 1.1, 2.0, 2.1]
 
-    ll = ou1_loglikelihood(toy_tree, trait, 0.5, 0.3, 1.5)
+    ll = ou1_LL(toy_tree, trait, 0.5, 0.3, 1.5)
     @test ll.success
     @test isfinite(ll.loglik)
     @test ll.nparams == 3
@@ -27,7 +27,7 @@ end
     toy_tree = serialize_tree(read_tree(tree_path))
     trait = [1.0, NaN, 2.0, 2.1]
 
-    ou = ou1_loglikelihood(toy_tree, trait, 0.5, 0.3, 1.5)
+    ou = ou1_LL(toy_tree, trait, 0.5, 0.3, 1.5)
     @test ou.success
     @test isfinite(ou.loglik)
     fit = fit_ou1(toy_tree, trait; max_iterations = 40)
@@ -66,7 +66,7 @@ end
         [SimmapSegment(state = 2, length = 1.0)],
     ]
 
-    ll = oum_loglikelihood(toy_tree, trait, edge_segments, 0.5, 0.3, [1.0, 2.0])
+    ll = oum_LL(toy_tree, trait, edge_segments, 0.5, 0.3, [1.0, 2.0])
     @test ll.success
     @test isfinite(ll.loglik)
     @test ll.nregimes == 2
@@ -153,7 +153,7 @@ end
         [SimmapSegment(state = 2, length = 1.0)],
     ]
 
-    ll = oumv_loglikelihood(toy_tree, trait, edge_segments, 0.5, [0.2, 0.4], [1.0, 2.0])
+    ll = oumv_LL(toy_tree, trait, edge_segments, 0.5, [0.2, 0.4], [1.0, 2.0])
     @test ll.success
     @test isfinite(ll.loglik)
     @test ll.model == :OUMV
@@ -189,7 +189,7 @@ end
         [SimmapSegment(state = 2, length = 1.0)],
     ]
 
-    ll_ouma = ouma_loglikelihood(toy_tree, trait, edge_segments, [0.4, 0.8], 0.3, [1.0, 2.0])
+    ll_ouma = ouma_LL(toy_tree, trait, edge_segments, [0.4, 0.8], 0.3, [1.0, 2.0])
     @test ll_ouma.success
     @test ll_ouma.model == :OUMA
     @test length(ll_ouma.alpha_regimes) == 2
@@ -204,7 +204,7 @@ end
     @test length(ouma_fit.sigma2) == 1
     @test length(ouma_fit.theta_regimes) == 2
 
-    ll_oumva = oumva_loglikelihood(toy_tree, trait, edge_segments, [0.4, 0.8], [0.2, 0.4], [1.0, 2.0])
+    ll_oumva = oumva_LL(toy_tree, trait, edge_segments, [0.4, 0.8], [0.2, 0.4], [1.0, 2.0])
     @test ll_oumva.success
     @test ll_oumva.model == :OUMVA
     @test length(ll_oumva.alpha_regimes) == 2
@@ -286,8 +286,8 @@ end
     tree = serialize_tree(read_tree(tree_path))
     trait = [1.0, 1.1, 2.0, 2.1]
 
-    fixed = ou1_loglikelihood(tree, trait, 0.5, 0.3, 1.5)
-    random = ou1_loglikelihood(tree, trait, 0.5, 0.3, 1.5; root_cov_mode = :random)
+    fixed = ou1_LL(tree, trait, 0.5, 0.3, 1.5)
+    random = ou1_LL(tree, trait, 0.5, 0.3, 1.5; root_cov_mode = :random)
     @test fixed.success
     @test random.success
     @test random.root_cov_mode == :random

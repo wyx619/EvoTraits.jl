@@ -1,4 +1,16 @@
 @testset "EvoTraits loads" begin
+    @test BLAS.get_num_threads() == 1
+    @test all(name -> isdefined(EvoTraits, name), names(EvoTraits))
+    @test :corhmm_LL in names(EvoTraits)
+    @test :transition_events_table in names(EvoTraits)
+    @test_throws ArgumentError set_engine_blas_threads!(0)
+    @test_throws ArgumentError set_engine_blas_threads!(-1)
+    @test BLAS.get_num_threads() == 1
+    try
+        @test set_engine_blas_threads!(2) == 2
+    finally
+        set_engine_blas_threads!(1)
+    end
     @test set_engine_blas_threads!(1) == 1
 end
 

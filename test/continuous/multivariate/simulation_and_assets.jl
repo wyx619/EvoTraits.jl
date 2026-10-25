@@ -1,8 +1,8 @@
 @testset "Multivariate simulation helpers" begin
     rng = MersenneTwister(20260420)
-    simtree = simulate_yule_simtree(12; birth_rate = 1.2, tree_height = 2.5, rng = MersenneTwister(20260419))
+    simtree = sim_yule_simtree(12; birth_rate = 1.2, tree_height = 2.5, rng = MersenneTwister(20260419))
     direct_tree = serialize_tree(simtree)
-    yule_tree = simulate_yule_tree(12; birth_rate = 1.2, tree_height = 2.5, rng = MersenneTwister(20260419))
+    yule_tree = sim_yule_tree(12; birth_rate = 1.2, tree_height = 2.5, rng = MersenneTwister(20260419))
     yule_newick = to_newick(simtree)
     yule_path = joinpath(mktempdir(), "yule_tree.tre")
     write(yule_path, yule_newick)
@@ -15,7 +15,7 @@
     @test isapprox(maximum(direct_tree.dist_from_root[direct_tree.tip_ids]), minimum(direct_tree.dist_from_root[direct_tree.tip_ids]); atol = 1e-8)
     @test all(>=(0.0), direct_tree.edge_length)
 
-    bd_simtree = simulate_birth_death_simtree(
+    bd_simtree = sim_birth_death_simtree(
         12;
         birth_rate = 1.4,
         death_rate = 0.3,
@@ -29,7 +29,7 @@
     @test isapprox(maximum(bd_tip_depths), minimum(bd_tip_depths); atol = 1e-8)
     @test all(>=(0.0), bd_tree.edge_length)
 
-    bd_yule = simulate_birth_death_tree(
+    bd_yule = sim_birth_death_tree(
         12;
         birth_rate = 1.2,
         death_rate = 0.0,
@@ -40,7 +40,7 @@
     @test bd_yule.nedges == yule_tree.nedges
     @test bd_yule.edge_length ≈ yule_tree.edge_length
 
-    newick = simulate_ultrametric_newick(12; tree_height = 2.5, rng = rng)
+    newick = sim_ultrametric_newick(12; tree_height = 2.5, rng = rng)
     tree_path = joinpath(mktempdir(), "mv_sim_tree.tre")
     write(tree_path, newick)
     tree = serialize_tree(read_tree(tree_path))
@@ -50,7 +50,7 @@
     @test isapprox(maximum(tip_depths), minimum(tip_depths); atol = 1e-8)
     @test isapprox(only(unique(round.(tip_depths; digits = 8))), 2.5; atol = 1e-6)
 
-    simtree3 = simulate_yule_simtree(12; tree_height = 1.7, rng = MersenneTwister(6))
+    simtree3 = sim_yule_simtree(12; tree_height = 1.7, rng = MersenneTwister(6))
     tree3 = serialize_tree(simtree3)
     @test tree3.ntips == 12
     # Build simple single-state edge segments as a basic validity test
@@ -64,10 +64,10 @@
         0.8 0.2;
         0.2 0.6;
     ]
-    traits = simulate_mvbm1(tree, Sigma; rng = MersenneTwister(7))
+    traits = sim_mvbm1(tree, Sigma; rng = MersenneTwister(7))
     @test size(traits) == (12, 2)
 
-    bundle = simulate_mvbm1_dataset(
+    bundle = sim_mvbm1_dataset(
         10,
         Sigma;
         tree_height = 1.2,
@@ -98,9 +98,9 @@
         0.5 0.1;
         0.1 0.6;
     ]
-    bmm_traits = simulate_mvbmm(regime_tree, edge_segments, [Sig1, Sig2]; rng = MersenneTwister(9))
+    bmm_traits = sim_mvbmm(regime_tree, edge_segments, [Sig1, Sig2]; rng = MersenneTwister(9))
     @test size(bmm_traits) == (4, 2)
-    @test size(simulate_mv_data(:mvBMM, regime_tree, edge_segments, [Sig1, Sig2]; rng = MersenneTwister(9))) == (4, 2)
+    @test size(sim_mv_data(:mvBMM, regime_tree, edge_segments, [Sig1, Sig2]; rng = MersenneTwister(9))) == (4, 2)
 
     A = [
         1.0 0.2;
@@ -111,24 +111,24 @@
         0.15 0.7;
     ]
     theta = [0.0, 0.5]
-    ou1_traits = simulate_mvou1(regime_tree, A, Sigma, theta; rng = MersenneTwister(10))
+    ou1_traits = sim_mvou1(regime_tree, A, Sigma, theta; rng = MersenneTwister(10))
     @test size(ou1_traits) == (4, 2)
-    @test size(simulate_mv_data(:mvOU1, regime_tree, A, Sigma, theta; rng = MersenneTwister(10))) == (4, 2)
+    @test size(sim_mv_data(:mvOU1, regime_tree, A, Sigma, theta; rng = MersenneTwister(10))) == (4, 2)
 
     theta_regimes = [[0.0, 0.5], [0.8, -0.2]]
-    oum_traits = simulate_mvoum(regime_tree, edge_segments, A, Sigma, theta_regimes; rng = MersenneTwister(11))
+    oum_traits = sim_mvoum(regime_tree, edge_segments, A, Sigma, theta_regimes; rng = MersenneTwister(11))
     @test size(oum_traits) == (4, 2)
 
-    eb_traits = simulate_mveb(regime_tree, Sigma, -0.5; rng = MersenneTwister(12))
+    eb_traits = sim_mveb(regime_tree, Sigma, -0.5; rng = MersenneTwister(12))
     @test size(eb_traits) == (4, 2)
 
     Sigma1 = reshape([0.7], 1, 1)
     A1 = reshape([0.9], 1, 1)
     theta1 = [0.2]
-    one_trait_bm = simulate_mvbm1(regime_tree, Sigma1; rng = MersenneTwister(13))
-    one_trait_ou = simulate_mvou1(regime_tree, A1, Sigma1, theta1; rng = MersenneTwister(14))
-    one_trait_oum = simulate_mvoum(regime_tree, edge_segments, A1, Sigma1, [[0.1], [0.8]]; rng = MersenneTwister(15))
-    one_trait_eb = simulate_mveb(regime_tree, Sigma1, -0.2; rng = MersenneTwister(16))
+    one_trait_bm = sim_mvbm1(regime_tree, Sigma1; rng = MersenneTwister(13))
+    one_trait_ou = sim_mvou1(regime_tree, A1, Sigma1, theta1; rng = MersenneTwister(14))
+    one_trait_oum = sim_mvoum(regime_tree, edge_segments, A1, Sigma1, [[0.1], [0.8]]; rng = MersenneTwister(15))
+    one_trait_eb = sim_mveb(regime_tree, Sigma1, -0.2; rng = MersenneTwister(16))
     @test size(one_trait_bm) == (4, 1)
     @test size(one_trait_ou) == (4, 1)
     @test size(one_trait_oum) == (4, 1)
@@ -137,7 +137,7 @@
 end
 
 @testset "Multivariate large trees and input validation" begin
-    tree = simulate_yule_tree(4001; tree_height = 1.0, rng = MersenneTwister(202))
+    tree = sim_yule_tree(4001; tree_height = 1.0, rng = MersenneTwister(202))
     trait = randn(MersenneTwister(203), tree.ntips, 2)
     A = [1.0 0.1; 0.1 0.9]
     Sigma = [1.0 0.2; 0.2 0.8]
@@ -150,13 +150,13 @@ end
         mapped[e, Int(only(segments[e]).state)] = tree.edge_length[e]
     end
     for result in (
-        mvbm1_loglikelihood(tree, trait, Sigma),
-        mvbmm_loglikelihood(tree, trait, mapped, [Sigma, 1.3Sigma]),
-        mvou1_loglikelihood(tree, trait, A, Sigma, theta),
-        mvoum_loglikelihood(tree, trait, segments, A, Sigma, theta_regimes),
-        mvoumva_loglikelihood(tree, trait, segments, cat(A, 1.2A; dims = 3),
+        mvbm1_LL(tree, trait, Sigma),
+        mvbmm_LL(tree, trait, mapped, [Sigma, 1.3Sigma]),
+        mvou1_LL(tree, trait, A, Sigma, theta),
+        mvoum_LL(tree, trait, segments, A, Sigma, theta_regimes),
+        mvoumva_LL(tree, trait, segments, cat(A, 1.2A; dims = 3),
             cat(Sigma, 1.3Sigma; dims = 3), theta_regimes),
-        mvoubm_loglikelihood(tree, trait, segments, reshape([1.0], 1, 1),
+        mvoubm_LL(tree, trait, segments, reshape([1.0], 1, 1),
             reshape([0.1], 1, 1), reshape([1.0], 1, 1), reshape([0.8], 1, 1),
             reshape([0.0, 0.5], 1, 2)),
     )

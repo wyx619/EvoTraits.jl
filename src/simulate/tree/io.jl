@@ -23,10 +23,10 @@
 # SimulatedTree and CompactTree. They are only produced for disk persistence
 # or for compatibility with external tools.
 #
-# The legacy random-coalescence simulator `simulate_ultrametric_newick` is
+# The legacy random-coalescence simulator `sim_ultrametric_newick` is
 # kept here because it returns a Newick string and is used by tests as a
 # fast standalone tree source. It is **not** a recommended path for new code;
-# use `simulate_yule_simtree` or `simulate_birth_death_simtree` instead.
+# use `sim_yule_simtree` or `sim_birth_death_simtree` instead.
 # ============================================================================
 
 # ---------------------------------------------------------------------------
@@ -371,7 +371,7 @@ to_real_tree(simtree::SimulatedTree) = from_compact_tree(serialize_tree(simtree)
 # ---------------------------------------------------------------------------
 
 """
-    simulate_ultrametric_newick(
+    sim_ultrametric_newick(
         n_tips::Integer;
         tree_height::Real = 1.0,
         tip_prefix::AbstractString = "t",
@@ -383,16 +383,16 @@ Generate a random rooted bifurcating ultrametric tree in Newick format.
 The topology is built by random backward coalescence and all tip-to-root path
 lengths equal `tree_height`. This helper is intended for tests and small
 simulation studies, **not** as a fitted birth-death or Yule process. For
-realistic tree simulation use `simulate_yule_simtree` or
-`simulate_birth_death_simtree` and then `to_newick`.
+realistic tree simulation use `sim_yule_simtree` or
+`sim_birth_death_simtree` and then `to_newick`.
 """
-function simulate_ultrametric_newick(
+function sim_ultrametric_newick(
     n_tips::Integer;
     tree_height::Real = 1.0,
     tip_prefix::AbstractString = "t",
     rng::AbstractRNG = Random.GLOBAL_RNG,
 )
-    n_tips >= 2 || throw(ArgumentError("simulate_ultrametric_newick requires at least 2 tips"))
+    n_tips >= 2 || throw(ArgumentError("sim_ultrametric_newick requires at least 2 tips"))
     tree_height > 0 || throw(ArgumentError("tree_height must be positive"))
 
     lineages = [_MVSimNode("$(tip_prefix)$(i)", 0.0, _MVSimNode[]) for i in 1:n_tips]
@@ -428,10 +428,10 @@ trailing semicolon is added if missing.
 Examples:
 
 ```julia
-write_tree("tree.tre", simulate_yule_simtree(50))             # SimulatedTree
+write_tree("tree.tre", sim_yule_simtree(50))             # SimulatedTree
 write_tree("tree.tre", serialize_tree(simtree))               # CompactTree
 write_tree("tree.tre", from_compact_tree(tree))                # NewickTree.Node
-write_tree("tree.tre", simulate_ultrametric_newick(50))        # Newick string
+write_tree("tree.tre", sim_ultrametric_newick(50))        # Newick string
 ```
 
 Returns the Newick string that was written.

@@ -7,8 +7,8 @@
     priors = tip_priors_from_states(toy_tree, states, 2)
     Q = [-0.3 0.3; 0.1 -0.1]
 
-    fit_like = mk_loglikelihood(toy_tree, priors, Q; root_prior=:likelihoods)
-    fit_flat = mk_loglikelihood(toy_tree, priors, Q; root_prior=:flat)
+    fit_like = mk_LL(toy_tree, priors, Q; root_prior=:likelihoods)
+    fit_flat = mk_LL(toy_tree, priors, Q; root_prior=:flat)
 
     @test fit_like.success
     @test fit_flat.success
@@ -33,7 +33,7 @@ end
          0.10 0.10 0.10 -0.30;
     ]
 
-    fit = mk_loglikelihood(big_tree, priors, Q; root_prior=:flat)
+    fit = mk_LL(big_tree, priors, Q; root_prior=:flat)
     @test fit.success
     @test isfinite(fit.loglik)
     @test fit.nstates == 4

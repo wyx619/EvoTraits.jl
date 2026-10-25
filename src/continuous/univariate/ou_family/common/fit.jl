@@ -96,7 +96,7 @@ function _ou1_profiled_likelihood(
     step = max(sqrt(var(observed)), 1.0)
     eval_at = function (theta)
         bundle = OUParameterBundle(theta = [theta], alpha = [alpha], sigma2 = [sigma2])
-        return _ou_loglikelihood(tree, trait, spec, bundle)
+        return _ou_LL(tree, trait, spec, bundle)
     end
 
     at_center = eval_at(center)
@@ -149,7 +149,7 @@ function _ou_fit_with_starts(
     end
     objective = function (par)
         bundle = _ou_unpack_params(spec, par, nregimes)
-        prof = _ou_loglikelihood(tree, tr, spec, bundle; cache = cache)
+        prof = _ou_LL(tree, tr, spec, bundle; cache = cache)
         return prof.success ? -prof.loglik : Inf
     end
     lower_bounds = vcat(
@@ -194,6 +194,6 @@ function _ou_fit_with_starts(
 
     minimizer = _continuous_result_minimizer(result)
     bundle = _ou_unpack_params(spec, minimizer, nregimes)
-    prof = _ou_loglikelihood(tree, tr, spec, bundle; cache = cache)
+    prof = _ou_LL(tree, tr, spec, bundle; cache = cache)
     return (bundle = bundle, profile = prof, result = result, nregimes = nregimes)
 end

@@ -31,12 +31,12 @@
     @test S*y ≈ curve.smoothed atol=1e-10
     tree = EvoTraits._parse_load_tree_text("((a:1,b:1):2,(c:2,d:2):1);")
     values = [0.4,-0.7,1.2,0.1]
-    fixed = t_env_loglikelihood(tree,values,scaled,0.7,0.2)
+    fixed = t_env_LL(tree,values,scaled,0.7,0.2)
     @test fixed.success
-    @test fixed.loglik ≈ t_env_loglikelihood(tree,values,scaled,0.7,0.2;quadrature_order=32).loglik atol=1e-10
+    @test fixed.loglik ≈ t_env_LL(tree,values,scaled,0.7,0.2;quadrature_order=32).loglik atol=1e-10
     fit = fit_t_env(tree,values,scaled;max_iterations=80)
     @test fit.success
-    @test fit.loglik ≈ t_env_loglikelihood(tree,values,scaled,fit.sigma2,fit.beta).loglik atol=1e-12
+    @test fit.loglik ≈ t_env_LL(tree,values,scaled,fit.sigma2,fit.beta).loglik atol=1e-12
     lo,hi = EvoTraits._env_smooth_range(scaled,3.)
     @test lo <= minimum(scaled.smoothed)
     @test hi >= maximum(scaled.smoothed)
