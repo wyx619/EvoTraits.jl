@@ -115,7 +115,7 @@ comparison.aic_table
 comparison.best_fit.converged
 ```
 
-Use `EnvCurve(history.age, history.temperature; scale=true)` for piecewise-linear interpolation without smoothing; duplicate ages must first be resolved. `smooth_env` accepts repeated ages and requires an explicit df. Choose that value independently of the model comparison. `fit_compare` returns fits and information criteria without ASR; environmental models are not currently supported by `fit_compare_estim`.
+Use `EnvCurve(history.age, history.temperature; scale=true)` for piecewise-linear interpolation without smoothing; duplicate ages must first be resolved. `smooth_env` accepts repeated ages and requires an explicit df. Choose that value independently of the model comparison. `fit_compare` supports trait vectors and matrices and does not perform ASR by default; use `reconstruct=true` or `fit_compare_estim` for supported models. Environmental models do not support ASR. `fit_compare_multivariate` also defaults to no ASR; set `reconstruct=true` to restore its former behavior.
 
 ### Fit regime-dependent multivariate evolution
 

@@ -69,15 +69,7 @@ function fit_oum(
     trait_col = nothing,
     kwargs...,
 )
-    trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
-    return fit_oum(
-        tree,
-        trait,
-        simmap.edge_segments;
-        trait_name = trait_name,
-        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates),
-        kwargs...,
-    )
+    return _fit_univariate_simmap(fit_oum, tree, data, simmap; trait_col = trait_col, kwargs...)
 end
 
 function fit_oum(
@@ -87,14 +79,7 @@ function fit_oum(
     trait_name = nothing,
     kwargs...,
 )
-    return fit_oum(
-        tree,
-        trait,
-        simmap.edge_segments;
-        trait_name = trait_name,
-        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates),
-        kwargs...,
-    )
+    return _fit_univariate_simmap(fit_oum, tree, trait, simmap; trait_name = trait_name, kwargs...)
 end
 
 function oum_LL(
@@ -107,18 +92,7 @@ function oum_LL(
     trait_col = nothing,
     kwargs...,
 )
-    trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
-    return oum_LL(
-        tree,
-        trait,
-        simmap.edge_segments,
-        alpha,
-        sigma2,
-        theta_regimes;
-        trait_name = trait_name,
-        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates),
-        kwargs...,
-    )
+    return _LL_univariate_simmap(oum_LL, tree, data, simmap, alpha, sigma2, theta_regimes; trait_col = trait_col, kwargs...)
 end
 
 function oum_LL(
@@ -131,15 +105,5 @@ function oum_LL(
     trait_name = nothing,
     kwargs...,
 )
-    return oum_LL(
-        tree,
-        trait,
-        simmap.edge_segments,
-        alpha,
-        sigma2,
-        theta_regimes;
-        trait_name = trait_name,
-        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates),
-        kwargs...,
-    )
+    return _LL_univariate_simmap(oum_LL, tree, trait, simmap, alpha, sigma2, theta_regimes; trait_name = trait_name, kwargs...)
 end

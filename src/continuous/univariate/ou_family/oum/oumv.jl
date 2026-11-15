@@ -72,15 +72,7 @@ function fit_oumv(
     trait_col = nothing,
     kwargs...,
 )
-    trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
-    return fit_oumv(
-        tree,
-        trait,
-        simmap.edge_segments;
-        trait_name = trait_name,
-        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates),
-        kwargs...,
-    )
+    return _fit_univariate_simmap(fit_oumv, tree, data, simmap; trait_col = trait_col, kwargs...)
 end
 
 function fit_oumv(
@@ -90,14 +82,7 @@ function fit_oumv(
     trait_name = nothing,
     kwargs...,
 )
-    return fit_oumv(
-        tree,
-        trait,
-        simmap.edge_segments;
-        trait_name = trait_name,
-        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates),
-        kwargs...,
-    )
+    return _fit_univariate_simmap(fit_oumv, tree, trait, simmap; trait_name = trait_name, kwargs...)
 end
 
 function oumv_LL(
@@ -110,18 +95,7 @@ function oumv_LL(
     trait_col = nothing,
     kwargs...,
 )
-    trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
-    return oumv_LL(
-        tree,
-        trait,
-        simmap.edge_segments,
-        alpha,
-        sigma2_regimes,
-        theta_regimes;
-        trait_name = trait_name,
-        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates),
-        kwargs...,
-    )
+    return _LL_univariate_simmap(oumv_LL, tree, data, simmap, alpha, sigma2_regimes, theta_regimes; trait_col = trait_col, kwargs...)
 end
 
 function oumv_LL(
@@ -134,15 +108,5 @@ function oumv_LL(
     trait_name = nothing,
     kwargs...,
 )
-    return oumv_LL(
-        tree,
-        trait,
-        simmap.edge_segments,
-        alpha,
-        sigma2_regimes,
-        theta_regimes;
-        trait_name = trait_name,
-        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates),
-        kwargs...,
-    )
+    return _LL_univariate_simmap(oumv_LL, tree, trait, simmap, alpha, sigma2_regimes, theta_regimes; trait_name = trait_name, kwargs...)
 end

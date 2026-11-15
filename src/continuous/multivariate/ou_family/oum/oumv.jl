@@ -129,8 +129,7 @@ function fit_mvoumv(
     simmap::SimmapSample;
     kwargs...,
 )
-    trait, trait_names = _mv_align_dataframe_traits(tree, data)
-    return fit_mvoumv(tree, trait, simmap.edge_segments; trait_names = trait_names, regime_names = simmap.state_labels, kwargs...)
+    return _fit_multivariate_simmap(fit_mvoumv, tree, data, simmap; kwargs...)
 end
 
 function fit_mvoumv(
@@ -139,6 +138,6 @@ function fit_mvoumv(
     simmap::SimmapSample;
     kwargs...,
 )
-    return fit_mvoumv(tree, trait, simmap.edge_segments; regime_names = simmap.state_labels, kwargs...)
+    return _fit_multivariate_simmap(fit_mvoumv, tree, trait, simmap; kwargs...)
 end
 

@@ -273,3 +273,36 @@ function _continuous_regime_names_from_simmap(simmap, nregimes::Integer)
     labels = getproperty(simmap, :state_labels)
     return _continuous_checked_regime_names(isempty(labels) ? nothing : labels, nregimes)
 end
+
+function _fit_univariate_simmap(f, tree::CompactTree, data::AbstractDataFrame, simmap::SimmapSample;
+    trait_col = nothing, kwargs...)
+    trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
+    return _fit_univariate_simmap(f, tree, trait, simmap; trait_name = trait_name, kwargs...)
+end
+
+function _fit_univariate_simmap(f, tree::CompactTree, trait::AbstractVector{<:Real}, simmap::SimmapSample;
+    trait_name = nothing, kwargs...)
+    return f(tree, trait, simmap.edge_segments; trait_name = trait_name,
+        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates), kwargs...)
+end
+
+function _LL_univariate_simmap(f, tree::CompactTree, data::AbstractDataFrame, simmap::SimmapSample, args...;
+    trait_col = nothing, kwargs...)
+    trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
+    return _LL_univariate_simmap(f, tree, trait, simmap, args...; trait_name = trait_name, kwargs...)
+end
+
+function _LL_univariate_simmap(f, tree::CompactTree, trait::AbstractVector{<:Real}, simmap::SimmapSample, args...;
+    trait_name = nothing, kwargs...)
+    return f(tree, trait, simmap.edge_segments, args...; trait_name = trait_name,
+        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates), kwargs...)
+end
+
+function _fit_multivariate_simmap(f, tree::CompactTree, data::AbstractDataFrame, simmap::SimmapSample; kwargs...)
+    trait, trait_names = _mv_align_dataframe_traits(tree, data)
+    return f(tree, trait, simmap.edge_segments; trait_names = trait_names, regime_names = simmap.state_labels, kwargs...)
+end
+
+function _fit_multivariate_simmap(f, tree::CompactTree, trait::AbstractMatrix{<:Real}, simmap::SimmapSample; kwargs...)
+    return f(tree, trait, simmap.edge_segments; regime_names = simmap.state_labels, kwargs...)
+end

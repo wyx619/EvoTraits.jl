@@ -303,6 +303,9 @@ end
 
     keep = tree.tip_labels[1:100]
     kept = keep_tip_simmap(tree, simmap, keep)
+    dispatched = keep_tip(tree, simmap, keep)
+    @test dispatched.tree.tip_labels == kept.tree.tip_labels
+    @test dispatched.simmap.mapped_edge == kept.simmap.mapped_edge
     @test kept.tree.ntips == 100
     @test Set(kept.tree.tip_labels) == Set(keep)
     @test length(kept.simmap.edge_segments) == kept.tree.nedges
@@ -313,6 +316,9 @@ end
     end
 
     dropped = drop_tip_simmap(tree, simmap, setdiff(tree.tip_labels, keep))
+    dispatched_drop = drop_tip(tree, simmap, setdiff(tree.tip_labels, keep))
+    @test dispatched_drop.tree.tip_labels == dropped.tree.tip_labels
+    @test dispatched_drop.simmap.mapped_edge == dropped.simmap.mapped_edge
     @test dropped.tree.ntips == kept.tree.ntips
     @test Set(dropped.tree.tip_labels) == Set(kept.tree.tip_labels)
     @test isapprox(sum(dropped.simmap.mapped_edge), sum(kept.simmap.mapped_edge); atol = 1e-6)

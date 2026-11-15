@@ -82,6 +82,9 @@ end
     @test workflow.best_fit !== nothing
     @test workflow.asr !== nothing
     @test workflow.asr.success
+    explicit = fit_compare(toy_tree, trait, [:BM1]; reconstruct = true, max_iterations = 30)
+    @test explicit.asr !== nothing
+    @test explicit.asr.success
 
     workflow_bmm = fit_compare_estim(toy_tree, trait, [:BM1, :BMM]; edge_segments = edge_segments, max_iterations = 30)
     @test workflow_bmm.asr !== nothing
@@ -105,7 +108,7 @@ end
 
     bm_workflow = fit_compare_multivariate(tree, bm_data, [:mvBM1, :mvEB]; max_iterations = 40, rel_tol = 1e-6)
     @test bm_workflow.best_fit !== nothing
-    @test bm_workflow.asr !== nothing
+    @test bm_workflow.asr === nothing
     @test bm_workflow.best_name in (:mvBM1, :mvEB)
 
     ou_simtree = sim_yule_simtree(16; tree_height = 1.0, rng = MersenneTwister(502))
@@ -129,6 +132,7 @@ end
         ou_tree,
         ou_data,
         [:mvBM1, :mvBMM, :mvOUM];
+        reconstruct = true,
         edge_segments = edge_segments,
         max_iterations = 40,
         rel_tol = 1e-6,
@@ -152,6 +156,7 @@ end
         ou_tree,
         ou_data,
         candidates;
+        reconstruct = true,
         edge_segments = edge_segments,
         max_iterations = 30,
         rel_tol = 1e-6,
@@ -162,6 +167,13 @@ end
     @test length(candidate_workflow.aic_table) == 2
     @test candidate_workflow.best_name in (:mvOUM_full, :mvOUM_diag)
     @test candidate_workflow.asr !== nothing
+
+    unified = fit_compare(tree, bm_data, [:mvBM1]; max_iterations = 40)
+    @test unified isa MVContinuousWorkflowResult
+    @test unified.asr === nothing
+    reconstructed = fit_compare_estim(tree, bm_data, [:mvBM1]; max_iterations = 40)
+    @test reconstructed.asr !== nothing
+    @test reconstructed.asr.success
 end
 
 @testset "Environment comparison without ASR" begin
@@ -214,6 +226,7 @@ end
     @test !limited.fits[:limited].converged
     @test limited.asr === nothing
     @test_throws ArgumentError fit_compare_estim(tree,y,candidates)
+    @test_throws ArgumentError fit_compare(tree,y,candidates; reconstruct=true)
     @test_throws ArgumentError fit_compare(tree,y,[:BM1,:BM1])
     @test_throws ArgumentError fit_compare(tree,y,[ContinuousModelCandidate(name=:bad,model=:EnvExp,
         kwargs=(environment=env,guess_sigma2=-1.,))])

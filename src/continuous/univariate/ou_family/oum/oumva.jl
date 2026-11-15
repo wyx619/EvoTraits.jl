@@ -73,15 +73,7 @@ function fit_oumva(
     trait_col = nothing,
     kwargs...,
 )
-    trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
-    return fit_oumva(
-        tree,
-        trait,
-        simmap.edge_segments;
-        trait_name = trait_name,
-        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates),
-        kwargs...,
-    )
+    return _fit_univariate_simmap(fit_oumva, tree, data, simmap; trait_col = trait_col, kwargs...)
 end
 
 function fit_oumva(
@@ -91,14 +83,7 @@ function fit_oumva(
     trait_name = nothing,
     kwargs...,
 )
-    return fit_oumva(
-        tree,
-        trait,
-        simmap.edge_segments;
-        trait_name = trait_name,
-        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates),
-        kwargs...,
-    )
+    return _fit_univariate_simmap(fit_oumva, tree, trait, simmap; trait_name = trait_name, kwargs...)
 end
 
 function oumva_LL(
@@ -111,18 +96,7 @@ function oumva_LL(
     trait_col = nothing,
     kwargs...,
 )
-    trait, trait_name = _continuous_align_dataframe_trait(tree, data; trait_col = trait_col)
-    return oumva_LL(
-        tree,
-        trait,
-        simmap.edge_segments,
-        alpha_regimes,
-        sigma2_regimes,
-        theta_regimes;
-        trait_name = trait_name,
-        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates),
-        kwargs...,
-    )
+    return _LL_univariate_simmap(oumva_LL, tree, data, simmap, alpha_regimes, sigma2_regimes, theta_regimes; trait_col = trait_col, kwargs...)
 end
 
 function oumva_LL(
@@ -135,15 +109,5 @@ function oumva_LL(
     trait_name = nothing,
     kwargs...,
 )
-    return oumva_LL(
-        tree,
-        trait,
-        simmap.edge_segments,
-        alpha_regimes,
-        sigma2_regimes,
-        theta_regimes;
-        trait_name = trait_name,
-        regime_names = _continuous_regime_names_from_simmap(simmap, simmap.nstates),
-        kwargs...,
-    )
+    return _LL_univariate_simmap(oumva_LL, tree, trait, simmap, alpha_regimes, sigma2_regimes, theta_regimes; trait_name = trait_name, kwargs...)
 end

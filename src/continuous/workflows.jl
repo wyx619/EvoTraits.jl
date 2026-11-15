@@ -198,13 +198,14 @@ function _fit_compare_workflow(
     trait,
     models::AbstractVector,
     multivariate::Bool;
+    reconstruct::Bool = true,
     mapped_edge::Union{Nothing, AbstractMatrix{<:Real}} = nothing,
     edge_segments::Union{Nothing, Vector{Vector{SimmapSegment}}} = nothing,
     max_iterations::Integer = 400,
     rel_tol::Float64 = 1e-6,
 )
     candidates = _normalize_workflow_candidates(models)
-    any(candidate -> candidate.model in (:EnvExp, :EnvLin), candidates) &&
+    reconstruct && any(candidate -> candidate.model in (:EnvExp, :EnvLin), candidates) &&
         throw(ArgumentError("Environmental models have no ASR interface; use fit_compare instead of fit_compare_estim"))
     fits = _fit_workflow_models(
         tree,
@@ -219,9 +220,13 @@ function _fit_compare_workflow(
     rows = aic_table((candidate.name => fits[candidate.name] for candidate in candidates)...)
     best = best_model(rows)
     best_fit = fits[best.name]
-    best_candidate = only(filter(candidate -> candidate.name === best.name, candidates))
-    best_spec = _lookup_workflow_spec(best_candidate.model, multivariate)
-    asr = _workflow_estim(tree, trait, best_fit, best_spec.context_kind, mapped_edge, edge_segments)
+    asr = if reconstruct
+        best_candidate = only(filter(candidate -> candidate.name === best.name, candidates))
+        best_spec = _lookup_workflow_spec(best_candidate.model, multivariate)
+        _workflow_estim(tree, trait, best_fit, best_spec.context_kind, mapped_edge, edge_segments)
+    else
+        nothing
+    end
 
     if multivariate
         return MVContinuousWorkflowResult(
@@ -245,8 +250,9 @@ end
 """
     fit_compare(tree, trait, models; kwargs...)
 
-Fit and compare univariate continuous models without ancestral reconstruction.
-Returns ContinuousWorkflowResult with asr=nothing. Use named
+Fit and compare univariate or multivariate continuous models. By default,
+ancestral reconstruction is not performed; set `reconstruct=true` to request it.
+Use named
 ContinuousModelCandidate objects for EnvExp/EnvLin, supplying environment and
 quadrature controls in candidate kwargs. All candidates use the same trait
 vector; compare environmental histories using explicit candidate names.
@@ -254,19 +260,24 @@ vector; compare environmental histories using explicit candidate names.
 Selection follows best_model: successful finite-AIC fits are eligible even
 when not converged. Inspect convergence before interpreting the ranking.
 Invalid inputs raise errors; they are not silently converted to failed fits.
-Existing fit_compare_estim continues to perform reconstruction by default.
+Environmental models do not support `reconstruct=true`.
 """
 function fit_compare(tree::CompactTree, trait::AbstractVector{<:Real}, models::AbstractVector;
     mapped_edge::Union{Nothing, AbstractMatrix{<:Real}}=nothing,
     edge_segments::Union{Nothing, Vector{Vector{SimmapSegment}}}=nothing,
+    reconstruct::Bool=false,
     max_iterations::Integer=400, rel_tol::Float64=1e-6)
-    candidates = _normalize_workflow_candidates(models)
-    fits = _fit_workflow_models(tree, trait, candidates, false;
-        mapped_edge, edge_segments, max_iterations, rel_tol)
-    rows = aic_table((candidate.name => fits[candidate.name] for candidate in candidates)...)
-    best = best_model(rows)
-    return ContinuousWorkflowResult(; fits, aic_table=rows, best_name=best.name,
-        best_fit=fits[best.name])
+    return _fit_compare_workflow(tree, trait, models, false;
+        mapped_edge, edge_segments, reconstruct, max_iterations, rel_tol)
+end
+
+function fit_compare(tree::CompactTree, trait::AbstractMatrix{<:Real}, models::AbstractVector;
+    mapped_edge::Union{Nothing, AbstractMatrix{<:Real}}=nothing,
+    edge_segments::Union{Nothing, Vector{Vector{SimmapSegment}}}=nothing,
+    reconstruct::Bool=false,
+    max_iterations::Integer=400, rel_tol::Float64=1e-6)
+    return _fit_compare_workflow(tree, trait, models, true;
+        mapped_edge, edge_segments, reconstruct, max_iterations, rel_tol)
 end
 
 """
@@ -300,12 +311,16 @@ function fit_compare_estim(
     )
 end
 
+function fit_compare_estim(tree::CompactTree, trait::AbstractMatrix{<:Real}, models::AbstractVector; kwargs...)
+    return fit_compare(tree, trait, models; reconstruct = true, kwargs...)
+end
+
 """
     fit_compare_multivariate(tree, trait, models; kwargs...)
 
-Run the full multivariate model-comparison workflow: fit all requested models,
-assemble the ranked AIC table, choose the best successful model, and perform
-multivariate ancestral state reconstruction for that fit.
+Compatibility entry point for multivariate model comparison. Like
+`fit_compare`, it defaults to no reconstruction; set `reconstruct=true` to
+reconstruct the best model. This differs from its former default.
 
 `models` may contain registered model symbols or `ContinuousModelCandidate`
 objects.
@@ -316,6 +331,7 @@ function fit_compare_multivariate(
     models::AbstractVector;
     mapped_edge::Union{Nothing, AbstractMatrix{<:Real}} = nothing,
     edge_segments::Union{Nothing, Vector{Vector{SimmapSegment}}} = nothing,
+    reconstruct::Bool = false,
     max_iterations::Integer = 400,
     rel_tol::Float64 = 1e-6,
 )
@@ -324,6 +340,7 @@ function fit_compare_multivariate(
         trait,
         models,
         true;
+        reconstruct = reconstruct,
         mapped_edge = mapped_edge,
         edge_segments = edge_segments,
         max_iterations = max_iterations,

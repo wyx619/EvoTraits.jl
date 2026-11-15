@@ -117,7 +117,7 @@ comparison.aic_table
 comparison.best_fit.converged
 ```
 
-不需要平滑时，可用 `EnvCurve(history.age, history.temperature; scale=true)` 作分段线性插值，但须先处理重复年龄。`smooth_env` 支持重复年龄，要求显式指定 df；应在模型比较前独立确定该值。`fit_compare` 仅返回拟合结果与信息准则，不执行 ASR；环境模型目前不支持进入 `fit_compare_estim`。
+不需要平滑时，可用 `EnvCurve(history.age, history.temperature; scale=true)` 作分段线性插值，但须先处理重复年龄。`smooth_env` 支持重复年龄，要求显式指定 df；应在模型比较前独立确定该值。`fit_compare` 支持性状向量和矩阵，默认不执行 ASR；对支持重建的模型可设置 `reconstruct=true` 或使用 `fit_compare_estim`。环境模型不支持 ASR。`fit_compare_multivariate` 也改为默认不执行 ASR；设置 `reconstruct=true` 可恢复原先行为。
 
 ### 结合 regime 拟合多变量演化
 

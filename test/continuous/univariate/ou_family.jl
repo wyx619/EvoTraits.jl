@@ -136,6 +136,29 @@ end
     @test vector_fit.success
     @test vector_fit.trait_name == "lnVD"
     @test vector_fit.regime_names == ["simple", "scalariform"]
+    @test vector_fit.loglik ≈ fit.loglik
+
+    for fit_fn in (fit_oumv, fit_ouma, fit_oumva)
+        from_df = fit_fn(toy_tree, df, simmap; max_iterations = 20)
+        from_vector = fit_fn(toy_tree, trait, simmap; max_iterations = 20, trait_name = "lnVD")
+        @test from_df.trait_name == from_vector.trait_name == "lnVD"
+        @test from_df.regime_names == from_vector.regime_names == simmap.state_labels
+        @test from_df.loglik ≈ from_vector.loglik
+    end
+
+    for (ll_fn, params) in (
+        (oum_LL, (0.5, 0.3, [1.0, 2.0])),
+        (oumv_LL, (0.5, [0.2, 0.4], [1.0, 2.0])),
+        (ouma_LL, ([0.4, 0.8], 0.3, [1.0, 2.0])),
+        (oumva_LL, ([0.4, 0.8], [0.2, 0.4], [1.0, 2.0])),
+    )
+        from_df = ll_fn(toy_tree, df, simmap, params...)
+        from_vector = ll_fn(toy_tree, trait, simmap, params...; trait_name = "lnVD")
+        direct = ll_fn(toy_tree, trait, edge_segments, params...)
+        @test from_df.trait_name == from_vector.trait_name == "lnVD"
+        @test from_df.regime_names == from_vector.regime_names == simmap.state_labels
+        @test from_df.loglik ≈ from_vector.loglik ≈ direct.loglik
+    end
 end
 
 

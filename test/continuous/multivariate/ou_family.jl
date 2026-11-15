@@ -339,6 +339,15 @@ end
     @test matrix_fit.success
     @test matrix_fit.trait_names == ["lnH", "lnVD"]
     @test matrix_fit.regime_names == ["simple", "scalariform"]
+    @test matrix_fit.loglik ≈ fit.loglik
+
+    for fit_fn in (fit_mvoumv, fit_mvouma, fit_mvoumva)
+        from_df = fit_fn(tree, df, simmap; max_iterations = 20, rel_tol = 1e-5)
+        from_matrix = fit_fn(tree, traits, simmap; trait_names = ["lnH", "lnVD"], max_iterations = 20, rel_tol = 1e-5)
+        @test from_df.trait_names == from_matrix.trait_names == ["lnH", "lnVD"]
+        @test from_df.regime_names == from_matrix.regime_names == simmap.state_labels
+        @test from_df.loglik ≈ from_matrix.loglik
+    end
 
     shown = sprint(show, MIME("text/plain"), fit)
     @test occursin("lnH", shown)

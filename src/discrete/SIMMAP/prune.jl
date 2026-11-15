@@ -237,7 +237,7 @@ function _normalize_tip_set(tree::CompactTree, tips)
 end
 
 """
-    keep_tip_simmap(tree, simmap, tips)
+    keep_tip(tree, simmap, tips)
 
 Return a pruned `(tree, simmap)` pair containing only `tips`. The topology is
 compressed after pruning, and SIMMAP segments are merged across collapsed
@@ -255,7 +255,7 @@ function keepmap(tree::CompactTree, simmap::SimmapSample, tips)
 end
 
 """
-    drop_tip_simmap(tree, simmap, tips)
+    drop_tip(tree, simmap, tips)
 
 Return a pruned `(tree, simmap)` pair after removing `tips`. This is the
 EvoTraits-native counterpart of phytools' `drop.tip.simmap`.
@@ -269,11 +269,12 @@ end
 
 """
     keep_tip(tree::CompactTree, tips)
+    keep_tip(tree::CompactTree, simmap::SimmapSample, tips)
 
 Return a pruned `CompactTree` containing only `tips`. The topology is compressed
 after pruning (degree-2 nodes are collapsed).
 
-This is the tree-only counterpart of `keep_tip_simmap`.
+Use `keep_tip(tree, simmap, tips)` to retain the mapped history as well.
 """
 function keep_tip(tree::CompactTree, tips)
     keep = _normalize_tip_set(tree, tips)
@@ -294,9 +295,10 @@ end
 
 """
     drop_tip(tree::CompactTree, tips)
+    drop_tip(tree::CompactTree, simmap::SimmapSample, tips)
 
 Return a pruned `CompactTree` after removing `tips`. This is the tree-only
-counterpart of `drop_tip_simmap`.
+counterpart of `drop_tip(tree, simmap, tips)`.
 """
 function drop_tip(tree::CompactTree, tips)
     drop = _normalize_tip_set(tree, tips)
@@ -305,5 +307,7 @@ function drop_tip(tree::CompactTree, tips)
     return keep_tip(tree, collect(keep))
 end
 
-keep_tip_simmap(args...; kwargs...) = keepmap(args...; kwargs...)
-drop_tip_simmap(args...; kwargs...) = dropmap(args...; kwargs...)
+keep_tip(tree::CompactTree, simmap::SimmapSample, tips) = keepmap(tree, simmap, tips)
+drop_tip(tree::CompactTree, simmap::SimmapSample, tips) = dropmap(tree, simmap, tips)
+keep_tip_simmap(args...; kwargs...) = keep_tip(args...; kwargs...)
+drop_tip_simmap(args...; kwargs...) = drop_tip(args...; kwargs...)
