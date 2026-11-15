@@ -39,7 +39,7 @@ The alignment validates duplicate labels and missing tree tips. Extra data rows 
 | `serialize_tree(node)` | `CompactTree` | Convert an already parsed node tree |
 | `write_tree(path, tree)` | Writes Newick | Export topology and branch lengths |
 
-The file must exist and contain a terminated Newick tree, including the final semicolon. Unicode paths are supported. The node-based reader retries parsing after removing internal support/bootstrap labels if the initial parse fails. These functions are single-tree interfaces; do not pass a collection of bootstrap trees as though it were one tree.
+The file must exist and contain a terminated Newick tree, including the final semicolon. Unicode paths are supported. The node-based reader retries parsing after removing internal support/bootstrap labels if the initial parse fails. These functions read one tree per file.
 
 Branch lengths define the time unit. A tree in Ma produces attraction rates in Ma⁻¹ and diffusion rates in trait-unit²/Ma. Dates are not inferred from taxon names. Check the model's requirements before fitting: the OU, EB and shift workflows described here require an ultrametric tree, and supported pruning workflows expect bifurcating topology.
 

@@ -50,7 +50,7 @@ If you already have a local checkout, use `Pkg.develop(path="/absolute/path/to/E
 
 ## Replace the demonstration data
 
-The four-tip example above teaches the call sequence; such a tiny dataset is not a reliable basis for estimating a rich OU model. For your own analysis:
+The four-tip example above teaches the call sequence. For your own analysis:
 
 1. Read the tree with `load_tree`.
 2. Read and clean the species and trait table.
@@ -74,4 +74,4 @@ Each script creates its own data, prints relevant results and checks basic outpu
 
 ## What should be saved?
 
-Keep the cleaned input table, final tree, trait order, root assumptions, random seed, optimizer settings, model comparison and diagnostics. For regime fits also keep the exact mapped history. A node table alone is insufficient to reproduce the fit. See [fitting and export](fitting.md) before starting a large run.
+Keep the cleaned input table, final tree, trait order, root assumptions, random seed, optimizer settings, model comparison and diagnostics. For regime fits also keep the exact mapped history. See [fitting and export](fitting.md) before starting a large run.

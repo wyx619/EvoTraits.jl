@@ -2,7 +2,7 @@
 
 [中文](simmap_zh.md) · [Index](README.md) · [Discrete models](discrete.md) · [Multivariate models](multivariate.md)
 
-SIMMAP samples branchwise histories conditional on a fitted discrete model. Each map is one possible history, not an observed sequence of transitions.
+SIMMAP samples branchwise histories conditional on a fitted discrete model. Each map is one possible history drawn from that fitted model.
 
 ```julia
 using Random
@@ -25,7 +25,7 @@ Use the returned tree together with the returned map for downstream fitting. The
 
 ## A map connects discrete and continuous models
 
-A discrete fit estimates rates and node-state distributions. A SIMMAP additionally samples **where along each branch** state changes occurred. OUM-type models use these segments to propagate the continuous process through successive regimes. Node marginal probabilities alone do not determine those segments.
+A discrete fit estimates rates and node-state distributions. A SIMMAP additionally samples **where along each branch** state changes occurred. OUM-type models use these segments to propagate the continuous process through successive regimes. Node marginal probabilities carry no information about where changes occur within a branch.
 
 `SimmapSample` contains `edge_segments`, `mapped_edge`, `nstates`, `state_labels` and `root_state`. Segment durations must sum to the corresponding branch length. State IDs index the map's labels. Use `summary_simmap(tree, sim)` before fitting after an import or transformation.
 
@@ -47,7 +47,7 @@ for i in 1:100
 end
 ```
 
-Do not re-create the same seeded RNG in every iteration: that repeats the same random stream. These files record histories, not the full fitted discrete model or run metadata.
+Do not re-create the same seeded RNG in every iteration: that repeats the same random stream.
 
 To store 100 histories in one text file, open it once and write one mapped Newick per line:
 
@@ -73,6 +73,6 @@ nodes2 = estim_node(tree2, y2, fit2, sim2)
 
 Here `y2` must be constructed for the imported tree. Do not mix the original tree's edge arrays with a newly parsed tree merely because their tip sets match.
 
-For hidden-rate fits, `samples` uses hidden states and `collapsed_samples` uses observed states. Choose the layer matching the continuous regime hypothesis. Summarize results over multiple maps to assess sensitivity to mapped histories; averaging map-specific AIC values is not an integrated likelihood.
+For hidden-rate fits, `samples` uses hidden states and `collapsed_samples` uses observed states. Choose the layer matching the continuous regime hypothesis. Summarize results over multiple maps to assess sensitivity to mapped histories.
 
 See [the discrete-to-SIMMAP example](examples/02_discrete_simmap.jl) and [comparison workflows](workflows.md).

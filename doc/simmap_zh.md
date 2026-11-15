@@ -2,7 +2,7 @@
 
 [English](simmap.md) · [文档目录](README_zh.md) · [离散模型](discrete_zh.md) · [多变量模型](multivariate_zh.md)
 
-SIMMAP 在已拟合离散模型的条件下抽样分支历史。每张图是一个可能历史，并非直接观测到的转换序列。
+SIMMAP 在已拟合离散模型的条件下抽样分支历史。每张图是从拟合模型抽样得到的一条可能历史。
 
 ```julia
 using Random
@@ -25,7 +25,7 @@ subset.simmap
 
 ## SIMMAP 为什么是离散与连续模型的桥梁
 
-离散拟合得到转换速率与节点状态分布；SIMMAP 还抽样**状态在每条枝的什么位置发生转换**。OUM 类模型利用这些枝段，依次传播不同 regime 下的连续过程。仅有节点边际概率不足以确定枝内历史。
+离散拟合得到转换速率与节点状态分布；SIMMAP 还抽样**状态在每条枝的什么位置发生转换**。OUM 类模型利用这些枝段，依次传播不同 regime 下的连续过程。节点边际概率不包含枝内转换位置。
 
 `SimmapSample` 保存 `edge_segments`、`mapped_edge`、`nstates`、`state_labels` 和 `root_state`。每条边的枝段时长之和必须等于该边枝长；状态编号对应映射标签的顺序。导入或变换后，建议先执行 `summary_simmap(tree, sim)`。
 
@@ -47,7 +47,7 @@ for i in 1:100
 end
 ```
 
-不要每轮重建同一种子的 RNG，否则会重复相同随机流。这些文件只保存映射历史，不包含完整离散模型和运行元数据。
+不要每轮重建同一种子的 RNG，否则会重复相同随机流。
 
 若要将 100 张映射保存在同一个文本文件中，可逐行写出 mapped Newick：
 
@@ -73,6 +73,6 @@ nodes2 = estim_node(tree2, y2, fit2, sim2)
 
 这里的 `y2` 必须对应导入后的树。即使 tip 集合相同，也不能混用原树的边数组与重新解析的树。
 
-隐藏速率模型的 `samples` 使用隐藏状态，`collapsed_samples` 使用观测状态，应按连续 regime 假设选择层级。多张映射可用于评估历史抽样敏感性；各映射 AIC 的平均值不等于积分似然。
+隐藏速率模型的 `samples` 使用隐藏状态，`collapsed_samples` 使用观测状态，应按连续 regime 假设选择层级。多张映射可用于评估历史抽样敏感性。
 
 参见[离散到 SIMMAP 示例](examples/02_discrete_simmap.jl)及[模型比较](workflows_zh.md)。

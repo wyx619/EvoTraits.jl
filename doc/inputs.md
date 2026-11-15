@@ -13,7 +13,7 @@
 | Regime history | SIMMAP paired to that tree | Its original edge indices and state labels |
 | Environmental history | Ages before present and environmental values | Covers present through tree root age |
 
-A matching number of rows is insufficient: permuting rows changes the model's association between observations and tips.
+Row order matters: permuting rows changes the association between observations and tips.
 
 ## Constructing an analysis subset
 
@@ -29,7 +29,7 @@ y = align_traits_to_tree(tree, traits;
     taxon_col = :taxon, trait_cols = [:height])
 ```
 
-The species names are exact identifiers. Resolve synonyms, duplicate records and whitespace before alignment; the package does not infer taxonomic equivalence. If a source has multiple records per species, choose and document an aggregation rule before fitting.
+The species names are exact identifiers. Resolve synonyms, duplicate records and whitespace before alignment. If a source has multiple records per species, choose and document an aggregation rule before fitting.
 
 The example assumes those named taxa are present. For a fully self-contained demonstration use [01_inputs.jl](examples/01_inputs.jl).
 
@@ -43,7 +43,7 @@ The example assumes those named taxa are present. For a fully self-contained dem
 | Continuous DataFrame fit wrappers | Align by first taxon column; missing may become NaN for supported likelihoods |
 | Direct vectors/matrices | Must obey the chosen model's missing-data contract |
 
-This distinction matters: the alignment helper's single-column rule is stricter than some fit wrappers. If a model accepts unobserved single-trait tips, construct and check the aligned numeric vector deliberately. Do not replace missing observations by zero. Rows with all continuous traits missing cannot be passed through the standard multivariate alignment helper.
+The alignment helper's single-column rule is stricter than some fit wrappers. If a model accepts unobserved single-trait tips, construct and check the aligned numeric vector deliberately. Do not replace missing observations by zero. Rows with all continuous traits missing cannot be passed through the standard multivariate alignment helper.
 
 Keep a discrete-only species for discrete fitting if useful, then prune the tree and sampled SIMMAP together to the continuous analysis set. Re-align continuous observations after pruning.
 
@@ -51,7 +51,7 @@ Keep a discrete-only species for discrete fitting if useful, then prune the tree
 
 For single-trait fit wrappers, the first column is the taxon identifier. Use `trait_col=:height` to avoid ambiguity when there are multiple numeric columns. For multivariate fit wrappers, numeric columns after the first are candidate traits; explicit alignment gives clearer control when metadata are also numeric.
 
-CSV is a storage format, not a required modeling representation. Read a file into a table if convenient, then pass aligned arrays to model functions:
+CSV is a convenient storage format. Read a file into a table, then pass aligned arrays to model functions:
 
 ```julia
 using CSV, DataFrames

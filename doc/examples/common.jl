@@ -3,7 +3,7 @@ using EvoTraits, Random, DataFrames
 function documentation_data()
     rng = MersenneTwister(173)
     tree = sim_yule_tree(24; tree_height = 10.0, rng = rng)
-    # Synthetic demonstration history; not a posterior SIMMAP draw.
+    # Synthetic demonstration history.
     node_states = Int32[iseven(v) ? 2 : 1 for v in 1:tree.nnodes]
     node_states[tree.root] = 1
     starts = node_states[tree.parent_of_edge]

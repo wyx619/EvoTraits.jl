@@ -39,7 +39,7 @@ The active regime `r` comes from the mapped branch segment.
 | OUMA | Per regime | Shared | Per regime |
 | OUMVA | Per regime | Per regime | Per regime |
 
-`sigma2` is a diffusion variance rate, not its square root. `alpha` has inverse-time units; its half-life is `log(2)/alpha`. `theta` has the trait's units and may be negative for log-transformed data. An optimum is not the mean of observed tips assigned to that regime.
+`sigma2` is a diffusion variance rate, not its square root. `alpha` has inverse-time units; its half-life is `log(2)/alpha`. `theta` has the trait's units and may be negative for log-transformed data.
 
 ## Fit a mapped model
 
@@ -55,7 +55,7 @@ oumva.sigma2
 oumva.regime_names
 ```
 
-The inputs `tree`, `y` and `sim` must be aligned as described in [SIMMAP](simmap.md). The public univariate fit functions do not expose the multivariate keywords `n_starts` or `polish_iterations`. Internal coarse-search and refinement stages are managed by the implementation. A larger `max_iterations` increases the search budget; it is not a promise of that many completed optimization iterations.
+The inputs `tree`, `y` and `sim` must be aligned as described in [SIMMAP](simmap.md). The public univariate fit functions do not expose the multivariate keywords `n_starts` or `polish_iterations`. Internal coarse-search and refinement stages are managed by the implementation. A larger `max_iterations` increases the search budget.
 
 ## Root mean and covariance are different choices
 
@@ -64,7 +64,7 @@ The inputs `tree`, `y` and `sim` must be aligned as described in [SIMMAP](simmap
 | OU1 / OUM | `:regime`, `:stationary` | `:fixed`, `:random` |
 | OUMV / OUMA / OUMVA | `:regime` | `:fixed` |
 
-`:regime` starts the mean at the root regime optimum. `:stationary` uses normalized regime design weights. This mean convention does not itself add random root variance. `:fixed` uses no root process variance, whereas `:random` adds the stationary root variance. No independently estimated `theta0` mode is exposed; removed legacy names such as `:free_theta0` should not be used.
+`:regime` starts the mean at the root regime optimum. `:stationary` uses normalized regime design weights. `:fixed` uses no root process variance, whereas `:random` adds the stationary root variance. No independently estimated `theta0` mode is exposed; removed legacy names such as `:free_theta0` should not be used.
 
 Use the same settings for fixed-parameter likelihood evaluation, fitting and ASR. Different root assumptions can change both logLik and reconstructed ancestral values.
 
@@ -81,12 +81,12 @@ Use the same settings for fixed-parameter likelihood evaluation, fitting and ASR
 | `mean_diagnostics` | Rank and conditioning of the mean design |
 | `root_mean_mode`, `root_cov_mode` | Actual root assumptions used |
 
-For single-regime results, the optimum is `theta`. `mean_diagnostics` reports `rank`, `ncoefficients`, `singular_values`, `identifiable` and `condition_number`. A converged optimizer can coexist with unidentifiable optima. A minimum-norm GLS solution in a rank-deficient design must not be interpreted as a uniquely estimated ancestral optimum.
+For single-regime results, the optimum is `theta`. `mean_diagnostics` reports `rank`, `ncoefficients`, `singular_values`, `identifiable` and `condition_number`.
 
-Long branches with large `alpha * length` lose memory of ancestral states. Similar reconstructed values can therefore be mathematically expected, but should be checked against optima, branch lengths and identifiability diagnostics rather than automatically interpreted as either a bug or a biological plateau.
+Long branches with large `alpha * length` lose memory of ancestral states, so similar reconstructed values are expected. Check them against optima, branch lengths and identifiability diagnostics.
 
 ## BM and EB hypotheses
 
-BM1 has one diffusion rate; BMM assigns rates to regimes. EB models diffusion changing exponentially with elapsed time from the root. A negative EB time coefficient means decreasing diffusion through evolutionary time, not an effect of low temperature. EBM adds regime structure to an early-burst process.
+BM1 has one diffusion rate; BMM assigns rates to regimes. EB models diffusion changing exponentially with elapsed time from the root. A negative EB time coefficient means decreasing diffusion through evolutionary time. EBM adds regime structure to an early-burst process.
 
 Compare these models on identical observations. Transforming height to ln(height) changes the response scale and likelihood; do not compare raw-height AIC against log-height AIC as if only the model changed. See [workflows](workflows.md), [fitting diagnostics](fitting.md), and the [mapped OU example](examples/03_continuous.jl).

@@ -22,7 +22,7 @@ comparison = fit_compare(tree, y, candidates)
 
 `fit_compare_estim` 明确请求单变量或多变量 ASR。`fit_compare_multivariate` 仍作为兼容名称保留，默认不做 ASR；需要时传入 `reconstruct=true`。环境模型不能进入 ASR 工作流。
 
-AIC 只会在有限且成功的拟合中进行排序，但有限 logLik 不等于数值收敛。报告时应同时记录模型、观测、参数数量、logLik、AIC、收敛状态和诊断。
+AIC 在有限且成功的拟合中排序。报告时应同时记录模型、观测、参数数量、logLik、AIC、收敛状态和诊断。
 
 ## 完整的 regime 模型比较
 
@@ -42,7 +42,7 @@ end
 selected = comparison.best_fit
 ```
 
-有 regime 依赖的候选必须提供映射，即使其他候选不依赖它。工作流可从枝段推导各 regime 时长；缺少必要映射会报输入错误，不会默认为单一 regime。
+有 regime 依赖的候选必须提供映射，即使其他候选不依赖它。工作流可从枝段推导各 regime 时长；缺少必要映射会报输入错误。
 
 向量输入使用 `:BM1, :BMM, :OU1, :OUM, :EB` 等单变量符号；矩阵输入使用 `:mvBM1, :mvBMM, :mvOU1, :mvOUM, :mvOUMVA, :mvOUBM` 等受支持的多变量符号。矩阵派发不会自动重命名全部模型符号。
 
@@ -71,15 +71,15 @@ comparison = fit_compare(tree, y, candidates;
 | `best_name`、`best_fit` | 首选候选名称与结果 |
 | `asr` | 默认 `nothing`，明确请求时才重建 |
 
-AIC 表包含 `name, model, aic, delta_aic, loglik, nparams, success`，不会包含全部收敛诊断。选择规则基于成功且 AIC 有限的结果，因此作出科学解释前还应逐个检查收敛。
+AIC 表包含 `name, model, aic, delta_aic, loglik, nparams, success`，不会包含全部收敛诊断。选择规则基于成功且 AIC 有限的结果。
 
-`aic_table(:first => fit1, :second => fit2)` 可直接比较已有结果。AIC 为 `2k - 2logLik`，在有效候选集合中越小越优。AICc 还依赖观测数量定义，无法推断时应提供 `nobs`。多变量实现可能按已观测性状单元而非物种数计数，这是一种实现约定，并不证明这些单元是独立生物学重复。
+`aic_table(:first => fit1, :second => fit2)` 可直接比较已有结果。AIC 为 `2k - 2logLik`，在有效候选集合中越小越优。AICc 还依赖观测数量定义，无法推断时应提供 `nobs`。多变量实现可能按已观测性状单元而非物种数计数。
 
 ## 什么样的 AIC 比较才有效
 
-保持响应变量、变换、保留物种及缺失模式一致。根假设与参数约束属于候选定义，必须报告。不同离散编码对应不同观测空间，二状态的离散 AIC 更小不能证明两类生活型比三类在生物学上更合理。
+保持响应变量、变换、保留物种及缺失模式一致。根假设与参数约束属于候选定义，必须报告。不同离散编码对应不同观测空间。
 
-不同 SIMMAP 下的连续拟合以不同历史为条件，重复映射可评估历史抽样敏感性；AIC 均值或跨映射最小 AIC 均不是积分模型似然。Regime 模型获得 AIC 支持，也不等于证明离散状态对连续性状有因果效应。
+不同 SIMMAP 下的连续拟合以不同历史为条件，重复映射可评估历史抽样敏感性。
 
 ## ASR 必须明确请求
 

@@ -39,7 +39,7 @@ dY = alpha_r * (theta_r - Y) dt + sqrt(sigma2_r) dW
 | OUMA | 每个 regime 独立 | 全局共享 | 每个 regime 独立 |
 | OUMVA | 每个 regime 独立 | 每个 regime 独立 | 每个 regime 独立 |
 
-`sigma2` 是扩散方差速率，不是其平方根。`alpha` 的单位为时间倒数，半衰期为 `log(2)/alpha`。`theta` 与性状同单位，对数性状的 theta 可以为负。最适值并不等于属于该 regime 的 tip 的算术均值。
+`sigma2` 是扩散方差速率，不是其平方根。`alpha` 的单位为时间倒数，半衰期为 `log(2)/alpha`。`theta` 与性状同单位，对数性状的 theta 可以为负。
 
 ## 拟合带映射的模型
 
@@ -55,7 +55,7 @@ oumva.sigma2
 oumva.regime_names
 ```
 
-`tree`、`y`、`sim` 须按 [SIMMAP 指南](simmap_zh.md)保持一致。单变量公开接口不提供多变量的 `n_starts` 或 `polish_iterations` 参数；粗搜索与精调由内部实现管理。增加 `max_iterations` 是增加搜索预算，不保证实际执行同等数量的优化迭代。
+`tree`、`y`、`sim` 须按 [SIMMAP 指南](simmap_zh.md)保持一致。单变量公开接口不提供多变量的 `n_starts` 或 `polish_iterations` 参数；粗搜索与精调由内部实现管理。增加 `max_iterations` 可增加搜索预算。
 
 ## 根均值与根协方差是两件事
 
@@ -64,7 +64,7 @@ oumva.regime_names
 | OU1 / OUM | `:regime`、`:stationary` | `:fixed`、`:random` |
 | OUMV / OUMA / OUMVA | `:regime` | `:fixed` |
 
-`:regime` 将根均值设为根 regime 的最适值；`:stationary` 使用归一化的 regime 设计权重。均值处理本身不会添加随机根方差。`:fixed` 不添加根过程方差，`:random` 添加平稳根方差。当前不提供独立估计 theta0 的模式，不应继续使用已移除的 `:free_theta0` 等旧名称。
+`:regime` 将根均值设为根 regime 的最适值；`:stationary` 使用归一化的 regime 设计权重。`:fixed` 不添加根过程方差，`:random` 添加平稳根方差。当前不提供独立估计 theta0 的模式，不应继续使用已移除的 `:free_theta0` 等旧名称。
 
 固定参数似然、拟合与 ASR 应采用相同根设定。更换根假设可能同时改变似然与祖先重建值。
 
@@ -81,12 +81,12 @@ oumva.regime_names
 | `mean_diagnostics` | 均值设计的秩与条件数 |
 | `root_mean_mode`、`root_cov_mode` | 实际使用的根假设 |
 
-单 regime 结果用 `theta` 保存最适值。`mean_diagnostics` 包含 `rank`、`ncoefficients`、`singular_values`、`identifiable`、`condition_number`。优化器收敛不代表最适值可识别；秩亏设计的最小范数 GLS 解不能解释为唯一确定的祖先最适值。
+单 regime 结果用 `theta` 保存最适值。`mean_diagnostics` 包含 `rank`、`ncoefficients`、`singular_values`、`identifiable`、`condition_number`。
 
-当长枝的 `alpha * length` 很大时，过程会失去祖先状态记忆，因此相似重建值可能符合数学预期。应结合最适值、枝长和可识别性判断，不能直接将平台解释为程序错误或生物学停滞。
+当长枝的 `alpha * length` 很大时，过程会失去祖先状态记忆，相似重建值符合数学预期。结合最适值、枝长和可识别性诊断判断。
 
 ## BM 与 EB 的假设
 
-BM1 为单一扩散速率；BMM 允许不同 regime 具有不同速率。EB 的扩散速率随根以来的时间指数变化；负时间系数表示演化过程中扩散减慢，并不表示低温效应。EBM 进一步引入 regime 结构。
+BM1 为单一扩散速率；BMM 允许不同 regime 具有不同速率。EB 的扩散速率随根以来的时间指数变化；负时间系数表示演化过程中扩散减慢。EBM 进一步引入 regime 结构。
 
 比较模型时必须保持观测一致。原始高度转为 ln(height) 会改变响应尺度和似然，不能把原始高度 AIC 与对数高度 AIC 当作仅更换模型来比较。参见[工作流](workflows_zh.md)、[拟合诊断](fitting_zh.md)及[映射 OU 示例](examples/03_continuous.jl)。

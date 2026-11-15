@@ -13,9 +13,9 @@ fit = fit_mvoumva(tree, X, sim;
 fit.loglik, fit.aic, fit.converged
 ```
 
-OUM 家族使用分支 regime 映射。OUMV 允许扩散随 regime 变化，OUMA 允许吸引随 regime 变化，OUMVA 允许两者变化。吸引矩阵为对角阵时，若扩散仍相关，性状**并非完全独立**。OU1/OUM 根选项见[连续模型](continuous_zh.md)；多变量 OUMV/OUMA/OUMVA 使用 regime 根均值和固定根协方差。
+OUM 家族使用分支 regime 映射。OUMV 允许扩散随 regime 变化，OUMA 允许吸引随 regime 变化，OUMVA 允许两者变化。OU1/OUM 根选项见[连续模型](continuous_zh.md)；多变量 OUMV/OUMA/OUMVA 使用 regime 根均值和固定根协方差。
 
-`fit_mvoubm` 将 OU 响应性状的最适值建模为 BM 预测变量的函数；`kY` 指定前几列为响应。需要仔细检查参数可识别性、收敛和缺失输入。候选模型比较见[工作流](workflows_zh.md)。
+`fit_mvoubm` 将 OU 响应性状的最适值建模为 BM 预测变量的函数；`kY` 指定前几列为响应。候选模型比较见[工作流](workflows_zh.md)。
 
 ## 输入维度与部分缺失
 
@@ -28,7 +28,7 @@ X = align_traits_to_tree(tree, traits;
 @assert size(X, 2) == 2
 ```
 
-多变量 DataFrame 拟合包装器从第一列 taxon 后选择数值列。需要精确控制性状列时，先显式对齐，再传入矩阵。不能假定所有拟合包装器都接受 `trait_cols`。
+多变量 DataFrame 拟合包装器从第一列 taxon 后选择数值列。需要精确控制性状列时，先显式对齐，再传入矩阵。
 
 ## A、Sigma 与 theta
 
@@ -42,7 +42,7 @@ OU 均值过程为 `dY = A * (theta_r - Y) dt + noise`。`A` 描述吸引及性�
 | mvOUMA | 各 regime 独立 | 共享 | 各 regime 独立 |
 | mvOUMVA | 各 regime 独立 | 各 regime 独立 | 各 regime 独立 |
 
-OU 结果的 `A` 和 `Sigma` 为三维分块数组：共享参数只有一块，独立参数每个 regime 一块。`theta` 的**行为 regime、列为性状**。BM 结果使用小写 `sigma`，不能直接照搬 OU 字段名。
+OU 结果的 `A` 和 `Sigma` 为三维分块数组：共享参数只有一块，独立参数每个 regime 一块。`theta` 的**行为 regime、列为性状**。BM 结果使用小写 `sigma`。
 
 ```julia
 fit.A[:, :, 1]
@@ -61,11 +61,11 @@ fit.regime_names
 | `:schur` | 支持的两性状 Schur 参数化 |
 | `:decomposable_positive` | 正实特征谱的可分解一般矩阵 |
 
-对角 `A` 移除了均值耦合，但若 `Sigma` 仍有非对角项，扩散仍然相关，因此不能仅据此称性状独立演化。更改单位会改变矩阵元素；标准化有助于改善数值条件，但解释参数时必须交代尺度。
+对角 `A` 移除了均值耦合，但若 `Sigma` 仍有非对角项，扩散仍然相关。更改单位会改变矩阵元素；标准化有助于改善数值条件，但解释参数时必须交代尺度。
 
 ## 不同函数的优化选项并不完全相同
 
-`fit_mvoum` 常用控制包括 `optimization=:SBPLX_L_BFGS`、`max_iterations=300`、`polish_iterations=100`、`rel_tol=1e-5`、`n_starts=0`、`random_seed=nothing`。`n_starts` 表示在结构化初始候选之外额外添加的随机候选数，零不代表没有初始化策略。并非整个 OU 家族都暴露全部参数；例如未在签名提供 `polish_iterations` 的函数不能直接传入它。
+`fit_mvoum` 常用控制包括 `optimization=:SBPLX_L_BFGS`、`max_iterations=300`、`polish_iterations=100`、`rel_tol=1e-5`、`n_starts=0`、`random_seed=nothing`。`n_starts` 表示在结构化初始候选之外额外添加的随机候选数，零值表示仅使用结构化候选。各 OU 家族函数暴露的参数不同；例如未在签名提供 `polish_iterations` 的函数不能直接传入它。
 
 OU1/OUM 的根组合见[单变量指南](continuous_zh.md)。OUMV/OUMA/OUMVA 提供 `:regime + :fixed`。进行受控比较时须保持根设置、参数化与性状尺度一致。
 
@@ -83,6 +83,6 @@ coupled.vX0
 coupled.theta
 ```
 
-该函数有专门的根处理与参数化，不继承普通 OU 的 `root_mean_mode` / `root_cov_mode` 控制。其吸引矩阵选项还包含 `:decomposable_real`、`:upper_triangular`、`:lower_triangular`，不能未经核对就用于普通 mvOUM。同样不能假定 mvOUBM 支持普通 mvOUM 的多起点关键词。
+该函数有专门的根处理与参数化，不继承普通 OU 的 `root_mean_mode` / `root_cov_mode` 控制。其吸引矩阵选项还包含 `:decomposable_real`、`:upper_triangular`、`:lower_triangular`。
 
 参见[可执行多变量示例](examples/04_multivariate.jl)与[拟合诊断](fitting_zh.md)。

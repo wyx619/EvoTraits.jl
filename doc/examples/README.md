@@ -24,4 +24,4 @@ julia --project -t 8 doc/examples/05_environment_shifts.jl
 
 Output is printed to the terminal. Tree and map round-trip files are written to temporary directories rather than the source-data folder. All scripts are independent: running the third does not require files produced by the second.
 
-Small budgets keep examples practical, but they do not establish global optima, scientific model support or production performance. Inspect convergence and mean-design diagnostics even when the basic checks pass.
+Small budgets keep examples practical. Inspect convergence and mean-design diagnostics even when the basic checks pass.

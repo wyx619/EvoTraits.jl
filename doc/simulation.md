@@ -16,7 +16,7 @@ size(X) == (tree.ntips, 2)
 
 `sim_yule_tree` and `sim_birth_death_tree` return `CompactTree`; their `*_simtree` counterparts return `SimulatedTree`. `sim_ultrametric_newick` returns Newick text. Supply an explicit RNG to reproduce simulations.
 
-`sim_mvbm1`, `sim_mvbmm`, `sim_mvou1`, `sim_mvoum`, `sim_mvoumva` and `sim_mveb` generate trait matrices. Regime-aware functions need branch segments and matching parameter dimensions. `sim_trait` offers a model-symbol entry point, and `sim_mvbm1_dataset` returns a tree, labels and simulated data together. Do not assume a function supports a model merely because another fit function does.
+`sim_mvbm1`, `sim_mvbmm`, `sim_mvou1`, `sim_mvoum`, `sim_mvoumva` and `sim_mveb` generate trait matrices. Regime-aware functions need branch segments and matching parameter dimensions. `sim_trait` offers a model-symbol entry point, and `sim_mvbm1_dataset` returns a tree, labels and simulated data together.
 
 ## Reproducibility and units
 
@@ -39,7 +39,7 @@ X = sim_mvoum(tree, sim.edge_segments, A, Sigma, theta_regimes;
 
 Here `theta_regimes` is a vector of trait vectors in regime order. Do not confuse that input form with the fitted result's regime-by-trait theta matrix. Segment state IDs must refer to the same regime order as the parameter vectors.
 
-[common.jl](examples/common.jl) constructs a synthetic mapped history for small interface demonstrations. It is not sampled from a discrete posterior and should not be described as empirical evidence. For a posterior history, use [corHMM followed by SIMMAP](simmap.md).
+[common.jl](examples/common.jl) constructs a synthetic mapped history for small interface demonstrations. For a posterior history, use [corHMM followed by SIMMAP](simmap.md).
 
 ## Choosing a simulation function
 
@@ -53,4 +53,4 @@ Here `theta_regimes` is a vector of trait vectors in regime order. Do not confus
 | Early-burst traits | `sim_mveb` |
 | Packaged BM simulation dataset | `sim_mvbm1_dataset` |
 
-Simulation and fitting do not have identical option sets. Check the function-specific help rather than assuming every fit model has a matching simulator or root parameter. Fixed seeds make examples repeatable; they do not replace simulation replicates for assessing bias, coverage or model-selection behavior.
+Simulation and fitting have different option sets. Check the function-specific help for available simulators and root parameters. Fixed seeds make examples repeatable.

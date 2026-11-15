@@ -16,7 +16,7 @@ size(X) == (tree.ntips, 2)
 
 `sim_yule_tree` 和 `sim_birth_death_tree` 返回 `CompactTree`；对应的 `*_simtree` 函数返回 `SimulatedTree`。`sim_ultrametric_newick` 返回 Newick 文本。显式传入 RNG 有利于复现模拟。
 
-`sim_mvbm1`、`sim_mvbmm`、`sim_mvou1`、`sim_mvoum`、`sim_mvoumva` 和 `sim_mveb` 生成性状矩阵。regime 模型需要枝段与对应维度的参数。`sim_trait` 提供模型符号入口，`sim_mvbm1_dataset` 一并返回树、标签和模拟数据。拟合函数支持某个模型，不代表模拟入口也必然支持。
+`sim_mvbm1`、`sim_mvbmm`、`sim_mvou1`、`sim_mvoum`、`sim_mvoumva` 和 `sim_mveb` 生成性状矩阵。regime 模型需要枝段与对应维度的参数。`sim_trait` 提供模型符号入口，`sim_mvbm1_dataset` 一并返回树、标签和模拟数据。
 
 ## 可重复性与单位
 
@@ -37,9 +37,9 @@ X = sim_mvoum(tree, sim.edge_segments, A, Sigma, theta_regimes;
 @assert size(X) == (tree.ntips, 2)
 ```
 
-这里 `theta_regimes` 是按 regime 排列的性状向量集合，不同于拟合结果“行为 regime、列为性状”的 theta 矩阵。枝段状态编号必须与参数向量的 regime 顺序一致。
+这里 `theta_regimes` 是按 regime 排列的性状向量集合，不同于拟合结果"行为 regime、列为性状"的 theta 矩阵。枝段状态编号必须与参数向量的 regime 顺序一致。
 
-[common.jl](examples/common.jl) 为小型接口演示构造合成映射，不是离散后验抽样，不能描述为实证证据。需要后验历史时，应使用 [corHMM 后接 SIMMAP](simmap_zh.md)。
+[common.jl](examples/common.jl) 为小型接口演示构造合成映射。需要后验历史时，应使用 [corHMM 后接 SIMMAP](simmap_zh.md)。
 
 ## 如何选择模拟函数
 
@@ -53,4 +53,4 @@ X = sim_mvoum(tree, sim.edge_segments, A, Sigma, theta_regimes;
 | 早期爆发性状 | `sim_mveb` |
 | 打包 BM 模拟数据集 | `sim_mvbm1_dataset` |
 
-模拟与拟合的选项并不完全相同。应查看具体函数帮助，不能假定每个拟合模型都有相应模拟器或根参数。固定种子便于复现示例，不能替代用于评估偏差、覆盖率和模型选择表现的模拟重复。
+模拟与拟合的选项不同。查看具体函数帮助，确认可用的模拟器与根参数。固定种子便于复现示例。

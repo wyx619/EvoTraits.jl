@@ -50,19 +50,19 @@ methods(fit_mvoum)
 @doc fit_mvshift
 ```
 
-In the Julia REPL, type `?fit_oum` for function help. Multiple dispatch selects methods from argument types; it does not make the keyword sets of all model families identical.
+In the Julia REPL, type `?fit_oum` for function help. Multiple dispatch selects methods from argument types.
 
 ## Fixed-parameter likelihood versus fitted result
 
 Functions ending in `_LL` evaluate supplied process parameters, sometimes profiling nuisance mean coefficients according to the specific interface. Their positional parameter order is model-specific. For example, `oum_LL` and `mvoum_LL` do not take interchangeable scalar and matrix arguments. Check the signature before constructing a cross-model validation.
 
-Do not treat a fixed evaluation as an optimizer run. Reusing parameters after changing trait units, branch units, roots or regime order changes their statistical meaning.
+Reusing parameters after changing trait units, branch units, roots or regime order changes their statistical meaning.
 
 ## Result-type differences
 
 corHMM stores optimizer information under `fit.fit`; continuous fits generally expose `converged` directly. OU diffusion is `Sigma` in multivariate OU results and `sigma` in multivariate BM results. Univariate multi-regime optima are `theta_regimes`; multivariate optima are `theta`. Shift results use matrix-valued parameters even for a single trait.
 
-These distinctions are intentional contracts. Use `propertynames(result)` to inspect a result and the relevant guide to interpret it; generic export code should not assume every result has identical fields.
+Use `propertynames(result)` to inspect a result and the relevant guide to interpret it; generic export code should not assume every result has identical fields.
 
 ## Output and persistence
 

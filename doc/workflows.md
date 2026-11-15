@@ -22,7 +22,7 @@ comparison = fit_compare(tree, y, candidates)
 
 `fit_compare_estim` explicitly requests ASR for univariate or multivariate inputs. `fit_compare_multivariate` remains available as a compatibility name and defaults to no ASR; pass `reconstruct=true` to request it. Environmental models cannot enter an ASR workflow.
 
-AIC ranks finite successful fits, but a finite likelihood does not prove numerical convergence. Report the model, observations, parameter count, logLik, AIC, convergence status and diagnostics together.
+AIC ranks finite successful fits. Report the model, observations, parameter count, logLik, AIC, convergence status and diagnostics together.
 
 ## A complete regime-aware comparison
 
@@ -42,7 +42,7 @@ end
 selected = comparison.best_fit
 ```
 
-Regime-dependent candidates need mapping context even when other candidates do not. The workflow can derive mapped durations from branch segments. Missing required context is an input error; it is not silently replaced by one regime.
+Regime-dependent candidates need mapping context even when other candidates do not. The workflow can derive mapped durations from branch segments. Missing required context is an input error.
 
 For vector inputs use univariate symbols such as `:BM1, :BMM, :OU1, :OUM, :EB`. For matrix inputs use `:mvBM1, :mvBMM, :mvOU1, :mvOUM, :mvOUMVA, :mvOUBM` and other supported multivariate symbols. Matrix dispatch does not rename every symbol automatically.
 
@@ -71,15 +71,15 @@ Candidate keywords override common workflow settings. Names identify outputs and
 | `best_name`, `best_fit` | Selected candidate and result |
 | `asr` | `nothing` unless reconstruction is requested |
 
-AIC rows contain `name, model, aic, delta_aic, loglik, nparams, success`. They do not contain every convergence diagnostic. Selection uses successful finite-AIC fits, so inspect the individual results for convergence before making a scientific claim.
+AIC rows contain `name, model, aic, delta_aic, loglik, nparams, success`. They do not contain every convergence diagnostic. Selection uses successful finite-AIC fits.
 
-`aic_table(:first => fit1, :second => fit2)` also compares already fitted results. AIC is `2k - 2logLik`; smaller is preferred within a valid candidate set. AICc additionally needs an observation-count convention: supply `nobs` when it cannot be inferred. In multivariate results, observed trait cells may be counted rather than species. This is an implementation convention, not proof that trait cells are independent biological replicates.
+`aic_table(:first => fit1, :second => fit2)` also compares already fitted results. AIC is `2k - 2logLik`; smaller is preferred within a valid candidate set. AICc additionally needs an observation-count convention: supply `nobs` when it cannot be inferred. In multivariate results, observed trait cells may be counted rather than species.
 
 ## What makes an AIC comparison valid?
 
-Use the same response, transformation, retained taxa and missingness pattern. Root assumptions and parameter constraints are part of the candidate definition and must be reported. Different discrete encodings have different observation spaces; a smaller discrete AIC for two states does not establish that two biological categories are superior to three.
+Use the same response, transformation, retained taxa and missingness pattern. Root assumptions and parameter constraints are part of the candidate definition and must be reported. Different discrete encodings have different observation spaces.
 
-Continuous models fitted to different SIMMAPs are conditional on different histories. Repeating maps estimates sensitivity to history sampling. Neither their mean AIC nor the minimum over maps is an integrated model likelihood. AIC support for a regime model also does not by itself establish a causal effect of the discrete state.
+Continuous models fitted to different SIMMAPs are conditional on different histories. Repeating maps estimates sensitivity to history sampling.
 
 ## Reconstruction is explicit
 

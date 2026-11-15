@@ -4,7 +4,7 @@
 
 ## Environmental rates
 
-`fit_t_env` is a univariate model in which the diffusion rate varies with an environmental curve. `EnvExp` and `EnvLin` describe rate dependence, not a causal effect on the trait mean or OU optimum.
+`fit_t_env` is a univariate model in which the diffusion rate varies with an environmental curve. `EnvExp` and `EnvLin` are the two rate models.
 
 ```julia
 environment = EnvCurve([0.0, 10.0], [15.0, 20.0])
@@ -43,7 +43,7 @@ smooth(25.0)
 
 `EnvCurve` requires at least two distinct finite nonnegative ages and finite values; it sorts the ages. `smooth_env` requires at least six unique ages, positive finite weights, and `2 < df < number_of_unique_ages`. The effective degrees of freedom control flexibility, not the number of input observations or interpolation points. Both interfaces default to `scale=false`. With `scale=true`, the environmental range is rescaled to [0,1]; constant histories cannot be scaled this way.
 
-Pick smoothing independently of the outcome when possible and examine sensitivity. Trying many smoothing choices and selecting the smallest model AIC does not automatically account for the smoothing search.
+Pick smoothing independently of the outcome when possible and examine sensitivity.
 
 ## Rate coefficients and positivity
 
@@ -54,11 +54,11 @@ EnvLin: v(t) = sigma2 * (1 - E(t)) + beta * E(t)
 
 In EnvExp, a positive beta increases diffusion with E and a negative beta decreases it. In EnvLin, sigma2 and beta are the rates at E=0 and E=1. If E is raw temperature, those are 0°C and 1°C; scaling to [0,1] changes that interpretation to environmental endpoints. EnvLin must remain positive over the used environmental history.
 
-These models explain changes in **diffusion rate**, not directional changes in the trait mean. They do not fit the derivative of temperature unless the derivative itself is deliberately supplied as E.
+These models explain changes in **diffusion rate**. To model the derivative of temperature, supply it as E.
 
 ## Numerical integration and observation errors
 
-`quadrature_order=16` is a default, not a guarantee for every curve. Compare 8, 16, 32 and 64 points for sharp pulses or strong exponential effects, and use `quadrature_breakpoints` to mark relevant ages. Assess both branch variances and fixed-parameter logLik before attributing fit differences to biology.
+`quadrature_order=16` is the default. Compare 8, 16, 32 and 64 points for sharp pulses or strong exponential effects, and use `quadrature_breakpoints` to mark relevant ages. Assess both branch variances and fixed-parameter logLik before attributing fit differences to biology.
 
 `error=nothing` disables the common observation-error term. `error=missing` or `NaN` estimates a common nuisance standard deviation. Known standard errors may be supplied as a vector, taxon dictionary or an appropriate DataFrame column; these are standard deviations, not variances. Supplying known errors also enables estimation of the nuisance term. Terminal variances include known SE² plus nuisance². Read `fit.nuisance` and `fit.nuisance_variance` on their respective scales.
 
@@ -83,10 +83,10 @@ shift = fit_mvshift(tree, X; model = :OUBMi, precalc = pre,
     max_iterations = 1000)
 ```
 
-`fit_shift` accepts a vector and returns the same matrix-based result family with one trait. `Sigma_decomp=:cholesky` gives full positive-definite diffusion; `:diagonal` gives diagonal diffusion; `:equaldiagonal` gives equal diagonal variances with zero off-diagonal entries; `:equal` gives equal diagonal variances while permitting correlation. Equal does not mean every entry is equal.
+`fit_shift` accepts a vector and returns the same matrix-based result family with one trait. `Sigma_decomp=:cholesky` gives full positive-definite diffusion; `:diagonal` gives diagonal diffusion; `:equaldiagonal` gives equal diagonal variances with zero off-diagonal entries; `:equal` gives equal diagonal variances while permitting correlation.
 
 `scale_height=false` preserves original time units. With `scale_height=true`, the fit uses a normalized height; examine `source_height`, `height`, `time_scale` and `age` before interpreting rates. Do not treat normalized-time parameters as original-time rates without conversion.
 
-EB `beta_bounds` default to (-2,2). Inputs outside the allowed mapping can map to zero effect; inspect `input_beta`, `beta` and diagnostics rather than interpreting a flat parameter direction as strong evidence for BM.
+EB `beta_bounds` default to (-2,2). Inputs outside the allowed mapping can map to zero effect; inspect `input_beta`, `beta` and diagnostics.
 
-`diagnose_shift(tree, traits, fit)` computes numerical curvature diagnostics without refitting. It can be expensive because finite-difference Hessians require many likelihood calls. These diagnostics do not supply a general parameter confidence-interval or global-optimum guarantee. Shift models here assume ultrametric trees, do not accept observation-error modeling, and have no ASR interface.
+`diagnose_shift(tree, traits, fit)` computes numerical curvature diagnostics without refitting. It can be expensive because finite-difference Hessians require many likelihood calls. Shift models here assume ultrametric trees, do not accept observation-error modeling, and have no ASR interface.

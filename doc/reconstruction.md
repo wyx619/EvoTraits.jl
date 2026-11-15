@@ -15,9 +15,9 @@ branch_asr = estim_branch_for_simmap(tree, y, fit2, sim)
 branch_table = estim_branch_table(tree, branch_asr)
 ```
 
-Tables preserve internal node or branch identity and time coordinates. `summarize_node_estimates_by_time(table, width; w=step)` produces sliding-window summaries. A summary is conditional on the fitted model, root treatment and mapped history; it is not an independent observation.
+Tables preserve internal node or branch identity and time coordinates. `summarize_node_estimates_by_time(table, width; w=step)` produces sliding-window summaries. A summary is conditional on the fitted model, root treatment and mapped history.
 
-`width` is the window width and `w` the step; `w=0` selects non-overlapping windows. The first row of each trait summary is an overall baseline across nodes, not a time-zero estimate. Within-window quantiles summarize reconstructed node estimates, not confidence intervals for an evolutionary trajectory.
+`width` is the window width and `w` the step; `w=0` selects non-overlapping windows. The first row of each trait summary is an overall baseline across nodes. Within-window quantiles summarize reconstructed node estimates.
 
 For discrete fits, marginal ASR gives probabilities at each node, joint ASR gives one joint state configuration, scaled follows the scaled likelihood convention, and none skips reconstruction. Keep marginal probabilities when downstream analyses need uncertainty.
 
@@ -33,7 +33,7 @@ trait_windows = windows["trait"]
 time_windows = trait_windows[2:end, :]
 ```
 
-The map must be the one used for fitting. A table with `regime` labels identifies the sampled history, not a corHMM marginal posterior. To use marginal weights, join the discrete marginal probabilities by node ID from the **same tree**, retaining one probability column per state.
+The map must be the one used for fitting. A table with `regime` labels identifies the sampled history. To use marginal weights, join the discrete marginal probabilities by node ID from the **same tree**, retaining one probability column per state.
 
 ## Fields, scales and uncertainty
 
@@ -48,7 +48,7 @@ The map must be the one used for fitting. A table with `regime` labels identifie
 
 Node output is not automatically a tip-and-internal-node table. Check the requested table and identifiers before joining external annotations. For multivariate reconstruction, `estim_node_table(tree, asr, fit)` uses fitted trait names in columns such as `estimate_lnH`, `variance_lnH` and `se_lnH`.
 
-If the fitted response is ln(H), `exp(estimate)` is a back-transformed point estimate and the conditional lognormal median. Under a Gaussian log-scale approximation, the conditional mean is `exp(estimate + variance/2)`. Neither is automatically an unbiased population mean. ASR variance does not include all uncertainty in fitted parameters, root assumptions or SIMMAP sampling.
+If the fitted response is ln(H), `exp(estimate)` is a back-transformed point estimate and the conditional lognormal median. Under a Gaussian log-scale approximation, the conditional mean is `exp(estimate + variance/2)`.
 
 ## Sliding windows
 
@@ -63,12 +63,12 @@ The positional argument of `summarize_node_estimates_by_time(table, n; w=0)` is 
 | `mean`, `median` | Summaries of reconstructed node point estimates |
 | `q2_5`, `q97_5` | Quantiles across those point estimates |
 
-A univariate table returns its trait summary under `"trait"`. Multivariate tables return one entry per trait suffix. Tables with regime columns additionally return `"_regime_summary"`. The first baseline row has `start=end=0` and summarizes all nodes; exclude it from a time curve. Empty windows have no finite estimate. Node density varies through time, and related nodes are not independent observations. The quantile band is therefore not a confidence interval around an evolutionary trajectory.
+A univariate table returns its trait summary under `"trait"`. Multivariate tables return one entry per trait suffix. Tables with regime columns additionally return `"_regime_summary"`. The first baseline row has `start=end=0` and summarizes all nodes; exclude it from a time curve. Empty windows have no finite estimate.
 
-For a time plot, use window midpoints `(start + end)/2` and reverse the horizontal axis if present day should be on the right. A plotting smoother is a display choice, not a replacement for the model.
+For a time plot, use window midpoints `(start + end)/2` and reverse the horizontal axis if present day should be on the right.
 
 ## Branch output and limitations
 
-`estim_branch_for_simmap` reconstructs values for supported mapped univariate models, including OUM, OUMV, OUMA, OUMVA and EBM. `estim_branch_table` reports segment time coordinates and estimates; an edge can appear more than once because it contains multiple segments. Do not assume one row per edge.
+`estim_branch_for_simmap` reconstructs values for supported mapped univariate models, including OUM, OUMV, OUMA, OUMVA and EBM. `estim_branch_table` reports segment time coordinates and estimates; an edge can appear more than once because it contains multiple segments.
 
 Environmental and shift fits do not currently expose this ASR workflow. See [environment and shifts](environment_shifts.md), [troubleshooting](troubleshooting.md) and [the executable ASR example](examples/03_continuous.jl).

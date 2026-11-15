@@ -19,19 +19,19 @@
 | Very slow batch | Compilation, parallel nesting, memory | Separate setup from fitting; benchmark one case |
 | Unexpected time-zero summary | Extra whole-tree baseline | Exclude the first summary row before plotting |
 
-## “The root probability disagrees with my expectation”
+## "The root probability disagrees with my expectation"
 
-Check whether you read `root_prior_probs` or the marginal reconstruction. Locate the root by ID and inspect all state probabilities, preserving the declared state order. Biological expectations should motivate sensitivity analyses, not overwrite posterior probabilities. See [discrete root extraction](discrete.md).
+Check whether you read `root_prior_probs` or the marginal reconstruction. Locate the root by ID and inspect all state probabilities, preserving the declared state order. See [discrete root extraction](discrete.md).
 
-## “I used eight threads; why only one trial?”
+## "I used eight threads; why only one trial?"
 
 Julia threads are available workers, not an automatic replicate count. corHMM defaults to one trial and one requested worker. Set both explicitly. Continuous families have their own candidate scheduling, so do not pass invented thread keywords to them.
 
-## “The best AIC proves this classification is right”
+## "The best AIC proves this classification is right"
 
-AIC evaluates a defined likelihood and candidate set. Different discrete coding schemes change observations. Continuous models conditional on different SIMMAP histories need sensitivity assessment; a single minimum does not integrate mapping uncertainty. See [comparison rules](workflows.md).
+AIC evaluates a defined likelihood and candidate set. Different discrete coding schemes change observations. Continuous models conditional on different SIMMAP histories need sensitivity assessment. See [comparison rules](workflows.md).
 
-## “Can I mix old root names with the current API?”
+## "Can I mix old root names with the current API?"
 
 Use current public names: mean `:regime` / `:stationary`, covariance `:fixed` / `:random`, where supported. OUMV/OUMA/OUMVA support only `:regime + :fixed`. Independent free root-mean estimation is not exposed. Do not use removed legacy combinations from old validation scripts.
 

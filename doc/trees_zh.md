@@ -39,7 +39,7 @@ y = align_traits_to_tree(tree, data; taxon_col = :taxon, trait_cols = [:height])
 | `serialize_tree(node)` | `CompactTree` | 转换已读取的节点树 |
 | `write_tree(path, tree)` | 写出 Newick | 导出拓扑及枝长 |
 
-文件必须存在，Newick 必须以分号结束；支持中文等非 ASCII 路径。节点式读取在首次解析失败时会清理内部 support/bootstrap 标签后重试。这些是单树接口，不应把含多棵 bootstrap 树的文件当作单树输入。
+文件必须存在，Newick 必须以分号结束；支持中文等非 ASCII 路径。节点式读取在首次解析失败时会清理内部 support/bootstrap 标签后重试。这些接口每个文件读取一棵树。
 
 枝长决定模型的时间单位。例如枝长为 Ma，则吸引速率单位为 Ma⁻¹，扩散速率单位为性状单位²/Ma。程序不会根据物种名推断年代。拟合前应核对模型条件：本指南介绍的 OU、EB 和时间转换流程要求超度量树，相关递推流程要求二叉拓扑。
 
