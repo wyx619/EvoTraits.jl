@@ -25,13 +25,13 @@ For OU1/OUM, root mean `:regime` and covariance `:fixed` are defaults; `:station
 
 The univariate OU process is written as:
 
-```text
-dY = alpha_r * (theta_r - Y) dt + sqrt(sigma2_r) dW
+```math
+dY = \alpha_r (\theta_r - Y)\,dt + \sqrt{\sigma_r^2}\,dW
 ```
 
 The active regime `r` comes from the mapped branch segment.
 
-| Model | Attraction alpha | Diffusion sigma2 | Optimum theta |
+| Model | Attraction α | Diffusion σ² | Optimum θ |
 | --- | --- | --- | --- |
 | OU1 | Shared | Shared | One |
 | OUM | Shared | Shared | Per regime |

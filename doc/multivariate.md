@@ -30,11 +30,15 @@ X = align_traits_to_tree(tree, traits;
 
 The multivariate DataFrame fit wrappers select numeric columns after the first, taxon column. For precise column control, perform explicit alignment and pass a matrix.
 
-## A, Sigma and theta
+## A, Σ and θ
 
 The OU mean follows `dY = A * (theta_r - Y) dt + noise`. `A` describes attraction and cross-trait mean coupling; `Sigma` is the diffusion covariance rate.
 
-| Model | A | Sigma | theta |
+```math
+d\mathbf{Y} = A\,(\boldsymbol{\theta}_r - \mathbf{Y})\,dt + \Sigma^{1/2}\,d\mathbf{W}
+```
+
+| Model | A | Σ | θ |
 | --- | --- | --- | --- |
 | mvOU1 | Shared | Shared | One vector |
 | mvOUM | Shared | Shared | Regime-specific |

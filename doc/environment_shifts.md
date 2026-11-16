@@ -47,12 +47,14 @@ Pick smoothing independently of the outcome when possible and examine sensitivit
 
 ## Rate coefficients and positivity
 
-```text
-EnvExp: v(t) = sigma2 * exp(beta * E(t))
-EnvLin: v(t) = sigma2 * (1 - E(t)) + beta * E(t)
+```math
+\begin{aligned}
+\mathrm{EnvExp}:\quad v(t) &= \sigma^2 \exp\big(\beta E(t)\big) \\
+\mathrm{EnvLin}:\quad v(t) &= \sigma^2 \big(1 - E(t)\big) + \beta E(t)
+\end{aligned}
 ```
 
-In EnvExp, a positive beta increases diffusion with E and a negative beta decreases it. In EnvLin, sigma2 and beta are the rates at E=0 and E=1. If E is raw temperature, those are 0°C and 1°C; scaling to [0,1] changes that interpretation to environmental endpoints. EnvLin must remain positive over the used environmental history.
+In EnvExp, a positive β increases diffusion with E and a negative β decreases it. In EnvLin, σ² and β are the rates at E=0 and E=1. If E is raw temperature, those are 0°C and 1°C; scaling to [0,1] changes that interpretation to environmental endpoints. EnvLin must remain positive over the used environmental history.
 
 These models explain changes in **diffusion rate**. To model the derivative of temperature, supply it as E.
 

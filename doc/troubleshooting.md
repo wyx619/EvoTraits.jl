@@ -13,9 +13,9 @@
 | Budget exhausted | Function calls and optimizer stopping reason | Increase budget; compare supported alternative starts |
 | Finite logLik but no convergence | Model-specific validity versus optimizer status | Keep diagnostic status; do not call it converged |
 | Implausible OU optima | Mean-design rank and regime exposure | Inspect mean_diagnostics and mapped history |
-| Repeated ASR estimates | alpha × branch length and proximity to theta | Test OU memory loss and identifiability |
-| Negative theta on log data | Trait scale | Negative log optima are allowed |
-| Extreme EnvExp beta | Environment scaling, coverage, smoothing | Check rate curve and quadrature sensitivity |
+| Repeated ASR estimates | α × branch length and proximity to θ | Test OU memory loss and identifiability |
+| Negative θ on log data | Trait scale | Negative log optima are allowed |
+| Extreme EnvExp β | Environment scaling, coverage, smoothing | Check rate curve and quadrature sensitivity |
 | Very slow batch | Compilation, parallel nesting, memory | Separate setup from fitting; benchmark one case |
 | Unexpected time-zero summary | Extra whole-tree baseline | Exclude the first summary row before plotting |
 

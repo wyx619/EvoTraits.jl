@@ -47,12 +47,14 @@ smooth(25.0)
 
 ## 系数含义与正值约束
 
-```text
-EnvExp: v(t) = sigma2 * exp(beta * E(t))
-EnvLin: v(t) = sigma2 * (1 - E(t)) + beta * E(t)
+```math
+\begin{aligned}
+\mathrm{EnvExp}:\quad v(t) &= \sigma^2 \exp\big(\beta E(t)\big) \\
+\mathrm{EnvLin}:\quad v(t) &= \sigma^2 \big(1 - E(t)\big) + \beta E(t)
+\end{aligned}
 ```
 
-EnvExp 的正 beta 表示 E 增大时扩散加快，负 beta 表示减慢。EnvLin 的 sigma2 与 beta 分别是 E=0、E=1 的速率。若直接输入温度，它们对应 0°C 和 1°C；缩放到 [0,1] 后则对应环境两端。使用的环境历史内，EnvLin 速率必须保持正值。
+EnvExp 的正 β 表示 E 增大时扩散加快，负 β 表示减慢。EnvLin 的 σ² 与 β 分别是 E=0、E=1 的速率。若直接输入温度，它们对应 0°C 和 1°C；缩放到 [0,1] 后则对应环境两端。使用的环境历史内，EnvLin 速率必须保持正值。
 
 这些模型解释**扩散速率**变化。需要拟合温度变化速度时，将温度导数作为 E 输入。
 

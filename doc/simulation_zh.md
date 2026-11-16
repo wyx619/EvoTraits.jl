@@ -37,7 +37,7 @@ X = sim_mvoum(tree, sim.edge_segments, A, Sigma, theta_regimes;
 @assert size(X) == (tree.ntips, 2)
 ```
 
-这里 `theta_regimes` 是按 regime 排列的性状向量集合，不同于拟合结果"行为 regime、列为性状"的 theta 矩阵。枝段状态编号必须与参数向量的 regime 顺序一致。
+这里 `theta_regimes` 是按 regime 排列的性状向量集合，不同于拟合结果"行为 regime、列为性状"的 θ 矩阵。枝段状态编号必须与参数向量的 regime 顺序一致。
 
 [common.jl](examples/common.jl) 为小型接口演示构造合成映射。需要后验历史时，应使用 [corHMM 后接 SIMMAP](simmap_zh.md)。
 

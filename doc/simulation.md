@@ -37,7 +37,7 @@ X = sim_mvoum(tree, sim.edge_segments, A, Sigma, theta_regimes;
 @assert size(X) == (tree.ntips, 2)
 ```
 
-Here `theta_regimes` is a vector of trait vectors in regime order. Do not confuse that input form with the fitted result's regime-by-trait theta matrix. Segment state IDs must refer to the same regime order as the parameter vectors.
+Here `theta_regimes` is a vector of trait vectors in regime order. Do not confuse that input form with the fitted result's regime-by-trait θ matrix. Segment state IDs must refer to the same regime order as the parameter vectors.
 
 [common.jl](examples/common.jl) constructs a synthetic mapped history for small interface demonstrations. For a posterior history, use [corHMM followed by SIMMAP](simmap.md).
 

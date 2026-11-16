@@ -30,11 +30,15 @@ X = align_traits_to_tree(tree, traits;
 
 多变量 DataFrame 拟合包装器从第一列 taxon 后选择数值列。需要精确控制性状列时，先显式对齐，再传入矩阵。
 
-## A、Sigma 与 theta
+## A、Σ 与 θ
 
 OU 均值过程为 `dY = A * (theta_r - Y) dt + noise`。`A` 描述吸引及性状间均值耦合，`Sigma` 是扩散协方差速率。
 
-| 模型 | A | Sigma | theta |
+```math
+d\mathbf{Y} = A\,(\boldsymbol{\theta}_r - \mathbf{Y})\,dt + \Sigma^{1/2}\,d\mathbf{W}
+```
+
+| 模型 | A | Σ | θ |
 | --- | --- | --- | --- |
 | mvOU1 | 共享 | 共享 | 一个向量 |
 | mvOUM | 共享 | 共享 | 各 regime 独立 |

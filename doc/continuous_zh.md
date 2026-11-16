@@ -25,13 +25,13 @@ OU1/OUM 默认根均值 `:regime`、根协方差 `:fixed`，也支持均值 `:st
 
 单变量 OU 过程可写为：
 
-```text
-dY = alpha_r * (theta_r - Y) dt + sqrt(sigma2_r) dW
+```math
+dY = \alpha_r (\theta_r - Y)\,dt + \sqrt{\sigma_r^2}\,dW
 ```
 
 当前 regime `r` 由映射枝段决定。
 
-| 模型 | 吸引速率 alpha | 扩散方差速率 sigma2 | 最适值 theta |
+| 模型 | 吸引速率 α | 扩散方差速率 σ² | 最适值 θ |
 | --- | --- | --- | --- |
 | OU1 | 全局共享 | 全局共享 | 一个 |
 | OUM | 全局共享 | 全局共享 | 每个 regime 独立 |
@@ -39,7 +39,7 @@ dY = alpha_r * (theta_r - Y) dt + sqrt(sigma2_r) dW
 | OUMA | 每个 regime 独立 | 全局共享 | 每个 regime 独立 |
 | OUMVA | 每个 regime 独立 | 每个 regime 独立 | 每个 regime 独立 |
 
-`sigma2` 是扩散方差速率，不是其平方根。`alpha` 的单位为时间倒数，半衰期为 `log(2)/alpha`。`theta` 与性状同单位，对数性状的 theta 可以为负。
+`sigma2` 是扩散方差速率，不是其平方根。`alpha` 的单位为时间倒数，半衰期为 `log(2)/alpha`。`theta` 与性状同单位，对数性状的 θ 可以为负。
 
 ## 拟合带映射的模型
 
