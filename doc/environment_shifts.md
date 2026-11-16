@@ -49,7 +49,7 @@ Pick smoothing independently of the outcome when possible and examine sensitivit
 
 ```math
 \begin{aligned}
-\mathrm{EnvExp}:\quad v(t) &= \sigma^2 \exp\big(\beta E(t)\big) \\
+\mathrm{EnvExp}:\quad v(t) &= \sigma^2 e^{\beta E(t)} \\
 \mathrm{EnvLin}:\quad v(t) &= \sigma^2 \big(1 - E(t)\big) + \beta E(t)
 \end{aligned}
 ```
