@@ -17,6 +17,8 @@
 
 `success` 是各模型定义的有效性标记；`converged` 描述优化停止状态，corHMM 中位于 `fit.fit.converged`。
 
+采用两阶段优化的单变量拟合中，只有最终获选起点的粗搜索和精调都报告收敛时，才返回 `converged=true`。拟合结果有效但未达到此条件时，仍可返回 `success=true`、`converged=false`。收敛不保证全局最优。
+
 固定参数似然返回给定参数下的 logLik，不含优化状态。排查实现差异时，应在完全相同参数下比较固定参数 logLik。
 
 ## 预算不是统一的迭代次数

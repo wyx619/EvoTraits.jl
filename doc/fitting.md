@@ -17,6 +17,8 @@ The [small runnable examples](examples/README.md) illustrate interfaces.
 
 `success` is a model-specific validity flag. `converged` concerns optimizer termination; in corHMM it is stored under `fit.fit.converged`.
 
+For univariate fits that use two-stage optimization, `converged=true` means both the coarse search and the refinement reported convergence for the candidate whose parameters were returned. A valid fit can still have `converged=false`. Convergence does not guarantee a global optimum.
+
 Fixed-parameter likelihood evaluations return a logLik at supplied parameters, without an optimizer status. Compare their logLik at identical parameters when diagnosing implementation differences.
 
 ## Budgets are not universal iteration counts

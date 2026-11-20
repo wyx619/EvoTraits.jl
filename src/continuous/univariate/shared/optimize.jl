@@ -146,7 +146,7 @@ function twostageresult(
     return ContinuousCompositeOptResult(
         minimizer = Vector{Float64}(resultminimizer(best)),
         minimum = min(rough_min, polish_min),
-        converged = resultconverged(best),
+        converged = resultconverged(rough) && resultconverged(polish),
         iterations = resultiterations(rough) + resultiterations(polish),
         f_calls = resultfcalls(rough) + resultfcalls(polish),
     )
