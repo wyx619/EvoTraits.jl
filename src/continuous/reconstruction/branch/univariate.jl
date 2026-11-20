@@ -16,6 +16,9 @@ function _ou_segments_affine(
         b = phi * b - expm1(-alpha * seg.length) * theta
         v = phi^2 * v - sigma2 * expm1(-2.0 * alpha * seg.length) / (2.0 * alpha)
     end
+    if v == 0.0 && any(s -> s.length > 0 && _ou_regime_value(spec.sigma_mode, bundle.sigma2, s.state) > 0, segments)
+        v = NaN
+    end
     return (a = a, b = b, v = v)
 end
 
@@ -132,7 +135,7 @@ function estim_branch_for_simmap(
             if stationary_design
                 fill!(edges.edge_b, 0.0)
             end
-            _linear_gaussian_posterior_cache(
+            _ou_posterior_cache(
                 tree,
                 post_trait,
                 edges.edge_a,
@@ -229,19 +232,17 @@ function estim_branch_for_simmap(
                     prefix_transition.b,
                     prefix_transition.v,
                 )
-                backward_info = _descendant_message(
-                    post,
-                    post_trait,
-                    tip_index,
-                    tree,
-                    child,
-                    suffix_transition.a,
-                    suffix_transition.b,
-                    suffix_transition.v,
-                )
-                backward_info.success || return (mean = NaN, var = NaN)
-                backward = _information_to_gaussian(backward_info.precision, backward_info.linear)
-                point = _gaussian_product(forward.mean, forward.var, backward.mean, backward.var)
+                if fit.model === :EBM
+                    info = _descendant_message(post, post_trait, tip_index, tree, child,
+                        suffix_transition.a, suffix_transition.b, suffix_transition.v)
+                    info.success || return (mean = NaN, var = NaN)
+                    backward = _information_to_gaussian(info.precision, info.linear)
+                    point = _gaussian_product(forward.mean, forward.var, backward.mean, backward.var)
+                else
+                    backward = _ou_posterior_to_parent(post.desc[child], suffix_transition.a,
+                        suffix_transition.b, suffix_transition.v)
+                    point = _ou_posterior_product(forward, backward)
+                end
                 if stationary_design
                     parent_mean = stationary_node_means[parent]
                     if fit.root_mean_mode === :stationary
@@ -249,7 +250,9 @@ function estim_branch_for_simmap(
                     end
                     point_mean = prefix_aff.a * parent_mean + prefix_aff.b
                     if fit.root_mean_mode === :stationary
-                        point_mean /= -expm1(-fit.alpha * (root_dist + seg_start + frac * seg.length))
+                        duration = root_dist + seg_start + frac * seg.length
+                        point_mean = duration == 0 ? stationary_node_means[tree.root] :
+                            point_mean / -expm1(-fit.alpha * duration)
                     end
                     point = (mean = point.mean + point_mean, var = point.var)
                 end

@@ -3,7 +3,6 @@ struct OUMeanWorkspace
     edge_design::Matrix{Float64}
     node_rows::Matrix{Float64}
     weights::Vector{Float64}
-    active::BitVector
     design::Matrix{Float64}
     response::Vector{Float64}
 end
@@ -13,7 +12,7 @@ function OUMeanWorkspace(context::OULikelihoodContext)
     tree = context.tree
     return OUMeanWorkspace(
         OULikelihoodWorkspace(tree), zeros(k, tree.nedges), zeros(k + 1, tree.nnodes),
-        zeros(tree.nnodes), falses(tree.nnodes), zeros(tree.ntips, k), zeros(tree.ntips),
+        zeros(tree.nnodes), zeros(tree.ntips, k), zeros(tree.ntips),
     )
 end
 
@@ -67,42 +66,56 @@ function _ou_whiten_mean_design!(context::OULikelihoodContext, bundle::OUParamet
     tree, spec = context.tree, context.spec
     edges = _build_ou_edges(tree, spec, bundle; cache = context.cache, workspace = work.likelihood)
     _ou_edge_mean_design!(context, bundle, work.edge_design)
-    rows, weights, active = work.node_rows, work.weights, work.active
-    fill!(active, false)
+    rows, weights = work.node_rows, work.weights
     nrows, k = 0, size(work.design, 2)
     @inbounds for node in tree.postorder_internal
+        weights[node] = -1.0 # No observed descendants yet.
         for edge in tree.first_child_edge[node]:tree.last_child_edge[node]
             child = Int(tree.child_of_edge[edge])
-            v = max(edges.edge_v[edge], 1e-12)
+            a, v = edges.edge_a[edge], edges.edge_v[edge]
+            isfinite(a) && a >= 0 && isfinite(v) && v >= 0 || return -1
             if tree.is_tip[child]
                 y = context.trait[context.tip_index[child]]
                 isnan(y) && continue
-                scale = inv(sqrt(v))
-                weights[child] = edges.edge_a[edge] * scale
-                rows[1, child] = y * scale
+                weights[child] = Inf
+                rows[1, child] = y
                 for j in 1:k
-                    rows[j + 1, child] = work.edge_design[j, edge] * scale
+                    rows[j + 1, child] = 0.0
                 end
-            else
-                active[child] || continue
-                denominator = hypot(1.0, sqrt(v) * weights[child])
-                scale = weights[child] / denominator
-                rows[1, child] /= denominator
-                for j in 1:k
-                    rows[j + 1, child] = rows[j + 1, child] / denominator +
-                        scale * work.edge_design[j, edge]
-                end
-                weights[child] = edges.edge_a[edge] * scale
             end
-            if !active[node]
+            weights[child] < 0 && continue
+            step = _ou_whitening_step(weights[child], a, v)
+            isnan(step.weight) && return -1
+            rows[1, child] *= step.scale
+            for j in 1:k
+                rows[j + 1, child] = muladd(step.drift, work.edge_design[j, edge],
+                    rows[j + 1, child] * step.scale)
+            end
+            weights[child] = step.weight
+            if weights[node] < 0
                 for j in 1:(k + 1)
                     rows[j, node] = rows[j, child]
                 end
                 weights[node] = weights[child]
-                active[node] = true
                 continue
             end
             nrows += 1
+            if weights[node] == Inf || weights[child] == Inf
+                weights[node] == weights[child] && return -1
+                hard, soft = weights[node] == Inf ? (node, child) : (child, node)
+                w = weights[soft]
+                work.response[nrows] = muladd(-w, rows[1, hard], rows[1, soft])
+                for j in 1:k
+                    work.design[nrows, j] = muladd(-w, rows[j + 1, hard], rows[j + 1, soft])
+                end
+                if hard == child
+                    for j in 1:(k+1)
+                        rows[j, node] = rows[j, child]
+                    end
+                    weights[node] = Inf
+                end
+                continue
+            end
             weight = hypot(weights[node], weights[child])
             if weight == 0.0
                 work.response[nrows] = rows[1, child]
@@ -123,19 +136,22 @@ function _ou_whiten_mean_design!(context::OULikelihoodContext, bundle::OUParamet
     end
     root = Int(tree.root)
     prior = _ou_root_prior(spec, bundle; cache = context.cache)
-    if active[root] && !prior.profile_root
+    if !prior.profile_root
+        isfinite(prior.var) && prior.var >= 0.0 || return -1
+        step = _ou_whitening_step(weights[root], 0.0, prior.var)
+        isnan(step.weight) && return -1
         nrows += 1
-        variance = prior.var <= 1e-12 ? 0.0 : prior.var
-        denominator = hypot(1.0, sqrt(variance) * weights[root])
-        work.response[nrows] = rows[1, root] / denominator
+        work.response[nrows] = rows[1, root] * step.scale
         for j in 1:k
-            work.design[nrows, j] = rows[j + 1, root] / denominator
+            work.design[nrows, j] = rows[j + 1, root] * step.scale
         end
         root_column = spec.root_mean_mode in (:regime, :stationary) ? context.cache.root_regime :
                       spec.root_mean_mode === :theta ? 1 : 0
         if root_column > 0
-            work.design[nrows, root_column] += weights[root] / denominator
+            work.design[nrows, root_column] += step.drift
         end
+    elseif !(0 < weights[root] < Inf)
+        return -1
     end
     return nrows
 end
@@ -152,6 +168,7 @@ function _ou_profile_parameters(context::OULikelihoodContext, parameters::Abstra
     failed = (bundle = bundle, profile = (success = false, loglik = -Inf, root_state = NaN))
     all(x -> isfinite(x) && x >= 1e-8, parameters) || return failed
     nrows = _ou_whiten_mean_design!(context, bundle, work)
+    nrows < 0 && return failed
     design, response = view(work.design, 1:nrows, :), view(work.response, 1:nrows)
     all(isfinite, design) && all(isfinite, response) || return failed
     # Reduce the tall whitened system in place; only the small R factor needs

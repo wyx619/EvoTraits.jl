@@ -28,48 +28,6 @@ function _ou_root_prior(spec::OUSpec, bundle::OUParameterBundle; cache = nothing
     throw(ArgumentError("Unsupported OU root_cov_mode=$(spec.root_cov_mode)"))
 end
 
-function _ou_LL(
-    tree::CompactTree,
-    trait::AbstractVector{<:Real},
-    spec::OUSpec,
-    bundle::OUParameterBundle;
-    cache = nothing,
-)
-    _validate_binary_tree(tree)
-    _validate_ultrametric_tree(tree)
-    edges = _build_ou_edges(tree, spec, bundle; cache = cache)
-    root = _ou_root_prior(spec, bundle; cache = cache)
-    data = trait
-    root_shift = 0.0
-    if spec.root_mean_mode in (:stationary_design, :stationary) && cache !== nothing
-        cache === nothing && throw(ArgumentError("cache is required for stationary_design"))
-        node_means = _ou_stationary_design_node_means(tree, spec, bundle, cache)
-        root_shift = node_means[tree.root]
-        data = copy(Float64.(trait))
-        for (i, tip) in enumerate(tree.tip_ids)
-            data[i] -= node_means[Int(tip)]
-        end
-        fill!(edges.edge_b, 0.0)
-    end
-    prof = _linear_gaussian_loglik(
-        tree,
-        data,
-        edges.edge_a,
-        edges.edge_b,
-        edges.edge_v;
-        root_prior_mean = root.mean,
-        root_prior_var = root.var,
-        profile_root = root.profile_root,
-    )
-    return (
-        success = prof.success,
-        loglik = prof.loglik,
-        root_state = prof.root_state + root_shift,
-        edges = edges,
-        root = root,
-    )
-end
-
 function _ou_prepare_context(
     tree::CompactTree,
     trait::AbstractVector{<:Real},
@@ -87,12 +45,137 @@ function _ou_prepare_context(
     return OULikelihoodContext(tree, tr, spec, cache, tip_index)
 end
 
+function _ou_LL(
+    tree::CompactTree,
+    trait::AbstractVector{<:Real},
+    spec::OUSpec,
+    bundle::OUParameterBundle;
+    cache = nothing,
+)
+    context = _ou_prepare_context(tree, trait, spec, cache)
+    return _ou_context_LL(context, bundle, OULikelihoodWorkspace(tree))
+end
+
+# A whitened row is z - w*x. Inf marks an exact constraint x = z instead.
+@inline function _ou_whitening_step(w, a, v)
+    if w == Inf
+        if v > 0.0
+            sd = sqrt(v)
+            scale = inv(sd)
+            return (weight = a * scale, scale = scale, drift = scale, log_scale = log(sd))
+        elseif a > 0.0
+            scale = inv(a)
+            return (weight = Inf, scale = scale, drift = scale, log_scale = log(a))
+        end
+        return (weight = NaN, scale = NaN, drift = NaN, log_scale = NaN)
+    end
+    d = hypot(1.0, sqrt(v) * w)
+    drift = w / d
+    return (weight = a * drift, scale = inv(d), drift = drift, log_scale = log(d))
+end
+
+# Collect squared orthogonal contrasts of the centered observations, without
+# forming a covariance matrix or subtracting quadratic information constants.
+function _ou_residual_loglik(tree, data, edges, means, center, root, work, tip_index)
+    weights, rows = work.precision, work.linear
+    rss, log_scale, nobs = 0.0, 0.0, 0
+    failed = (loglik = -Inf, root_residual = NaN)
+    @inbounds for node in tree.postorder_internal
+        left_w, left_z = -1.0, 0.0
+        for edge in tree.first_child_edge[node]:tree.last_child_edge[node]
+            child = tree.child_of_edge[edge]
+            a, v = edges.edge_a[edge], edges.edge_v[edge]
+            isfinite(a) && a >= 0 && isfinite(v) && v >= 0 || return failed
+            if tree.is_tip[child]
+                y = data[tip_index[child]]
+                isnan(y) && continue
+                nobs += 1
+                w0, z0 = Inf, (y - center) - means[child]
+            else
+                w0, z0 = weights[child], rows[child]
+                w0 < 0 && continue
+            end
+            step = _ou_whitening_step(w0, a, v)
+            w, z = step.weight, z0 * step.scale
+            isnan(w) && return failed
+            log_scale += step.log_scale
+            if left_w < 0
+                left_w, left_z = w, z
+                continue
+            end
+            if left_w == Inf
+                w == Inf && return failed # Redundant deterministic observations.
+                rss += abs2(muladd(-w, left_z, z))
+                continue
+            elseif w == Inf
+                rss += abs2(muladd(-left_w, z, left_z))
+                left_w, left_z = w, z
+                continue
+            end
+            weight = hypot(left_w, w)
+            if weight == 0.0
+                rss += abs2(z)
+            else
+                l, r = left_w / weight, w / weight
+                rss += abs2(muladd(r, left_z, -l * z))
+                left_w, left_z = weight, muladd(l, left_z, r * z)
+            end
+        end
+        weights[node], rows[node] = left_w, left_z
+    end
+    w, z = weights[tree.root], rows[tree.root]
+    nobs > 0 && w >= 0 || return failed
+    if root.profile_root
+        0 < w < Inf || return failed
+        root_residual = z / w
+    elseif isfinite(root.var) && root.var >= 0
+        step = _ou_whitening_step(w, 0.0, root.var)
+        isnan(step.weight) && return failed
+        residual = z * step.scale
+        rss += abs2(residual)
+        log_scale += step.log_scale
+        root_residual = w == Inf ? z : (root.var * step.drift) * residual
+    else
+        return failed
+    end
+    loglik = -(rss + nobs * log(2pi)) / 2 - log_scale
+    return (; loglik, root_residual)
+end
+
+function _ou_mapped_loglik(context, bundle, work, root)
+    tree, spec, cache = context.tree, context.spec, context.cache
+    data = context.trait
+    special_mean = spec.root_mean_mode in (:stationary_design, :stationary)
+    center = special_mean ? 0.0 : data[findfirst(!isnan, data)]
+    edges = _build_ou_edges(tree, spec, bundle; cache, workspace = work, theta_offset = center)
+    if special_mean
+        means = _ou_stationary_design_node_means(tree, spec, bundle, cache)
+    else
+        means = work.logconst
+        means[tree.root] = root.mean - center
+        @inbounds for node in tree.preorder
+            tree.is_tip[node] && continue
+            for edge in tree.first_child_edge[node]:tree.last_child_edge[node]
+                means[tree.child_of_edge[edge]] = muladd(edges.edge_a[edge], means[node], edges.edge_b[edge])
+            end
+        end
+    end
+    score = _ou_residual_loglik(tree, data, edges, means, center, root, work, context.tip_index)
+    success = isfinite(score.loglik) && isfinite(score.root_residual)
+    root_state = success ? (special_mean ? means[tree.root] : root.mean) + score.root_residual : NaN
+    return (; success, loglik = success ? score.loglik : -Inf, root_state)
+end
+
 function _ou_context_LL(
     context::OULikelihoodContext,
     bundle::OUParameterBundle,
     workspace::OULikelihoodWorkspace,
 )
     tree = context.tree
+    root = _ou_root_prior(context.spec, bundle; cache = context.cache)
+    if context.cache !== nothing
+        return _ou_mapped_loglik(context, bundle, workspace, root)
+    end
     edges = _build_ou_edges(
         tree,
         context.spec,
@@ -100,22 +183,9 @@ function _ou_context_LL(
         cache = context.cache,
         workspace = workspace,
     )
-    root = _ou_root_prior(context.spec, bundle; cache = context.cache)
-    data = context.trait
-    root_shift = 0.0
-    if context.spec.root_mean_mode in (:stationary_design, :stationary) && context.cache !== nothing
-        context.cache === nothing && throw(ArgumentError("cache is required for stationary_design"))
-        node_means = _ou_stationary_design_node_means(tree, context.spec, bundle, context.cache)
-        root_shift = node_means[tree.root]
-        data = copy(context.trait)
-        for (i, tip) in enumerate(tree.tip_ids)
-            data[i] -= node_means[Int(tip)]
-        end
-        fill!(edges.edge_b, 0.0)
-    end
-    prof = _linear_gaussian_loglik(
+    return _linear_gaussian_loglik(
         tree,
-        data,
+        context.trait,
         edges.edge_a,
         edges.edge_b,
         edges.edge_v;
@@ -125,13 +195,6 @@ function _ou_context_LL(
         workspace = workspace,
         tip_index = context.tip_index,
         validate = false,
-    )
-    return (
-        success = prof.success,
-        loglik = prof.loglik,
-        root_state = prof.root_state + root_shift,
-        edges = edges,
-        root = root,
     )
 end
 

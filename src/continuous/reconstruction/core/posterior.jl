@@ -79,8 +79,10 @@ function _linear_gaussian_asr(
     root_prior_mean::Float64 = 0.0,
     root_prior_var::Float64 = Inf,
     model::Symbol = :unknown,
+    exact_ou::Bool = false,
 )
-    cache = _linear_gaussian_posterior_cache(
+    posterior = exact_ou ? _ou_posterior_cache : _linear_gaussian_posterior_cache
+    cache = posterior(
         tree,
         trait,
         edge_a,

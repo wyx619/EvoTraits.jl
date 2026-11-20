@@ -1,5 +1,6 @@
 include("reconstruction/core/messages.jl")
 include("reconstruction/core/posterior.jl")
+include("reconstruction/core/ou_posterior.jl")
 include("reconstruction/node/common.jl")
 include("reconstruction/node/univariate.jl")
 include("reconstruction/node/mvbm.jl")

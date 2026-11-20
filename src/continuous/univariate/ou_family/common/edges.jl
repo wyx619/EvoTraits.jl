@@ -92,7 +92,8 @@ function _ou_stationary_design_node_means(
     return means
 end
 
-@inline function _ou_edge_affine(cache, edge::Integer, spec::OUSpec, bundle::OUParameterBundle)
+@inline function _ou_edge_affine(cache, edge::Integer, spec::OUSpec, bundle::OUParameterBundle,
+    theta_offset::Float64 = 0.0)
     a = 1.0
     b = 0.0
     v = 0.0
@@ -103,11 +104,21 @@ end
         seg_length = cache.segment_lengths[seg_idx]
         alpha = _ou_regime_value(spec.alpha_mode, bundle.alpha, state)
         sigma2 = _ou_regime_value(spec.sigma_mode, bundle.sigma2, state)
-        theta = _ou_regime_value(spec.theta_mode, bundle.theta, state)
+        theta = _ou_regime_value(spec.theta_mode, bundle.theta, state) - theta_offset
         phi = exp(-alpha * seg_length)
         a = phi * a
         b = phi * b - expm1(-alpha * seg_length) * theta
         v = phi^2 * v - sigma2 * expm1(-2.0 * alpha * seg_length) / (2.0 * alpha)
+    end
+    if v == 0.0
+        # A positive innovation cannot become an exact constraint through underflow.
+        @inbounds for i in first_seg:last_seg
+            sigma2 = _ou_regime_value(spec.sigma_mode, bundle.sigma2, cache.segment_states[i])
+            if cache.segment_lengths[i] > 0 && sigma2 > 0
+                v = NaN
+                break
+            end
+        end
     end
     return (a = a, b = b, v = v)
 end
@@ -119,6 +130,7 @@ function _build_ou_edges_oum!(
     edge_a::Vector{Float64},
     edge_b::Vector{Float64},
     edge_v::Vector{Float64},
+    theta_offset::Float64,
 )
     alpha = bundle.alpha[1]
     sigma2 = bundle.sigma2[1]
@@ -127,14 +139,28 @@ function _build_ou_edges_oum!(
         a = exp(-alpha * total_length)
         edge_a[edge] = a
         edge_v[edge] = -sigma2 * expm1(-2.0 * alpha * total_length) / (2.0 * alpha)
+        if edge_v[edge] == 0.0 && sigma2 > 0.0 && total_length > 0.0
+            edge_v[edge] = NaN
+        end
 
         b = 0.0
+        mapped_length = 0.0
         first_seg = Int(cache.edge_first_segment[edge])
         last_seg = Int(cache.edge_last_segment[edge])
         for seg_idx in first_seg:last_seg
-            phi = exp(-alpha * cache.segment_lengths[seg_idx])
-            theta = bundle.theta[Int(cache.segment_states[seg_idx])]
-            b = phi * b - expm1(-alpha * cache.segment_lengths[seg_idx]) * theta
+            duration = cache.segment_lengths[seg_idx]
+            phi = exp(-alpha * duration)
+            theta = bundle.theta[Int(cache.segment_states[seg_idx])] - theta_offset
+            b = phi * b - expm1(-alpha * duration) * theta
+            mapped_length += duration
+        end
+        if theta_offset != 0.0 && mapped_length != total_length
+            # Keep the intercept translation exact when accepted SIMMAP durations
+            # differ from the tree length used for shared-alpha attenuation.
+            gap = mapped_length - total_length
+            da = gap > 0 ? -a * expm1(-alpha * gap) :
+                exp(-alpha * mapped_length) * expm1(alpha * gap)
+            b = muladd(da, theta_offset, b)
         end
         edge_b[edge] = b
     end
@@ -147,6 +173,7 @@ function _build_ou_edges(
     bundle::OUParameterBundle;
     cache = nothing,
     workspace::Union{Nothing,OULikelihoodWorkspace} = nothing,
+    theta_offset::Float64 = 0.0,
 )
     if workspace === nothing
         edge_a = zeros(Float64, tree.nedges)
@@ -159,20 +186,20 @@ function _build_ou_edges(
     end
 
     if cache !== nothing && spec.model === :OUM
-        return _build_ou_edges_oum!(tree, cache, bundle, edge_a, edge_b, edge_v)
+        return _build_ou_edges_oum!(tree, cache, bundle, edge_a, edge_b, edge_v, theta_offset)
     end
 
     if cache === nothing
         spec.model === :OU1 || throw(ArgumentError("cache is required for $(spec.model)"))
         alpha = bundle.alpha[1]
         sigma2 = bundle.sigma2[1]
-        theta = bundle.theta[1]
+        theta = bundle.theta[1] - theta_offset
         edge_a .= exp.(-alpha .* tree.edge_length)
         edge_b .= -expm1.(-alpha .* tree.edge_length) .* theta
         edge_v .= -sigma2 .* expm1.(-2.0 * alpha .* tree.edge_length) ./ (2.0 * alpha)
     else
         for edge in 1:tree.nedges
-            aff = _ou_edge_affine(cache, edge, spec, bundle)
+            aff = _ou_edge_affine(cache, edge, spec, bundle, theta_offset)
             edge_a[edge] = aff.a
             edge_b[edge] = aff.b
             edge_v[edge] = aff.v

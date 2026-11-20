@@ -100,6 +100,7 @@ function estim_node(
                 root_prior_mean = root.mean,
                 root_prior_var = root.var,
                 model = fit.model,
+                exact_ou = true,
             )
             primary.success || return primary
             for node in 1:tree.nnodes
@@ -122,6 +123,7 @@ function estim_node(
             root_prior_mean = root.mean,
             root_prior_var = root.var,
             model = fit.model,
+            exact_ou = true,
         )
         return primary
     end

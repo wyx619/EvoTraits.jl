@@ -272,7 +272,7 @@ function _ou_multiregime_result(
     regime_names = nothing,
 )
     converged =
-        if result === nothing
+        if result === nothing || !profile.success
             false
         else
             _continuous_result_converged(result)
